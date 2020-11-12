@@ -1,0 +1,47 @@
+entry.class: trainer
+entry.params:
+  train_steps: 200000
+  summary_steps: 200
+  save_checkpoint_steps: 1000
+  criterion.class: label_smoothed_cross_entropy
+  criterion.params:
+    label_smoothing: 0.1
+  optimizer.class: adam
+  optimizer.params:
+    epsilon: 1.e-9
+    beta_1: 0.9
+    beta_2: 0.98
+  lr_schedule.class: noam
+  lr_schedule.params:
+    initial_factor: 1.0
+    dmodel: 512
+    warmup_steps: 4000
+
+dataset.class: ParallelTextDataset
+dataset.params:
+  src_file: DATA_PATH/mt/train/train.en.bpe.txt
+  trg_file: DATA_PATH/mt/train/train.fr.tok.bpe.txt
+  data_is_processed: True
+
+task.class: seq2seq
+task.params:
+  batch_by_tokens: True
+  batch_size: 25000
+  max_src_len: 120
+  max_trg_len: 150
+  src_data_pipeline.class: TranscriptDataPipeline
+  src_data_pipeline.params:
+    remove_punctuation: True
+    lowercase: True
+    language: en
+    tokenizer: moses
+    subtokenizer: bpe
+    subtokenizer_codes: DATA_PATH/mt/codes.bpe
+    vocab_path: DATA_PATH/mt/vocab.en
+  trg_data_pipeline.class: TextDataPipeline
+  trg_data_pipeline.params:
+    language: fr
+    tokenizer: moses
+    subtokenizer: bpe
+    subtokenizer_codes: DATA_PATH/mt/codes.bpe
+    vocab_path: DATA_PATH/mt/vocab.fr

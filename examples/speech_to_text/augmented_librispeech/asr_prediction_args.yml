@@ -1,0 +1,24 @@
+entry: predict
+batch_size: 64
+search_method: beam_search
+search_method.params:
+  beam_size: 4
+  length_penalty: -1
+  maximum_decode_length: 150
+metric: wer
+
+dataset.class: MultipleDataset
+dataset.params:
+  multiple_datasets:
+    dev:
+      dataset.class: AudioTFRecordDataset
+      dataset.params:
+        data_path: DATA_PATH/devtest/dev.tfrecords-00000-of-00001
+        feature_key: audio
+        transcript_key: transcript
+    test:
+      dataset.class: AudioTFRecordDataset
+      dataset.params:
+        data_path: DATA_PATH/devtest/test.tfrecords-00000-of-00001
+        feature_key: audio
+        transcript_key: transcript

@@ -1,0 +1,13 @@
+model_dir: ./test_models
+
+entry.class: Evaluator
+entry.params:
+  criterion.class: LabelSmoothedCrossEntropy
+
+dataset.class: parallel_text
+dataset.params:
+  src_file: ./tests/examples/dev.example.zh.txt
+  trg_file: ./tests/examples/dev.example.en.txt
+
+task.params:
+  batch_size: 32

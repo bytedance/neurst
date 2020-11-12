@@ -1,0 +1,11 @@
+tensorflow==2.3
+pyyaml
+sacrebleu
+sacremoses
+jieba
+regex
+sentencepiece
+thai-segmenter
+soundfile
+python_speech_features
+subword-nmt

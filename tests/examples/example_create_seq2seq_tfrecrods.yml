@@ -1,0 +1,27 @@
+dataset.class: ParallelTextDataset
+dataset.params:
+  src_file: ./tests/examples/train.example.zh.jieba.bpe.txt
+  trg_file: ./tests/examples/train.example.en.tok.bpe.txt
+  data_is_processed: True
+
+task.class: Seq2Seq
+task.params:
+  src_data_pipeline.class: TextDataPipeline
+  src_data_pipeline.params:
+    tokenizer: jieba
+    subtokenizer: bpe
+    subtokenizer_codes: ./tests/examples/codes.bpe4k.zh
+    vocab_path: ./tests/examples/vocab.zh
+  trg_data_pipeline.class: TextDataPipeline
+  trg_data_pipeline.params:
+    tokenizer: moses
+    subtokenizer: bpe
+    subtokenizer_codes: ./tests/examples/codes.bpe4k.en
+    vocab_path: ./tests/examples/vocab.en
+
+processor_id: 0
+num_processors: 1
+num_output_shards: 4
+output_range_begin: 0
+output_range_end: 4
+output_template: ./tests/examples/train.tfrecords-%5.5d-of-%5.5d

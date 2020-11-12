@@ -1,0 +1,14 @@
+.DS_Store
+*.swp
+*.pyc
+*.egg-info/
+.eggs/
+.idea/
+.tox/
+.pytest_cache/*
+venv/
+venv_py/
+.mypy_cache/
+__pycache__/
+/build
+/dist

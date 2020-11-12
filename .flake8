@@ -1,0 +1,8 @@
+[flake8]
+max-line-length=120
+exclude =
+    venv/,
+    venv_py/,
+    .eggs,
+    .tox,
+ignore = D400,D300,D205,D200,D105,D100,D101,D103,D107,W503,E129

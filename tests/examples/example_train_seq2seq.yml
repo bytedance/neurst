@@ -1,0 +1,73 @@
+model_dir: ./test_models
+
+entry.class: trainer
+entry.params:
+  train_steps: 100
+  save_checkpoint_steps: 50
+  summary_steps: 10
+  criterion.class: label_smoothed_cross_entropy
+  criterion.params:
+    label_smoothing: 0.1
+  optimizer.class: adam
+  optimizer.params:
+    epsilon: 1.e-9
+    beta_1: 0.9
+    beta_2: 0.98
+  lr_schedule.class: noam
+  lr_schedule.params:
+    initial_factor: 1.0
+    dmodel: 8
+    warmup_steps: 4000
+
+dataset.class: ParallelTextDataset
+dataset.params:
+  src_file: ./tests/examples/train.example.zh.jieba.bpe.txt
+  trg_file: ./tests/examples/train.example.en.tok.bpe.txt
+  data_is_processed: True
+
+
+task.class: Seq2Seq
+task.params:
+  src_data_pipeline.class: TextDataPipeline
+  src_data_pipeline.params:
+    tokenizer: jieba
+    subtokenizer: bpe
+    subtokenizer_codes: ./tests/examples/codes.bpe4k.zh
+    vocab_path: ./tests/examples/vocab.zh
+  trg_data_pipeline.class: TextDataPipeline
+  trg_data_pipeline.params:
+    tokenizer: moses
+    subtokenizer: bpe
+    subtokenizer_codes: ./tests/examples/codes.bpe4k.en
+    vocab_path: ./tests/examples/vocab.en
+  batch_size: 1000
+  batch_by_tokens: true
+  max_src_len: 50
+  max_trg_len: 50
+
+model.class: Transformer
+model.params:
+  modality.share_source_target_embedding: false
+  modality.share_embedding_and_softmax_weights: true
+  modality.dim: 8
+  modality.timing: sinusoids
+  encoder.num_layers: 2
+  encoder.hidden_size: 8
+  encoder.num_attention_heads: 2
+  encoder.filter_size: 32
+  encoder.attention_dropout_rate: 0.1
+  encoder.attention_type: dot_product
+  encoder.ffn_activation: relu
+  encoder.ffn_dropout_rate: 0.1
+  encoder.layer_postprocess_dropout_rate: 0.1
+  decoder.num_layers: 2
+  decoder.hidden_size: 8
+  decoder.num_attention_heads: 2
+  decoder.filter_size: 32
+  decoder.attention_dropout_rate: 0.1
+  decoder.attention_type: dot_product
+  decoder.ffn_activation: relu
+  decoder.ffn_dropout_rate: 0.1
+  decoder.layer_postprocess_dropout_rate: 0.1
+
+

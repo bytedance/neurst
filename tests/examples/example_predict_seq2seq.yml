@@ -1,0 +1,21 @@
+model_dir: ./test_models
+
+entry.class: SequenceGenerator
+entry.params:
+  output_file: ./hypothesis.txt
+  save_metric: ./metric.json
+  metric.class: BLEU
+  search_method.class: beam_search
+  search_method.params:
+    beam_size: 4
+    length_penalty: -1
+    extra_decode_length: 20
+    maximum_decode_length: 50
+
+dataset.class: parallel_text
+dataset.params:
+  src_file: ./tests/examples/dev.example.zh.txt
+  trg_file: ./tests/examples/dev.example.en.txt
+
+task.params:
+  batch_size: 32
