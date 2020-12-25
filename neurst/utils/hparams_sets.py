@@ -33,11 +33,8 @@ def register_hparams_set(name):
                     raise ValueError('Cannot register duplicate {} (under {})'.format(n, registry_name))
             else:
                 REGISTRIES[registry_name][n] = fn_
-
     if isinstance(name, str):
         return lambda fn: register_x_fn(fn, [name])
-    elif callable(name):
-        return register_x_fn(fn_=name)
     elif isinstance(name, list):
         return lambda c: register_x_fn(c, name)
     else:

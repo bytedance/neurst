@@ -72,6 +72,8 @@ class LightConvolutionModel(EncoderDecoderModel):
                  help="The dropout rate of encoder ffn layer."),
             Flag("encoder.layer_postprocess_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate for each layer's post process in encoder."),
+            Flag("encoder.layer_postprocess_epsilon", dtype=Flag.TYPE.FLOAT, default=1e-6,
+                 help="The epsilon for layer normalization in encoder."),
             Flag("decoder.num_layers", dtype=Flag.TYPE.INTEGER, default=None,
                  help="The number of stacking layers of the decoder."),
             Flag("decoder.conv_kernel_size_list", dtype=Flag.TYPE.STRING, default=None,
@@ -101,6 +103,8 @@ class LightConvolutionModel(EncoderDecoderModel):
                  help="The dropout rate of decoder ffn layer."),
             Flag("decoder.layer_postprocess_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate for each layer's post process in decoder."),
+            Flag("decoder.layer_postprocess_epsilon", dtype=Flag.TYPE.FLOAT, default=1e-6,
+                 help="The epsilon for layer normalization in decoder."),
         ]
         return this_args
 
@@ -134,7 +138,6 @@ class LightConvolutionModel(EncoderDecoderModel):
             "decoder.class": "LightConvolutionDecoder",
             "decoder.params": decoder_params})
         model = cls(args, src_meta, trg_meta, src_modality, trg_modality, encoder, decoder, name=name)
-        # TODO: NOTE that we need to warm up the variable names.
         fake_inputs = {"src": tf.convert_to_tensor([[1, 2, 3]], tf.int64),
                        "src_padding": tf.convert_to_tensor([[0, 0., 0]], tf.float32),
                        "trg_input": tf.convert_to_tensor([[1, 2, 3]], tf.int64), }
@@ -195,7 +198,7 @@ def _common_hparams(dmodel, num_heads, filter_size,
     }
 
 
-@register_hparams_set
+@register_hparams_set("lightweight_conv_big")
 def lightweight_conv_big():
     return _common_hparams(
         dmodel=1024, num_heads=16, filter_size=4096,
@@ -205,7 +208,7 @@ def lightweight_conv_big():
         attention_dropout=0.1, weight_dropout=0.1, dropout=0.3)
 
 
-@register_hparams_set
+@register_hparams_set("lightweight_conv_big_dp01")
 def lightweight_conv_big_dp01():
     return _common_hparams(
         dmodel=1024, num_heads=16, filter_size=4096,
@@ -215,7 +218,7 @@ def lightweight_conv_big_dp01():
         attention_dropout=0.1, weight_dropout=0.1, dropout=0.1)
 
 
-@register_hparams_set
+@register_hparams_set("lightweight_conv_toy")
 def lightweight_conv_toy():
     return _common_hparams(
         dmodel=8, num_heads=4, filter_size=32,
@@ -225,7 +228,7 @@ def lightweight_conv_toy():
         attention_dropout=0.1, weight_dropout=0.1, dropout=0.1)
 
 
-@register_hparams_set
+@register_hparams_set("dynamic_conv_big")
 def dynamic_conv_big():
     return _common_hparams(
         dmodel=1024, num_heads=16, filter_size=4096,
@@ -235,7 +238,7 @@ def dynamic_conv_big():
         attention_dropout=0.1, weight_dropout=0.1, dropout=0.3)
 
 
-@register_hparams_set
+@register_hparams_set("dynamic_conv_big_dp01")
 def dynamic_conv_big_dp01():
     return _common_hparams(
         dmodel=1024, num_heads=16, filter_size=4096,
@@ -245,7 +248,7 @@ def dynamic_conv_big_dp01():
         attention_dropout=0.1, weight_dropout=0.1, dropout=0.1)
 
 
-@register_hparams_set
+@register_hparams_set("dynamic_conv_toy")
 def dynamic_conv_toy():
     return _common_hparams(
         dmodel=8, num_heads=4, filter_size=32,

@@ -1,6 +1,6 @@
 import numpy
 
-from neurst.layers.modalities import WordEmbeddingSharedWeights
+from neurst.layers.modalities.text_modalities import WordEmbeddingSharedWeights
 
 
 def test_word_embedding():

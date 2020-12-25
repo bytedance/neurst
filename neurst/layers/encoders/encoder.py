@@ -25,6 +25,7 @@ from neurst.utils.configurable import extract_constructor_params
 @six.add_metaclass(ABCMeta)
 class Encoder(tf.keras.layers.Layer):
     """ Base class for encoders. """
+    REGISTRY_NAME = "encoder"
 
     def __init__(self, name=None, **kwargs):
         """ Initializes the parameters of the encoders. """

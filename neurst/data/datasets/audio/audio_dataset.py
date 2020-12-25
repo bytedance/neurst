@@ -122,7 +122,7 @@ class RawAudioDataset(Dataset):
                 "Only one of `file` and `fileobj` should be provided.")
             mode = mode.lower()
             if mode in ["flac", "wav"]:
-                sig, rate = soundfile.read(file or fileobj, dtype='int16')
+                sig, rate = soundfile.read(file or fileobj, dtype='float32')
             else:
                 raise NotImplementedError
         if self._feature_extractor is None:

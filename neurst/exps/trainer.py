@@ -31,7 +31,7 @@ from neurst.training import (CustomCheckpointCallback, LearningRateScheduler, Me
                              build_validator, training_utils)
 from neurst.training.accumgrad_keras_model import AccumgradKerasModel
 from neurst.utils import compat
-from neurst.utils.checkpoints import restore_checkpoint_if_possible
+from neurst.utils.checkpoints import restore_checkpoint_if_possible, restore_checkpoint_if_possible_v2
 from neurst.utils.flags_core import Flag, ModuleFlag
 from neurst.utils.misc import flatten_string_list
 
@@ -83,16 +83,24 @@ class Trainer(BaseExperiment):
         self._save_checkpoint_steps = args["save_checkpoint_steps"]
         self._checkpoints_max_to_keep = args["checkpoints_max_to_keep"]
         self._initial_global_step = args["initial_global_step"]
-        self._pretrain_model = flatten_string_list(args["pretrain_model"])
         self._pretrain_variable_pattern = args["pretrain_variable_pattern"]
-        if self._pretrain_model and self._pretrain_variable_pattern is None:
-            self._pretrain_variable_pattern = [None] * len(self._pretrain_model)
-        assert ((self._pretrain_model is None and self._pretrain_variable_pattern is None)
-                or len(self._pretrain_model) == len(self._pretrain_variable_pattern)
-                or len(self._pretrain_model) == 1), (
-            "`pretrain_variable_pattern` must match with `pretrain_model`.")
-        if self._pretrain_model is not None and self._pretrain_variable_pattern is None:
-            self._pretrain_variable_pattern = [None] * len(self._pretrain_model)
+        if args["pretrain_model"] and isinstance(args["pretrain_model"][0], dict):
+            self._pretrain_v2 = True
+            self._pretrain_model = args["pretrain_model"]
+            if self._pretrain_variable_pattern:
+                logging.info("Using pretrain model v2 and ignoring pretrain_variable_pattern: "
+                             f"{self._pretrain_variable_pattern}")
+        else:
+            self._pretrain_v2 = False
+            self._pretrain_model = flatten_string_list(args["pretrain_model"])
+            if self._pretrain_model and self._pretrain_variable_pattern is None:
+                self._pretrain_variable_pattern = [None] * len(self._pretrain_model)
+            assert ((self._pretrain_model is None and self._pretrain_variable_pattern is None)
+                    or len(self._pretrain_model) == len(self._pretrain_variable_pattern)
+                    or len(self._pretrain_model) == 1), (
+                "`pretrain_variable_pattern` must match with `pretrain_model`.")
+            if self._pretrain_model is not None and self._pretrain_variable_pattern is None:
+                self._pretrain_variable_pattern = [None] * len(self._pretrain_model)
         self._update_cycle = args["update_cycle"]
         self._clip_value = args["clip_value"]
         self._clip_norm = args["clip_norm"]
@@ -100,12 +108,13 @@ class Trainer(BaseExperiment):
         with training_utils.get_strategy_scope(self.strategy):
             self._criterion = build_criterion(args)
             self._criterion.set_model(self.model)
-            self._lr_schedule = build_lr_schedule(args)
-            optimizer = build_optimizer(args)
-            assert optimizer is not None, "optimizer parameters must be provided for training."
-            self._optimizer = _handle_fp16_and_distributed_optimizer(optimizer, self._lr_schedule, self._hvd_backend)
+            self._lr_schedule_args = args
+            self._optimizer = build_optimizer(args)
+            assert self._optimizer is not None, "optimizer parameters must be provided for training."
+            # self._optimizer = _handle_fp16_and_distributed_optimizer(optimizer, self._lr_schedule, self._hvd_backend)
         self._validator = build_validator(args)
         self._experimental_count_batch_num = args["experimental_count_batch_num"]
+        self._freeze_variables = args["freeze_variables"]
 
     @staticmethod
     def class_or_method_args():
@@ -128,6 +137,10 @@ class Trainer(BaseExperiment):
                  help="The manually specified initial global step."),
             Flag("pretrain_model", dtype=Flag.TYPE.STRING, default=None, multiple=True,
                  help="The path to a pretrained model directory(a seq2seq model, bert model, etc.). "
+                      "(V2) Or a json/yaml-like dict string indicating pretrained models from "
+                      "either neurst checkpoints or publicly available models converted "
+                      "by neurst.utils.converters. Each entry has the elements: "
+                      "path, model_name, from_prefix, to_prefix, name_pattern. "
                       "Multiple pretrain models are also available."),
             Flag("pretrain_variable_pattern", dtype=Flag.TYPE.STRING, default=None, multiple=True,
                  help="One can restore specified variables in the `pretrain_model` by this regular expression."
@@ -137,7 +150,9 @@ class Trainer(BaseExperiment):
             Flag("clip_value", dtype=Flag.TYPE.FLOAT, default=None, help="Gradient clipping by value."),
             Flag("clip_norm", dtype=Flag.TYPE.FLOAT, default=None, help="Gradient clipping by norm."),
             Flag("experimental_count_batch_num", dtype=Flag.TYPE.BOOLEAN, default=None,
-                 help="Pre-scan the dataset for training and count the number of batches.")
+                 help="Pre-scan the dataset for training and count the number of batches."),
+            Flag("freeze_variables", dtype=Flag.TYPE.STRING, default=None,
+                 help="Variables whose names are matched with this regex will be freezed.")
         ]
 
     def _restore_ckpt_or_pretrain(self):
@@ -150,11 +165,18 @@ class Trainer(BaseExperiment):
         else:
             logging.info(f"No checkpoint restored from model_dir={self.model_dir}")
             if self._pretrain_model:
-                for pt, pt_varname in zip(self._pretrain_model, self._pretrain_variable_pattern):
-                    logging.info(f"Trying to restore from pretrain_model={pt}")
-                    logging.info("NOTE THAT, one must first check the variable names in this checkpoint, "
-                                 "otherwise no variables will be restored.")
-                    restore_checkpoint_if_possible(self.model, pt, var_name_pattern=pt_varname)
+                if self._pretrain_v2:
+                    for pt in self._pretrain_model:
+                        logging.info(f"Trying to restore from pretrain_model={pt}")
+                        logging.info("NOTE THAT, one must first check the variable names in this checkpoint, "
+                                     "otherwise no variables will be restored.")
+                        restore_checkpoint_if_possible_v2(self.model, **pt)
+                else:
+                    for pt, pt_varname in zip(self._pretrain_model, self._pretrain_variable_pattern):
+                        logging.info(f"Trying to restore from pretrain_model={pt}")
+                        logging.info("NOTE THAT, one must first check the variable names in this checkpoint, "
+                                     "otherwise no variables will be restored.")
+                        restore_checkpoint_if_possible(self.model, pt, var_name_pattern=pt_varname)
 
         if self._initial_global_step is None and continue_training:
             _step = compat.hack_global_step(self.model_dir)
@@ -200,7 +222,8 @@ class Trainer(BaseExperiment):
                 keras_model = AccumgradKerasModel(inps, model_out,
                                                   update_cycle=self._update_cycle,
                                                   clip_value=self._clip_value,
-                                                  clip_norm=self._clip_norm)
+                                                  clip_norm=self._clip_norm,
+                                                  freeze_variables=self._freeze_variables)
             else:
                 logging.info(f"Warning: ignore update_cycle={self._update_cycle}, grad_clip={self._grad_clip} "
                              f"when TensorFlow version < 2.3.")
@@ -216,6 +239,9 @@ class Trainer(BaseExperiment):
                 raise ValueError("criterion.reduce_loss returns "
                                  "unsupported value of type: {}".format(type(loss)))
             self._restore_ckpt_or_pretrain()
+            self._lr_schedule = build_lr_schedule(self._lr_schedule_args)
+            self._optimizer = _handle_fp16_and_distributed_optimizer(
+                self._optimizer, self._lr_schedule, self._hvd_backend)
             if self._hvd_backend is None:
                 keras_model.compile(self._optimizer)
             else:
@@ -224,7 +250,7 @@ class Trainer(BaseExperiment):
                 # uses hvd.DistributedOptimizer() to compute gradients.
                 keras_model.compile(self._optimizer, experimental_run_tf_function=False)
             keras_model.summary()
-            summary_model_variables(self.model)
+            summary_model_variables(self.model, self._freeze_variables)
         # initialize the checkpoint manager
         _ = compat.get_saver_or_default(self.model, self.model_dir, max_to_keep=self._checkpoints_max_to_keep)
         # build training training

@@ -1,6 +1,7 @@
 # NeurST: Neural Speech Translation Toolkit
 NeurST aims at easily building and training end-to-end speech translation, which has the careful design for extensibility and scalability. We believe this design can make it easier for NLP researchers to get started. In addition, NeurST allows researchers to train custom models for translation, summarization and so on.
 
+> NeurST is based on TensorFlow2 and we are working on the pytorch version.
 
 ## Features
 
@@ -21,6 +22,7 @@ NeurST provides several **strong and reproducible benchmarks** for various tasks
 
 - Speech-to-Text
     - [Augmented Librispeech](/examples/speech_to_text/augmented_librispeech)
+    - [MuST-C](/examples/speech_to_text/must-c)
 
 
 ### Additionally

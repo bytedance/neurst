@@ -15,6 +15,7 @@ import re
 from abc import ABCMeta, abstractmethod
 
 import six
+from absl import logging
 
 
 @six.add_metaclass(ABCMeta)
@@ -28,6 +29,8 @@ class Tokenizer(object):
         self._glossaries = glossaries
         if self._glossaries is None:
             self._glossaries = []
+        if len(self._glossaries) > 0:
+            logging.info("WARNING: note that not all tokenizers support glossaries.")
 
     @property
     def language(self):
@@ -83,7 +86,7 @@ class Tokenizer(object):
     @staticmethod
     def _output_wrapper(text, return_str, delimiter=" "):
         """ Converts the output `text` to string if `return_str` is True,
-            else converts it to a list.
+            else converters it to a list.
 
         Args:
             text: A string or a list of string.

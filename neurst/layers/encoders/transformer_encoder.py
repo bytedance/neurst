@@ -36,6 +36,9 @@ class TransformerEncoder(Encoder):
                  attention_type="dot_product",
                  ffn_dropout_rate=0.,
                  layer_postprocess_dropout_rate=0.,
+                 layer_postprocess_epsilon=1e-6,
+                 post_normalize=False,
+                 return_all_layers=False,
                  name=None):
         """ Initializes the transformer encoders.
 
@@ -49,6 +52,9 @@ class TransformerEncoder(Encoder):
             attention_dropout_rate: The dropout rate for ffn layer.
             attention_type: The self attention type.
             layer_postprocess_dropout_rate: The dropout rate for each layer post process.
+            layer_postprocess_epsilon: The epsilon for layer norm.
+            post_normalize: Whether to apply layernorm after each block.
+            return_all_layers: Whether to return all encoding layers.
             name: The name of this encoder.
         """
         super(TransformerEncoder, self).__init__(
@@ -59,8 +65,13 @@ class TransformerEncoder(Encoder):
             attention_type=attention_type,
             attention_dropout_rate=attention_dropout_rate,
             layer_postprocess_dropout_rate=layer_postprocess_dropout_rate,
+            layer_postprocess_epsilon=layer_postprocess_epsilon,
+            post_normalize=post_normalize,
             name=name or self.__class__.__name__)
         self._stacking_layers = []
+        assert post_normalize or (not post_normalize and not return_all_layers), (
+            "`return_all_layers` is only available when `post_normalize`=True.")
+        self._return_all_layers = return_all_layers
 
     def build(self, input_shape):
         """ Builds the transformer encoder layer. """
@@ -76,7 +87,9 @@ class TransformerEncoder(Encoder):
                         attention_type=params["attention_type"],
                         name="self_attention"
                     )},
-                    dropout_rate=params["layer_postprocess_dropout_rate"]),
+                    dropout_rate=params["layer_postprocess_dropout_rate"],
+                    epsilon=params["layer_postprocess_epsilon"],
+                    pre_norm=(not params["post_normalize"])),
                 build_transformer_component({
                     "base_layer.class": TransformerFFN.__name__,
                     "base_layer.params": dict(
@@ -85,10 +98,14 @@ class TransformerEncoder(Encoder):
                         dropout_rate=params["ffn_dropout_rate"],
                         activation=params["ffn_activation"],
                         name="ffn")},
-                    dropout_rate=params["layer_postprocess_dropout_rate"])
+                    dropout_rate=params["layer_postprocess_dropout_rate"],
+                    epsilon=params["layer_postprocess_epsilon"],
+                    pre_norm=(not params["post_normalize"]))
             ])
-        self._output_norm_layer = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, dtype="float32", name="output_ln")
+        if not params["post_normalize"]:
+            self._output_norm_layer = tf.keras.layers.LayerNormalization(
+                epsilon=params["layer_postprocess_epsilon"],
+                dtype="float32", name="output_ln")
         super(TransformerEncoder, self).build(input_shape)
 
     def call(self, inputs, inputs_padding, is_training=True):
@@ -106,6 +123,7 @@ class TransformerEncoder(Encoder):
             The encoded output with shape [batch_size, max_length, hidden_size]
         """
         # [batch_size, max_length], FLOAT_MIN for padding, 0.0 for non-padding
+        all_layers = []
         self_attention_bias = layer_utils.input_padding_to_bias(inputs_padding)
         x = inputs
         if is_training:
@@ -122,5 +140,9 @@ class TransformerEncoder(Encoder):
                     is_training=is_training)
                 # ffn
                 x = ffn_layer(x, is_training=is_training)
-
+                all_layers.append(x)
+        if self.get_config()["post_normalize"]:
+            if self._return_all_layers:
+                return all_layers
+            return x
         return self._output_norm_layer(x)

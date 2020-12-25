@@ -22,6 +22,7 @@ import tensorflow as tf
 from absl import logging
 
 from neurst.utils import compat
+from neurst.utils.converters import Converter, build_converter
 
 
 def remove_checkpoint_by_prefix(dirname, prefix):
@@ -61,10 +62,13 @@ def restore_custom_checkpoint(checkpoint, checkpoint_path, model):
     restored_var_names = []
     unrestored_var_names = []
     for v_name, v in pre_vars.items():
-        if numpy.sqrt(numpy.sum((v - after_vars[v_name]) ** 2)) < 1e-6:
-            unrestored_var_names.append(v_name)
-        else:
-            restored_var_names.append(v_name)
+        try:
+            if numpy.sqrt(numpy.sum((v - after_vars[v_name]) ** 2)) < 1e-6:
+                unrestored_var_names.append(v_name)
+            else:
+                restored_var_names.append(v_name)
+        except TypeError:
+            logging.info(f"Ignore non-numeric variable: {v_name}")
     if len(unrestored_var_names) == 0:
         logging.info("All variables matched with checkpoint: {}".format(checkpoint_path))
     elif len(restored_var_names) == 0:
@@ -347,4 +351,45 @@ def restore_checkpoint_if_possible(model, model_dir, var_name_pattern=None):
         checkpoint = tf.train.Checkpoint(
             **dict([(ckpt_scope_name + x.name.split(":")[0][x.name.index("/"):], x) for x in vars
                     if re.search(var_name_pattern, x.name) is not None]))
+    return restore_custom_checkpoint(checkpoint, latest_ckpt_path, model)
+
+
+def restore_checkpoint_if_possible_v2(model, path, model_name=None, from_prefix=None,
+                                      to_prefix=None, name_pattern=None):
+    """ Restores checkpoint.
+
+    Args:
+        model: A keras model.
+        path: The path to the neurst checkpoint or the path/key for the converter.
+        model_name: The converter name for converting checkpoints.
+        from_prefix: The name prefix.
+        to_prefix: The target name prefix.
+        name_pattern: A regex.
+
+    Returns: The ckpt path if successfully restored else None.
+    """
+    if not (model_name or from_prefix or to_prefix):
+        return restore_checkpoint_if_possible(model, path, name_pattern)
+    logging.info(f"Loading {model_name} ({path}).")
+    converter: Converter = build_converter(model_name)
+    tmp_ckpt = "ram://tmp_ckpt"
+    converter.convert(path, tmp_ckpt)
+    latest_ckpt_path = tf.train.latest_checkpoint(tmp_ckpt)
+    if from_prefix is None:
+        from_prefix = checkpoint_scope_name(latest_ckpt_path)
+    else:
+        from_prefix = from_prefix.strip("/")
+    vars = model.weights
+    if to_prefix is None:
+        to_prefix = vars[0].split("/")[0]
+    else:
+        to_prefix = to_prefix.strip("/")
+    if name_pattern is None:
+        checkpoint = tf.train.Checkpoint(
+            **dict([(x.name.split(":")[0].replace(to_prefix, from_prefix, 1), x) for x in vars]))
+    else:
+        logging.info("Variables only match the {} will be restored.".format(name_pattern))
+        checkpoint = tf.train.Checkpoint(
+            **dict([(x.name.split(":")[0].replace(to_prefix, from_prefix, 1), x) for x in vars
+                    if re.search(name_pattern, x.name) is not None]))
     return restore_custom_checkpoint(checkpoint, latest_ckpt_path, model)

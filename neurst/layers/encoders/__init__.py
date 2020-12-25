@@ -4,7 +4,7 @@ import os
 from neurst.layers.encoders.encoder import Encoder
 from neurst.utils.registry import setup_registry
 
-build_encoder, register_encoder = setup_registry("encoder", base_class=Encoder)
+build_encoder, register_encoder = setup_registry(Encoder.REGISTRY_NAME, base_class=Encoder)
 
 models_dir = os.path.dirname(__file__)
 for file in os.listdir(models_dir):

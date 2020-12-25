@@ -13,9 +13,9 @@ entry.params:
     beta_2: 0.98
   lr_schedule.class: noam
   lr_schedule.params:
-    initial_factor: 5.0
+    initial_factor: 3.5
     end_factor: 2.0
-    dmodel: 512
+    dmodel: 256
     warmup_steps: 25000
     start_decay_at: 50000
     decay_steps: 50000

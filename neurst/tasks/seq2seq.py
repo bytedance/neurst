@@ -21,10 +21,10 @@ from neurst.data.data_pipelines import DataPipeline, build_data_pipeline
 from neurst.data.data_pipelines.text_data_pipeline import TextDataPipeline
 from neurst.data.datasets import Dataset
 from neurst.data.datasets.parallel_text_dataset import AbstractParallelDataset
-from neurst.layers.metric_layers.token_metric_layers import SequenceTokenMetricLayer
+from neurst.layers.metric_layers.token_metric_layers import BatchCountMetricLayer, SequenceTokenMetricLayer
 from neurst.metrics import build_metric
 from neurst.models import build_model
-from neurst.models.model_utils import deduce_inputs_padding
+from neurst.models.model_utils import deduce_text_length
 from neurst.tasks import register_task
 from neurst.tasks.task import Task
 from neurst.utils import compat
@@ -50,6 +50,7 @@ class Seq2Seq(Task):
         trg_data_pipeline_params = args.get("trg_data_pipeline.params", None) or {}
         self._trg_data_pipeline = build_data_pipeline(
             trg_data_pipeline_cls, **trg_data_pipeline_params)
+        self._target_begin_of_sentence = args["target_begin_of_sentence"]
         super(Seq2Seq, self).__init__(args)
 
     def get_config(self):
@@ -58,6 +59,7 @@ class Seq2Seq(Task):
             "src_data_pipeline.params": self._src_data_pipeline.get_config(),
             "trg_data_pipeline.class": self._trg_data_pipeline.__class__.__name__,
             "trg_data_pipeline.params": self._trg_data_pipeline.get_config(),
+            "target_begin_of_sentence": self._target_begin_of_sentence
         }
 
     @staticmethod
@@ -81,6 +83,10 @@ class Seq2Seq(Task):
             # for batching dataset
             Flag("batch_by_tokens", dtype=Flag.TYPE.BOOLEAN, default=None,
                  help="Whether to batch the data by word tokens."),
+            Flag("target_begin_of_sentence", dtype=Flag.TYPE.STRING, default="bos",
+                 choices=["bos", "eos"],
+                 help="The begin of sentence symbol for target side. The choice 'eos' "
+                      "is for compatibility with fairseq transformer.")
         ])
         return this_args
 
@@ -98,9 +104,6 @@ class Seq2Seq(Task):
         """ Builds and return a keras model. """
         model = build_model(args, self._src_data_pipeline.meta,
                             self._trg_data_pipeline.meta, name=name)
-        _ = model({"src": tf.convert_to_tensor([[1, 2, 3]], tf.int64),
-                   "src_padding": tf.convert_to_tensor([[0, 0., 0]], tf.float32),
-                   "trg_input": tf.convert_to_tensor([[1, 2, 3]], tf.int64)})
         return model
 
     def example_to_input(self, batch_of_data: dict, mode) -> dict:
@@ -113,17 +116,20 @@ class Seq2Seq(Task):
         Returns: The input data for model.
         """
         input_dict = {"src": batch_of_data["feature"],
-                      "src_padding": deduce_inputs_padding(batch_of_data["feature"],
-                                                           self._src_data_pipeline.meta["eos_id"])}
-        target_bos = tf.tile(
-            [tf.convert_to_tensor(self._trg_data_pipeline.meta["bos_id"], dtype=tf.int64)],
-            [tf.shape(input_dict["src"])[0]])
+                      "src_length": deduce_text_length(batch_of_data["feature"],
+                                                       self._src_data_pipeline.meta["pad_id"],
+                                                       self._src_data_pipeline.meta["padding_mode"])}
+        bosid = (self._trg_data_pipeline.meta["eos_id"] if self._target_begin_of_sentence == "eos"
+                 else self._trg_data_pipeline.meta["bos_id"])
+        target_bos = tf.tile([tf.convert_to_tensor(bosid, dtype=tf.int64)],
+                             [tf.shape(input_dict["src"])[0]])
         if mode == compat.ModeKeys.INFER:
             input_dict["trg_input"] = target_bos
         else:
             input_dict["trg"] = batch_of_data["label"]
-            input_dict["trg_padding"] = deduce_inputs_padding(
-                batch_of_data["label"], self._trg_data_pipeline.meta["eos_id"])
+            input_dict["trg_length"] = deduce_text_length(batch_of_data["label"],
+                                                          self._trg_data_pipeline.meta["pad_id"],
+                                                          self._trg_data_pipeline.meta["padding_mode"])
             input_dict["trg_input"] = tf.concat([tf.expand_dims(target_bos, axis=1),
                                                  batch_of_data["label"][:, :-1]], axis=1)
         return input_dict
@@ -146,7 +152,7 @@ class Seq2Seq(Task):
         if args is None:
             args = self._args
         else:
-            args = deep_merge_dict(self._args, args)
+            args = deep_merge_dict(self._args, args, local_overwrite=False)
         truncate_src = args.get("truncate_src", None)
         truncate_trg = args.get("truncate_trg", None)
         max_src_len = args.get("max_src_len", None)
@@ -192,12 +198,12 @@ class Seq2Seq(Task):
                 batches, and each global batch is equally divisible by number of replicas.
 
         Returns:
-            A tf.data.Dataset or a INFER_DATA tuple.
+            A tf.data.Dataset.
         """
         if args is None:
             args = self._args
         else:
-            args = deep_merge_dict(self._args, args)
+            args = deep_merge_dict(self._args, args, local_overwrite=False)
         src_eos = tf.constant(self._src_data_pipeline.meta["eos_id"], dtype=tf.int64)
         trg_eos = tf.constant(self._trg_data_pipeline.meta["eos_id"], dtype=tf.int64)
 
@@ -211,40 +217,58 @@ class Seq2Seq(Task):
 
         if mode == compat.ModeKeys.INFER:
             logging.info("Creating test dataset.")
-            test_dataset = dataset_utils.batch_sequential_dataset(
-                dataset=dataset.cache(),
-                batch_size=args["batch_size"],
+            return dataset.cache().padded_batch(
+                dataset_utils.adjust_batch_size(args["batch_size"],
+                                                num_replicas_in_sync=num_replicas_in_sync),
+                padded_shapes={"feature": [None]},
                 padding_values={"feature": src_eos},
-                num_replicas_in_sync=num_replicas_in_sync,
                 drop_remainder=False)
-
-            return test_dataset
         elif mode == compat.ModeKeys.EVAL:
             logging.info("Creating evaluation dataset.")
-            return dataset_utils.batch_sequential_dataset(
-                dataset.cache(),
-                batch_size=args["batch_size"],
+            return dataset.cache().padded_batch(
+                dataset_utils.adjust_batch_size(args["batch_size"],
+                                                num_replicas_in_sync=num_replicas_in_sync),
+                padded_shapes={"feature": [None], "label": [None]},
                 padding_values={"feature": src_eos, "label": trg_eos},
-                num_replicas_in_sync=num_replicas_in_sync,
                 drop_remainder=False)
         else:
             logging.info("Creating training dataset.")
+            dataset = dataset_utils.clean_dataset_by_length(
+                dataset, {"feature": args["max_src_len"], "label": args["max_trg_len"]})
             if args["cache_dataset"]:
                 dataset = dataset.cache()
-            dataset = dataset_utils.batch_sequential_dataset(
-                dataset,
-                padding_values={"feature": src_eos, "label": trg_eos},
-                batch_size=args["batch_size"],
-                batch_size_per_gpu=args["batch_size_per_gpu"],
-                batch_by_tokens=args["batch_by_tokens"],
-                shuffer_buffer=args["shuffle_buffer"],
-                data_max_lengths={"feature": args["max_src_len"], "label": args["max_trg_len"]},
-                drop_remainder=True,
+            if args["shuffle_buffer"]:
+                dataset = dataset.shuffle(buffer_size=args["shuffle_buffer"])
+            padding_values = {"feature": src_eos, "label": trg_eos}
+            if args["max_src_len"] is None:
+                raise RuntimeError("Must provide `max_src_len` for training.")
+            if args["max_trg_len"] is None:
+                raise RuntimeError("Must provide `max_trg_len` for training.")
+            src_bucket_boundaries, trg_bucket_boundaries = dataset_utils.associated_bucket_boundaries(
+                dataset_utils.create_batch_bucket_boundaries(args["max_src_len"]),
+                dataset_utils.create_batch_bucket_boundaries(args["max_trg_len"]))
+
+            bucket_boundaries = {
+                "feature": src_bucket_boundaries,
+                "label": trg_bucket_boundaries
+            }
+            bucket_batch_sizes = dataset_utils.adjust_batch_size(
+                args["batch_size"],
+                args["batch_size_per_gpu"],
+                bucket_boundaries=bucket_boundaries if args["batch_by_tokens"] else None,
+                boundaries_reduce_to_length_fn=lambda x: max(tf.nest.flatten(x)),
                 num_replicas_in_sync=num_replicas_in_sync)
-            return dataset
+            return dataset_utils.batch_examples_by_token(
+                dataset,
+                bucket_boundaries=bucket_boundaries,
+                bucket_batch_sizes=bucket_batch_sizes,
+                padding_values=padding_values,
+                example_length_func=lambda x: {k: tf.size(v) for k, v in x.items()}
+            )
 
     def build_metric_layer(self):
-        return [SequenceTokenMetricLayer("src"), SequenceTokenMetricLayer("trg")]
+        return [SequenceTokenMetricLayer("src"), SequenceTokenMetricLayer("trg"),
+                BatchCountMetricLayer("src")]
 
     def get_eval_metric(self, args, name="metric"):
         """ Returns a neurst.metrics.metric.Metric object for evaluation."""

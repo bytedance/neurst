@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import numpy
 import tensorflow as tf
 
 from neurst.layers.common_layers import PositionEmbeddingWrapper
 from neurst.layers.decoders import build_decoder
 from neurst.layers.encoders import build_encoder
-from neurst.layers.modalities import AudioConvSubsamplingLayer
+from neurst.layers.modalities.audio_modalities import AudioConvSubsamplingLayer
 from neurst.models import register_model
 from neurst.models.encoder_decoder_model import EncoderDecoderModel
 from neurst.utils import compat
@@ -77,6 +78,8 @@ class SpeechTransformer(EncoderDecoderModel):
                  help="The dropout rate of encoder ffn layer."),
             Flag("encoder.layer_postprocess_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate for each layer's post process in encoder."),
+            Flag("encoder.layer_postprocess_epsilon", dtype=Flag.TYPE.FLOAT, default=1e-6,
+                 help="The epsilon for layer normalization in decoder."),
             Flag("decoder.num_layers", dtype=Flag.TYPE.INTEGER, default=None,
                  help="The number of stacking layers of the decoder."),
             Flag("decoder.hidden_size", dtype=Flag.TYPE.INTEGER, default=None,
@@ -95,6 +98,8 @@ class SpeechTransformer(EncoderDecoderModel):
                  help="The dropout rate of decoder ffn layer."),
             Flag("decoder.layer_postprocess_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate for each layer's post process in decoder."),
+            Flag("decoder.layer_postprocess_epsilon", dtype=Flag.TYPE.FLOAT, default=1e-6,
+                 help="The epsilon for layer normalization in decoder."),
         ]
 
     @classmethod
@@ -161,6 +166,11 @@ class SpeechTransformer(EncoderDecoderModel):
             "decoder.class": "TransformerDecoder",
             "decoder.params": decoder_params})
         model = cls(args, src_meta, trg_meta, src_modality, trg_modality, encoder, decoder, name=name)
+        fake_src = numpy.random.rand(1, 4, src_meta["audio_feature_dim"], src_meta["audio_feature_channels"])
+        fake_inputs = {"src": tf.convert_to_tensor(fake_src, tf.float32),
+                       "src_length": tf.convert_to_tensor([4], tf.int64),
+                       "trg_input": tf.convert_to_tensor([[1, 2, 3]], tf.int64), }
+        _ = model(fake_inputs)
         return model
 
     def get_symbols_to_logits_fn(self, inputs, *args, **kwargs):
@@ -172,7 +182,7 @@ class SpeechTransformer(EncoderDecoderModel):
         inputs["src_padding"] = 1. - tf.sequence_mask(
             lengths=tf.cast(_length_after_conv(inputs["src_length"]), tf.int32),
             maxlen=tf.cast(_length_after_conv(tf.shape(inputs["src"])[1]), tf.int32),
-            dtype=tf.dtypes.as_dtype(compat.CUSTOM_GLOBAL_FLOATX))  # 1.0 for padding
+            dtype=tf.dtypes.as_dtype(compat.CUSTOM_GLOBAL_FLOATX))
         return super(SpeechTransformer, self).get_symbols_to_logits_fn(inputs, *args, **kwargs)
 
     @classmethod
@@ -248,8 +258,8 @@ class SpeechTransformer(EncoderDecoderModel):
             },
             "lr_schedule.class": "noam",
             "lr_schedule.params": {
-                "initial_factor": 5.0,
-                "end_factor": 2.0,
+                "initial_factor": 5.0 if dmodel > 256 else 3.5,
+                "end_factor": 2.0 if dmodel > 256 else 1.5,
                 "dmodel": dmodel,
                 "warmup_steps": 25000,
                 "start_decay_at": 50000,
@@ -258,11 +268,11 @@ class SpeechTransformer(EncoderDecoderModel):
         }
 
 
-@register_hparams_set
+@register_hparams_set("speech_transformer_toy")
 def speech_transformer_toy():
     return SpeechTransformer.build_model_args_by_name("speech_transformer_toy")
 
 
-@register_hparams_set
+@register_hparams_set("speech_transformer_base")
 def speech_transformer_base():
     return SpeechTransformer.build_model_args_by_name("speech_transformer_base")

@@ -13,6 +13,8 @@
 # limitations under the License.
 import re
 
+import tensorflow as tf
+
 from neurst.layers.decoders import build_decoder
 from neurst.layers.encoders import build_encoder
 from neurst.models import register_model
@@ -64,6 +66,10 @@ class Transformer(EncoderDecoderModel):
                  help="The dropout rate of encoder ffn layer."),
             Flag("encoder.layer_postprocess_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate for each layer's post process in encoder."),
+            Flag("encoder.post_normalize", dtype=Flag.TYPE.BOOLEAN, default=False,
+                 help="Whether to apply layer norm after each encoder block."),
+            Flag("encoder.layer_postprocess_epsilon", dtype=Flag.TYPE.FLOAT, default=1e-6,
+                 help="The epsilon for layer normalization in encoder."),
             Flag("decoder.num_layers", dtype=Flag.TYPE.INTEGER, default=None,
                  help="The number of stacking layers of the decoder."),
             Flag("decoder.hidden_size", dtype=Flag.TYPE.INTEGER, default=None,
@@ -82,6 +88,10 @@ class Transformer(EncoderDecoderModel):
                  help="The dropout rate of decoder ffn layer."),
             Flag("decoder.layer_postprocess_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate for each layer's post process in decoder."),
+            Flag("decoder.post_normalize", dtype=Flag.TYPE.BOOLEAN, default=False,
+                 help="Whether to apply layer norm after each decoder block."),
+            Flag("decoder.layer_postprocess_epsilon", dtype=Flag.TYPE.FLOAT, default=1e-6,
+                 help="The epsilon for layer normalization in decoder."),
         ]
         return this_args
 
@@ -114,7 +124,11 @@ class Transformer(EncoderDecoderModel):
         decoder = build_decoder({
             "decoder.class": "TransformerDecoder",
             "decoder.params": decoder_params})
-        model = cls(args, src_meta, trg_meta, src_modality, trg_modality, encoder, decoder, name=name)
+        model = cls(args, src_meta, trg_meta, src_modality, trg_modality,
+                    encoder, decoder, name=name)
+        _ = model({"src": tf.convert_to_tensor([[1, 2, 3]], tf.int64),
+                   "src_padding": tf.convert_to_tensor([[0, 0., 0]], tf.float32),
+                   "trg_input": tf.convert_to_tensor([[1, 2, 3]], tf.int64)})
         return model
 
     @classmethod
@@ -196,6 +210,7 @@ class Transformer(EncoderDecoderModel):
                 "encoder.attention_type": "dot_product",
                 "encoder.ffn_activation": "relu",
                 "encoder.ffn_dropout_rate": dropout_rate,
+                "encoder.post_normalize": False,
                 "encoder.layer_postprocess_dropout_rate": dropout_rate,
                 "decoder.num_layers": num_decoder_layers,
                 "decoder.hidden_size": dmodel,
@@ -205,6 +220,7 @@ class Transformer(EncoderDecoderModel):
                 "decoder.attention_type": "dot_product",
                 "decoder.ffn_activation": "relu",
                 "decoder.ffn_dropout_rate": dropout_rate,
+                "decoder.post_normalize": False,
                 "decoder.layer_postprocess_dropout_rate": dropout_rate
             },
             "optimizer.class": "Adam",
@@ -222,21 +238,21 @@ class Transformer(EncoderDecoderModel):
         }
 
 
-@register_hparams_set
+@register_hparams_set("transformer_toy")
 def transformer_toy():
     return Transformer.build_model_args_by_name("transformer_toy")
 
 
-@register_hparams_set
+@register_hparams_set("transformer_base")
 def transformer_base():
     return Transformer.build_model_args_by_name("transformer_base")
 
 
-@register_hparams_set
+@register_hparams_set("transformer_big")
 def transformer_big():
     return Transformer.build_model_args_by_name("transformer_big")
 
 
-@register_hparams_set
+@register_hparams_set("transformer_big_dp01")
 def transformer_big_dp01():
     return Transformer.build_model_args_by_name("transformer_big_dp01")

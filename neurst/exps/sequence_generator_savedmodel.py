@@ -20,6 +20,7 @@ from neurst.exps import register_exp
 from neurst.exps.sequence_generator import SequenceGenerator
 from neurst.models.model_utils import summary_model_variables
 from neurst.training import training_utils
+from neurst.utils.configurable import ModelConfigs
 from neurst.utils.flags_core import Flag
 
 
@@ -69,6 +70,9 @@ class SequenceGeneratorSavedmodel(SequenceGenerator):
             signatures=None,
             options=None)
         loaded = tf.saved_model.load(export_path)
+        tf.io.gfile.copy(os.path.join(self.model_dir, ModelConfigs.MODEL_CONFIG_YAML_FILENAME),
+                         os.path.join(export_path, ModelConfigs.MODEL_CONFIG_YAML_FILENAME),
+                         overwrite=True)
         logging.info("========== signatures ==========")
         for x in loaded.signatures.keys():
             logging.info(f"structured outputs for {x}:")

@@ -24,3 +24,7 @@ class FeatureExtractor(object):
     @abstractmethod
     def __call__(self, signal, rate):
         raise NotImplementedError
+
+    @staticmethod
+    def class_or_method_args():
+        return []

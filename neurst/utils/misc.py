@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import multiprocessing
+import os
+from urllib.request import urlretrieve
 
 import numpy
 import tensorflow as tf
@@ -56,7 +58,7 @@ def to_numpy_or_python_type(tensors, bytes_as_str=False):
     """Converts a structure of `Tensor`s to `NumPy` arrays or Python scalar types.
 
     For each tensor, it calls `tensor.numpy()`. If the result is a scalar value,
-    it converts it to a Python type, such as a float or int, by calling
+    it converters it to a Python type, such as a float or int, by calling
     `result.item()`.
 
     Numpy scalars are converted, as Python types are often more convenient to deal
@@ -136,3 +138,25 @@ class PseudoPool(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.processes > 1:
             self.pool.terminate()
+
+
+def download_with_tqdm(url, filename):
+    from tqdm import tqdm
+
+    class TqdmUpTo(tqdm):
+        last_block = 0
+
+        def update_to(self, block_num=1, block_size=1, total_size=None):
+            if total_size is not None:
+                self.total = total_size
+            self.update((block_num - self.last_block) * block_size)
+            self.last_block = block_num
+
+    try:
+        os.remove(filename)
+    except FileNotFoundError:
+        pass
+
+    with TqdmUpTo(unit="B", unit_scale=True, unit_divisor=1024,
+                  miniters=1, desc=filename) as t:
+        urlretrieve(url, filename, reporthook=t.update_to, data=None)

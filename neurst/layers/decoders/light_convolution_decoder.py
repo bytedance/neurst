@@ -41,6 +41,7 @@ class LightConvolutionDecoder(Decoder):
                  attention_type="dot_product",
                  ffn_dropout_rate=0.,
                  layer_postprocess_dropout_rate=0.,
+                 layer_postprocess_epsilon=1e-6,
                  name=None):
         """ Initializes the parameters of the transformer decoder.
 
@@ -61,6 +62,7 @@ class LightConvolutionDecoder(Decoder):
             attention_type: The self attention type, for encoder-decoder attention.
             layer_postprocess_dropout_rate: The dropout rate for each
                 layer post process.
+            layer_postprocess_epsilon: The epsilon for layer norm.
             name: The name of this decoder.
         """
         super(LightConvolutionDecoder, self).__init__(
@@ -74,6 +76,7 @@ class LightConvolutionDecoder(Decoder):
             attention_type=attention_type,
             attention_dropout_rate=attention_dropout_rate,
             layer_postprocess_dropout_rate=layer_postprocess_dropout_rate,
+            layer_postprocess_epsilon=layer_postprocess_epsilon,
             name=name or self.__class__.__name__)
         self._stacking_layers = []
 
@@ -93,7 +96,8 @@ class LightConvolutionDecoder(Decoder):
                         weight_dropout_rate=params["conv_weight_dropout_rate"],
                         name="light_conv"
                     )},
-                    dropout_rate=params["layer_postprocess_dropout_rate"]),
+                    dropout_rate=params["layer_postprocess_dropout_rate"],
+                    epsilon=params["layer_postprocess_epsilon"]),
                 build_transformer_component({
                     "base_layer.class": MultiHeadAttention.__name__,
                     "base_layer.params": dict(
@@ -102,7 +106,8 @@ class LightConvolutionDecoder(Decoder):
                         attention_dropout_rate=params["attention_dropout_rate"],
                         attention_type=params["attention_type"],
                         name="encdec_attention")},
-                    dropout_rate=params["layer_postprocess_dropout_rate"]),
+                    dropout_rate=params["layer_postprocess_dropout_rate"],
+                    epsilon=params["layer_postprocess_epsilon"]),
                 build_transformer_component({
                     "base_layer.class": TransformerFFN.__name__,
                     "base_layer.params": dict(
@@ -111,9 +116,11 @@ class LightConvolutionDecoder(Decoder):
                         dropout_rate=params["ffn_dropout_rate"],
                         activation=params["ffn_activation"],
                         name="ffn")},
-                    dropout_rate=params["layer_postprocess_dropout_rate"])])
+                    dropout_rate=params["layer_postprocess_dropout_rate"],
+                    epsilon=params["layer_postprocess_epsilon"])])
         self._output_norm_layer = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, dtype="float32", name="output_ln")
+            epsilon=params["layer_postprocess_epsilon"],
+            dtype="float32", name="output_ln")
         super(LightConvolutionDecoder, self).build(input_shape)
 
     def create_decoding_internal_cache(self,

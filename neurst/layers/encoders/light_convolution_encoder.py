@@ -37,6 +37,7 @@ class LightConvolutionEncoder(Encoder):
                  ffn_activation="relu",
                  ffn_dropout_rate=0.,
                  layer_postprocess_dropout_rate=0.,
+                 layer_postprocess_epsilon=1e-6,
                  name=None):
         """ Initializes the transformer encoders.
 
@@ -53,6 +54,7 @@ class LightConvolutionEncoder(Encoder):
             glu_after_proj: Whether to apply glu activation after input projection.
             conv_weight_dropout_rate: The dropout rate of the conv weights.
             layer_postprocess_dropout_rate: The dropout rate for each layer post process.
+            layer_postprocess_epsilon: The epsilon for layer norm.
             name: The name of this encoder.
         """
         super(LightConvolutionEncoder, self).__init__(
@@ -63,6 +65,7 @@ class LightConvolutionEncoder(Encoder):
             glu_after_proj=glu_after_proj,
             conv_weight_dropout_rate=conv_weight_dropout_rate,
             layer_postprocess_dropout_rate=layer_postprocess_dropout_rate,
+            layer_postprocess_epsilon=layer_postprocess_epsilon,
             name=name or self.__class__.__name__)
         self._stacking_layers = []
 
@@ -82,7 +85,8 @@ class LightConvolutionEncoder(Encoder):
                         weight_dropout_rate=params["conv_weight_dropout_rate"],
                         name="light_conv"
                     )},
-                    dropout_rate=params["layer_postprocess_dropout_rate"]),
+                    dropout_rate=params["layer_postprocess_dropout_rate"],
+                    epsilon=params["layer_postprocess_epsilon"]),
                 build_transformer_component({
                     "base_layer.class": TransformerFFN.__name__,
                     "base_layer.params": dict(
@@ -91,10 +95,12 @@ class LightConvolutionEncoder(Encoder):
                         dropout_rate=params["ffn_dropout_rate"],
                         activation=params["ffn_activation"],
                         name="ffn")},
-                    dropout_rate=params["layer_postprocess_dropout_rate"])
+                    dropout_rate=params["layer_postprocess_dropout_rate"],
+                    epsilon=params["layer_postprocess_epsilon"])
             ])
         self._output_norm_layer = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, dtype="float32", name="output_ln")
+            epsilon=params["layer_postprocess_epsilon"],
+            dtype="float32", name="output_ln")
         super(LightConvolutionEncoder, self).build(input_shape)
 
     def call(self, inputs, inputs_padding, is_training=True):

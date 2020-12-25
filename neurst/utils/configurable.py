@@ -217,14 +217,15 @@ def load_from_config_path(config_paths):
     return model_configs
 
 
-def deep_merge_dict(dict_x, dict_y, path=None, merge_only_exist=False,
-                    raise_exception=True):
+def deep_merge_dict(dict_x, dict_y, path=None, local_overwrite=True,
+                    merge_only_exist=False, raise_exception=True):
     """ Recursively merges dict_y into dict_x.
 
     Args:
         dict_x: A dict.
         dict_y: A dict.
         path:
+        local_overwrite: Whether to overwrite the `dict_x`.
         merge_only_exist: A bool, only keys in dict_x will be overwritten if True
             otherwise all key-value pairs in dict_y will be written into dict_x.
         raise_exception: A bool, whether to raise KerError exception when keys in
@@ -239,6 +240,8 @@ def deep_merge_dict(dict_x, dict_y, path=None, merge_only_exist=False,
     """
     if path is None:
         path = []
+    if not local_overwrite:
+        dict_x = copy.deepcopy(dict_x)
     for key in dict_y:
         if dict_y[key] is None:
             if key not in dict_x:
@@ -246,8 +249,9 @@ def deep_merge_dict(dict_x, dict_y, path=None, merge_only_exist=False,
             continue
         if key in dict_x:
             if isinstance(dict_x[key], dict) and isinstance(dict_y[key], dict):
-                deep_merge_dict(dict_x[key], dict_y[key],
-                                path + [str(key)], merge_only_exist)
+                deep_merge_dict(dict_x[key], dict_y[key], path + [str(key)],
+                                local_overwrite=local_overwrite,
+                                merge_only_exist=merge_only_exist)
             elif dict_x[key] == dict_y[key]:
                 pass  # same leaf value
             else:
@@ -308,5 +312,9 @@ class ModelConfigs:
 def yaml_load_checking(args):
     for k in args:
         if args[k] and isinstance(args[k], str):
-            args[k] = yaml.load(args[k], Loader=yaml.FullLoader)
+            try:
+                v = yaml.load(args[k], Loader=yaml.FullLoader)
+                args[k] = v
+            except yaml.YAMLError:
+                pass
     return args
