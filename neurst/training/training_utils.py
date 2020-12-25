@@ -39,6 +39,7 @@ GPU_EFFICIENT_LEVEL = namedtuple("gpu_efficient_level",
                                  "LEVEL0 LEVEL1 LEVEL2 LEVEL3 LEVEL4 LEVEL5")(0, 1, 2, 3, 4, 5)
 
 EFFICIENT_MULTIPLIER = {
+    GPU_EFFICIENT_LEVEL.LEVEL0: 8,
     GPU_EFFICIENT_LEVEL.LEVEL1: 8,
     GPU_EFFICIENT_LEVEL.LEVEL2: 16,
     GPU_EFFICIENT_LEVEL.LEVEL3: 32,
@@ -51,6 +52,16 @@ def minimal_multiple(val, factor):
     if val % factor == 0:
         return val
     return int((val // factor + 1) * factor)
+
+
+def maximum_lower_multiple(val, factor):
+    multiple = minimal_multiple(val, factor)
+    if (multiple - val) // factor > 0.5:
+        cand = multiple - factor
+        if cand <= 0:
+            return multiple
+        return cand
+    return multiple
 
 
 def startup_env(dtype="float16",
@@ -177,7 +188,7 @@ def make_predictions(strategy,
         tfds: A dataset or a list of datasets returned by `build_datasets`.
         custom_dataset: A Dataset object.
         map_func: A callable function that tasks custom dataset and eval result as inputs
-            and converts each eval result.
+            and converters each eval result.
 
     Returns: A dict of evaluation results for each dataset
         or the evaluation result for single dataset.

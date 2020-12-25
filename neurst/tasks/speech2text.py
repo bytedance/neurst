@@ -11,34 +11,37 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import math
 from typing import Tuple
 
-import numpy
 import tensorflow as tf
 from absl import logging
 
+from neurst.data import dataset_utils
 from neurst.data.data_pipelines import DataPipeline, build_data_pipeline
 from neurst.data.data_pipelines.transcript_data_pipeline import TranscriptDataPipeline
-from neurst.data.dataset_utils import clean_dataset_by_length
 from neurst.data.datasets import Dataset
 from neurst.layers.metric_layers.token_metric_layers import AudioFramesMetricLayer, SequenceTokenMetricLayer
 from neurst.metrics import build_metric
 from neurst.models import build_model
-from neurst.models.model_utils import deduce_inputs_padding
+from neurst.models.model_utils import deduce_text_length
 from neurst.tasks import register_task
 from neurst.tasks.task import Task
 from neurst.training.training_utils import minimal_multiple
 from neurst.utils import compat
+from neurst.utils.audio_lib import SpecAugment
 from neurst.utils.configurable import deep_merge_dict
 from neurst.utils.flags_core import Flag, ModuleFlag
 
 
-def create_audio_bucket_boundaries(maxlen):
-    bounds = [128]
-    base = 128
-    base_incr = 32
+def create_audio_bucket_boundaries(maxlen, minlen=128):
+    if minlen is None:
+        minlen = 128
+    bounds = [minlen]
+    base = minlen
+    base_incr = int(2 ** ((math.log2(minlen) + 1) // 2))
     base_incr_mult = 1
-    times = 3
+    times = len(str(int(minlen)))
     while True:
         for _ in range(times):
             bounds.append(bounds[-1] + base)
@@ -69,6 +72,7 @@ class SpeechToText(Task):
             trg_data_pipeline_cls, **trg_data_pipeline_params)
         self._audio_feature_dim = args["audio_feature_dim"]
         self._audio_feature_channels = args["audio_feature_channels"]
+        self._specaug = SpecAugment.build(args.get("specaug", None))
 
     def get_config(self):
         return {
@@ -91,6 +95,8 @@ class SpeechToText(Task):
                  help="The number of channels of audio features."),
             Flag("max_src_len", dtype=Flag.TYPE.INTEGER, default=None,
                  help="The maximum source length of training data (audio frames)."),
+            Flag("min_src_bucket_boundary", dtype=Flag.TYPE.INTEGER, default=128,
+                 help="The minimum source length of the training bucket (audio frames)."),
             Flag("max_trg_len", dtype=Flag.TYPE.INTEGER, default=None,
                  help="The maximum target length of training data."),
             Flag("truncate_src", dtype=Flag.TYPE.BOOLEAN, default=None,
@@ -98,7 +104,12 @@ class SpeechToText(Task):
             Flag("truncate_trg", dtype=Flag.TYPE.BOOLEAN, default=None,
                  help="Whether to truncate target to max_trg_len."),
             Flag("experimental_frame_transcript_ratio", dtype=Flag.TYPE.INTEGER, default=None,
-                 help="The ratio of the number of frames and its transcript for training batch bucket.")
+                 help="The ratio of the number of frames and its transcript for training batch bucket."),
+            Flag("specaug", dtype=Flag.TYPE.STRING, default=None,
+                 help="The arguments for spec augment, can be either predefined settings "
+                      "like LB, LD, SM, SS... or a dict containing detailed arguments."),
+            Flag("disable_batch_efficiency", dtype=Flag.TYPE.BOOLEAN, default=None,
+                 help="Whether to disable the batch efficiency.")
         ])
         return this_args
 
@@ -116,13 +127,9 @@ class SpeechToText(Task):
 
     def build_model(self, args, name=None):
         """ Creates the model. """
-        model = build_model(args, {"audio_feature_dim": self._audio_feature_dim},
+        model = build_model(args, {"audio_feature_dim": self._audio_feature_dim,
+                                   "audio_feature_channels": self._audio_feature_channels},
                             self._trg_data_pipeline.meta, name=name)
-        fake_src = numpy.random.rand(1, 4, self._audio_feature_dim, self._audio_feature_channels)
-        fake_inputs = {"src": tf.convert_to_tensor(fake_src, tf.float32),
-                       "src_length": tf.convert_to_tensor([4], tf.int64),
-                       "trg_input": tf.convert_to_tensor([[1, 2, 3]], tf.int64), }
-        _ = model(fake_inputs)
         return model
 
     def example_to_input(self, batch_of_data: dict, mode) -> dict:
@@ -146,8 +153,9 @@ class SpeechToText(Task):
             input_dict["trg_input"] = target_bos
         else:
             input_dict["trg"] = batch_of_data["transcript"]
-            input_dict["trg_padding"] = deduce_inputs_padding(
-                batch_of_data["transcript"], self._trg_data_pipeline.meta["eos_id"])
+            input_dict["trg_length"] = deduce_text_length(batch_of_data["transcript"],
+                                                          self._trg_data_pipeline.meta["pad_id"],
+                                                          self._trg_data_pipeline.meta["padding_mode"])
             input_dict["trg_input"] = tf.concat([tf.expand_dims(target_bos, axis=1),
                                                  batch_of_data["transcript"][:, :-1]], axis=1)
         return input_dict
@@ -170,7 +178,7 @@ class SpeechToText(Task):
         if args is None:
             args = self._args
         else:
-            args = deep_merge_dict(self._args, args)
+            args = deep_merge_dict(self._args, args, local_overwrite=False)
         trunc_audio = args.get("truncate_src", None)
         max_audio_len = args.get("max_src_len", None)
         trunc_trg = args.get("truncate_trg", None)
@@ -180,8 +188,12 @@ class SpeechToText(Task):
             raise RuntimeError("We recommend one to preprocess the audio in advance.")
 
         def _process_audio(audio):
-            if mode == compat.ModeKeys.TRAIN and trunc_audio and max_audio_len:
-                return audio[:max_audio_len * self._audio_feature_dim * self._audio_feature_channels]
+            if trunc_audio and max_audio_len:
+                audio = audio[:max_audio_len * self._audio_feature_dim * self._audio_feature_channels]
+            if self._specaug is not None:
+                audio = tf.reshape(
+                    audio, [-1, self._audio_feature_dim * self._audio_feature_channels])
+                audio = tf.reshape(self._specaug(audio), [-1])
             return audio
 
         def _process_and_truncate_text(text):
@@ -227,12 +239,12 @@ class SpeechToText(Task):
                 batches, and each global batch is equally divisible by number of replicas.
 
         Returns:
-            A tf.data.Dataset or a INFER_DATA tuple.
+            A tf.data.Dataset.
         """
         if args is None:
             args = self._args
         else:
-            args = deep_merge_dict(self._args, args)
+            args = deep_merge_dict(self._args, args, local_overwrite=False)
         float_zero = tf.constant(0, dtype=tf.float32)
         int_zero = tf.constant(0, dtype=tf.int64)
         trg_eos = tf.constant(self._trg_data_pipeline.meta["eos_id"], dtype=tf.int64)
@@ -245,7 +257,8 @@ class SpeechToText(Task):
         if mode == compat.ModeKeys.INFER:
             logging.info("Creating test dataset.")
             return dataset.cache().padded_batch(
-                int(args["batch_size"] // num_replicas_in_sync * num_replicas_in_sync),
+                dataset_utils.adjust_batch_size(args["batch_size"],
+                                                num_replicas_in_sync=num_replicas_in_sync),
                 padded_shapes={"audio": [None], "audio_length": []},
                 padding_values={"audio": float_zero, "audio_length": int_zero},
                 drop_remainder=False)
@@ -253,83 +266,88 @@ class SpeechToText(Task):
         elif mode == compat.ModeKeys.EVAL:
             logging.info("Creating evaluation dataset.")
             return dataset.cache().padded_batch(
-                int(args["batch_size"] // num_replicas_in_sync * num_replicas_in_sync),
+                dataset_utils.adjust_batch_size(args["batch_size"],
+                                                num_replicas_in_sync=num_replicas_in_sync),
                 padded_shapes={"audio": [None], "audio_length": [], "transcript": [None]},
                 padding_values={"audio": float_zero, "audio_length": int_zero, "transcript": trg_eos},
                 drop_remainder=False)
         else:
             logging.info("Creating training dataset.")
-            padding_values = {"audio": float_zero, "audio_length": int_zero, "transcript": trg_eos}
-            experimental_frame_transcript_ratio = args["experimental_frame_transcript_ratio"]
-            max_src_len = args["max_src_len"]
-            max_trg_len = args["max_trg_len"]
-            batch_size_per_gpu = args["batch_size_per_gpu"]
-            batch_size = args["batch_size"]
-
-            if not max_src_len:
-                raise RuntimeError("`max_src_len` for AudioToText task must be provided.")
-            if not max_trg_len:
-                raise RuntimeError("`max_trg_len` for AudioToText task must be provided.")
+            dataset = dataset_utils.clean_dataset_by_length(
+                dataset, {"audio": args["max_src_len"] * self._audio_feature_dim * self._audio_feature_channels,
+                          "audio_length": -1, "transcript": args["max_trg_len"]})
             if args["cache_dataset"]:
-                dataset = dataset.cache(args["cache_path"])
-            bucket_boundaries = create_audio_bucket_boundaries(max_src_len)
-            bucket_boundaries[-1] = minimal_multiple(bucket_boundaries[-1], 8)
-            data_max_lengths = {"audio": max_src_len * self._audio_feature_dim * self._audio_feature_channels,
-                                "audio_length": -1, "transcript": max_trg_len}
-            # fit tensor core
-            if batch_size_per_gpu is None:
-                batch_size_per_gpu = batch_size // num_replicas_in_sync
-            dataset = clean_dataset_by_length(dataset, data_max_lengths=data_max_lengths)
+                dataset = dataset.cache()
             if args["shuffle_buffer"]:
                 dataset = dataset.shuffle(buffer_size=args["shuffle_buffer"])
+            padding_values = {"audio": float_zero, "audio_length": int_zero, "transcript": trg_eos}
+            if args["max_src_len"] is None:
+                raise RuntimeError("`max_src_len` for SpeechToText task must be provided.")
+            if args["max_trg_len"] is None:
+                raise RuntimeError("`max_trg_len` for SpeechToText task must be provided.")
+            max_src_len = args["max_src_len"]
+            max_trg_len = minimal_multiple(args["max_trg_len"], 8)
+            audio_bucket_boundaries = create_audio_bucket_boundaries(max_src_len, args["min_src_bucket_boundary"])
+            audio_bucket_boundaries[-1] = minimal_multiple(audio_bucket_boundaries[-1], 8)
+            batch_size = dataset_utils.adjust_batch_size(args["batch_size"], args["batch_size_per_gpu"],
+                                                         num_replicas_in_sync=num_replicas_in_sync,
+                                                         verbose=False)
+            batch_size_per_gpu = batch_size // num_replicas_in_sync
             assert batch_size_per_gpu > max_src_len, (
                 f"batch size per gpu({batch_size_per_gpu} must be greater than "
                 f"`max_src_len`={max_src_len}")
-            bucket_batch_sizes = [int(minimal_multiple(batch_size_per_gpu // bound, 8)
-                                      * num_replicas_in_sync) for bound in bucket_boundaries]
-            if experimental_frame_transcript_ratio:
-                bucket_transcript_boundaries = [
-                    int(bound / (experimental_frame_transcript_ratio + i * (
-                        max_src_len / max_trg_len - experimental_frame_transcript_ratio) / len(bucket_boundaries)))
-                    for i, bound in enumerate(bucket_boundaries)]
-                bucket_transcript_boundaries = [minimal_multiple(min(i, max_trg_len), 8) for i in
-                                                bucket_transcript_boundaries]
-                num_buckets = len(bucket_batch_sizes)
-                true_bucket_transcript_boundaries = []
+            if args["disable_batch_efficiency"]:
+                bucket_batch_sizes = [int(batch_size_per_gpu // bound
+                                          * num_replicas_in_sync) for bound in audio_bucket_boundaries]
+            else:
+                bucket_batch_sizes = [int(minimal_multiple(batch_size_per_gpu // bound, 8)
+                                          * num_replicas_in_sync) for bound in audio_bucket_boundaries]
+            frame_transcript_ratio = args["experimental_frame_transcript_ratio"]
+            if frame_transcript_ratio is None:
+                logging.info("WARNING: we recommend one to pre-scan the dataset and estimate the ratio: "
+                             "frame length / transcript length.")
+            else:
+                trans_bucket_boundaries = [
+                    int(bound / (frame_transcript_ratio + i * (
+                        max_src_len / max_trg_len - frame_transcript_ratio) / len(audio_bucket_boundaries)))
+                    for i, bound in enumerate(audio_bucket_boundaries)]
+                trans_bucket_boundaries = [minimal_multiple(min(i, max_trg_len), 8) for i in
+                                           trans_bucket_boundaries]
+                num_buckets = len(trans_bucket_boundaries)
+                true_trans_bucket_boundaries = []
                 num_input_shapes = 0
-                for idx, (batc, bound, tbound) in enumerate(zip(bucket_batch_sizes, bucket_boundaries,
-                                                                bucket_transcript_boundaries)):
+                for idx, (batc, bound, tbound) in enumerate(zip(bucket_batch_sizes, audio_bucket_boundaries,
+                                                                trans_bucket_boundaries)):
                     max_trans_len = [tbound,
-                                     bucket_transcript_boundaries[min(idx + 1, len(bucket_batch_sizes) - 1)]]
+                                     trans_bucket_boundaries[min(idx + 1, len(bucket_batch_sizes) - 1)]]
                     num_input_shapes += len(set(max_trans_len))
-                    true_bucket_transcript_boundaries.append(max_trans_len)
+                    true_trans_bucket_boundaries.append(max_trans_len)
                 logging.info(f"There are {num_input_shapes} input shapes to be compiled:")
-                for idx, (batc, bound, tbound) in enumerate(zip(bucket_batch_sizes, bucket_boundaries,
-                                                                true_bucket_transcript_boundaries)):
+                for idx, (batc, bound, tbound) in enumerate(zip(bucket_batch_sizes, audio_bucket_boundaries,
+                                                                true_trans_bucket_boundaries)):
                     logging.info(f"   - batch={batc}, maximum-frames={bound}, "
                                  f"maximum-transcript-length={set(tbound)}")
-                true_bucket_transcript_boundaries = tf.constant(true_bucket_transcript_boundaries, dtype=tf.int32)
-                true_bucket_boundaries = tf.transpose(tf.constant([bucket_boundaries] * 2, dtype=tf.int32))
+                true_trans_bucket_boundaries = tf.constant(true_trans_bucket_boundaries, dtype=tf.int32)
+                true_audio_bucket_boundaries = tf.transpose(tf.constant([audio_bucket_boundaries] * 2, dtype=tf.int32))
 
             bucket_batch_sizes = tf.constant(bucket_batch_sizes, dtype=tf.int64)
-            bucket_boundaries = tf.constant(bucket_boundaries, dtype=tf.int32)
-
-            # bucket_transcript_boundaries = tf.constant(bucket_transcript_boundaries, dtype=tf.int32)
+            audio_bucket_boundaries = tf.constant(audio_bucket_boundaries, dtype=tf.int32)
 
             def example_to_bucket_id(examples):
                 """Return int64 bucket id for this example, calculated based on length."""
-                if experimental_frame_transcript_ratio is None:
-                    conditions_c = tf.less_equal(tf.cast(examples["audio_length"], tf.int32), bucket_boundaries)
+                if frame_transcript_ratio is None:
+                    conditions_c = tf.less_equal(tf.cast(examples["audio_length"], tf.int32),
+                                                 audio_bucket_boundaries)
                     return tf.reduce_min(tf.where(conditions_c))
                 conditions_c = tf.logical_and(
-                    tf.less_equal(tf.cast(examples["audio_length"], tf.int32), true_bucket_boundaries),
-                    tf.less_equal(tf.size(examples["transcript"]), true_bucket_transcript_boundaries))
+                    tf.less_equal(tf.cast(examples["audio_length"], tf.int32), true_audio_bucket_boundaries),
+                    tf.less_equal(tf.size(examples["transcript"]), true_trans_bucket_boundaries))
                 minimum_match = tf.where(conditions_c)[0]
                 return minimum_match[0] * num_buckets + minimum_match[1]
 
             def window_size_fn(bucket_id):
                 """Return number of examples to be grouped when given a bucket id."""
-                if experimental_frame_transcript_ratio is None:
+                if frame_transcript_ratio is None:
                     return bucket_batch_sizes[bucket_id]
                 return bucket_batch_sizes[bucket_id // num_buckets]
 
@@ -343,13 +361,13 @@ class SpeechToText(Task):
                 return grouped_dataset.padded_batch(
                     bucket_batch_size,
                     padded_shapes={
-                        "audio": ([(bucket_boundaries[bucket_id] if experimental_frame_transcript_ratio is None
-                                    else bucket_boundaries[bucket_id // num_buckets])
+                        "audio": ([(audio_bucket_boundaries[bucket_id] if frame_transcript_ratio is None
+                                    else audio_bucket_boundaries[bucket_id // num_buckets])
                                    * self._audio_feature_dim * self._audio_feature_channels]),
                         "audio_length": [],
-                        "transcript": ([None] if experimental_frame_transcript_ratio is None
+                        "transcript": ([None] if frame_transcript_ratio is None
                                        else [
-                            true_bucket_transcript_boundaries[bucket_id // num_buckets][bucket_id % num_buckets]])
+                            true_trans_bucket_boundaries[bucket_id // num_buckets][bucket_id % num_buckets]])
                     },
                     padding_values=padding_values, drop_remainder=True)
 
@@ -429,8 +447,9 @@ class MultiTaskSpeechTranslation(Task):
         _ = args
         if mode != compat.ModeKeys.TRAIN:
             raise NotImplementedError
-        if data_status["audio"] != compat.DataStatus.PROJECTED:
-            raise RuntimeError("We recommend one to preprocess the audio in advance.")
+
+        # if data_status["audio"] != compat.DataStatus.PROJECTED:
+        #     raise RuntimeError("We recommend one to preprocess the audio in advance.")
 
         def _process_text(text, status, dp):
             if status == compat.DataStatus.RAW:

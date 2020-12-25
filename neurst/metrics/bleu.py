@@ -309,6 +309,31 @@ def commonly_tokenize(s):
     return " ".join(s.strip().split())
 
 
+ESCAPE_AMPERSAND = r'&', r'&amp;'
+ESCAPE_PIPE = r'|', r'&#124;'
+ESCAPE_LEFT_ANGLE_BRACKET = r'<', r'&lt;'
+ESCAPE_RIGHT_ANGLE_BRACKET = r'>', r'&gt;'
+ESCAPE_SINGLE_QUOTE = r"'", r"&apos;"
+ESCAPE_DOUBLE_QUOTE = r'"', r'&quot;'
+ESCAPE_LEFT_SQUARE_BRACKET = r"[", r"&#91;"
+ESCAPE_RIGHT_SQUARE_BRACKET = r"]", r"&#93;"
+
+ESCAPE_LIST = [ESCAPE_AMPERSAND,
+               ESCAPE_PIPE,
+               ESCAPE_LEFT_ANGLE_BRACKET,
+               ESCAPE_RIGHT_ANGLE_BRACKET,
+               ESCAPE_SINGLE_QUOTE,
+               ESCAPE_DOUBLE_QUOTE,
+               ESCAPE_LEFT_SQUARE_BRACKET,
+               ESCAPE_RIGHT_SQUARE_BRACKET]
+
+
+def unescape(s):
+    for repl, patt in ESCAPE_LIST:
+        s = re.sub(patt, repl, s)
+    return s
+
+
 @register_metric(["sacre_bleu",
                   "tok_bleu",
                   "detok_bleu",
@@ -335,18 +360,18 @@ class BLEU(Metric):
         else:
             tokenizer = MosesTokenizer(language=language)
             self._tokenize_fn = lambda x: tokenizer.tokenize(x, return_str=True)
-        if language in ["zh", "ja", "ko"]:
-            self._default_tokenize_fn = self._tokenize_fn
-        else:
-            self._default_tokenize_fn = commonly_tokenize
-        self._sacre_tokenize_str = "zh" if language in ["zh", "ja", "ko"] else "13a"
+        self._sacre_tokenize_str = "13a"
+        if language == "zh":
+            self._sacre_tokenize_str = "zh"
+        elif language == "ja":
+            self._sacre_tokenize_str = "ja-mecab"
 
     @staticmethod
     def _tokenize(ss, tok_fn, lc=False):
         assert isinstance(ss, list)
         if isinstance(ss[0], str):
-            return [tok_fn(x.lower() if lc else x) for x in ss]
-        return [[tok_fn(x.lower() if lc else x) for x in xx] for xx in ss]
+            return [tok_fn(unescape(x.lower() if lc else x)) for x in ss]
+        return [[tok_fn(unescape(x.lower() if lc else x)) for x in xx] for xx in ss]
 
     def set_groundtruth(self, groundtruth):
         """ Setup inside groundtruth.
@@ -370,10 +395,6 @@ class BLEU(Metric):
             [self._tokenize_fn(r) for r in rr] for rr in refs]
         self._uncased_refs_for_tok = [
             [self._tokenize_fn(r.lower()) for r in rr] for rr in refs]
-        self._refs_for_detok = [
-            [self._default_tokenize_fn(r) for r in rr] for rr in refs]
-        self._uncased_refs_for_detok = [
-            [self._default_tokenize_fn(r.lower()) for r in rr] for rr in refs]
 
     def tok_bleu(self, hypo, groundtruth=None, lc=False):
         tok_hypos = self._tokenize(hypo, self._tokenize_fn, lc=lc)
@@ -397,25 +418,28 @@ class BLEU(Metric):
         return bleu * 100
 
     def detok_bleu(self, hypo, groundtruth=None, lc=False):
-        tok_hypos = self._tokenize(hypo, self._default_tokenize_fn, lc=lc)
-        if groundtruth is None:
-            ref = self._uncased_refs_for_detok if lc else self._refs_for_detok
-        else:
-            if isinstance(groundtruth[0], str):
-                groundtruth = [groundtruth]
-            ref = self._tokenize(list(map(list, zip(*groundtruth))), self._default_tokenize_fn, lc=lc)
-        try:
-            bleu, _ = corpus_bleu(tok_hypos, ref)
-            bleu = bleu[0]
-        except IndexError:
-            logging.info("Found empty lines.")
-            print(traceback.format_exc())
-            bleu = 0.
-        except ZeroDivisionError:
-            logging.info("Empty reference")
-            print(traceback.format_exc())
-            bleu = 0.
-        return bleu * 100
+        # tok_hypos = self._tokenize(hypo, self._default_tokenize_fn, lc=lc)
+        # if groundtruth is None:
+        #     ref = self._uncased_refs_for_detok if lc else self._refs_for_detok
+        # else:
+        #     if isinstance(groundtruth[0], str):
+        #         groundtruth = [groundtruth]
+        #     ref = self._tokenize(list(map(list, zip(*groundtruth))), self._default_tokenize_fn, lc=lc)
+        # try:
+        #     bleu, _ = corpus_bleu(tok_hypos, ref)
+        #     bleu = bleu[0]
+        # except IndexError:
+        #     logging.info("Found empty lines.")
+        #     print(traceback.format_exc())
+        #     bleu = 0.
+        # except ZeroDivisionError:
+        #     logging.info("Empty reference")
+        #     print(traceback.format_exc())
+        #     bleu = 0.
+        # return bleu * 100
+        if self._language in ["ko", "km", "th"]:
+            return self.tok_bleu(hypo, groundtruth, lc)
+        return self.sacre_bleu(hypo, groundtruth, lc)
 
     def sacre_bleu(self, hypo, groundtruth=None, lc=False):
         if groundtruth is None:
@@ -432,7 +456,7 @@ class BLEU(Metric):
         except IndexError:
             logging.info("Found empty lines.")
             print(traceback.format_exc())
-            bleu = 0.
+            return 0.
         except ZeroDivisionError:
             logging.info("Empty reference")
             print(traceback.format_exc())
@@ -445,6 +469,8 @@ class BLEU(Metric):
             return result[self._flag]
         if self._flag.lower() in result:
             return result[self._flag.lower()]
+        if self._language in ["ko", "km"]:
+            return result["tok_bleu"]
         return result["sacre_bleu"]
 
     def call(self, hypothesis, groundtruth=None):

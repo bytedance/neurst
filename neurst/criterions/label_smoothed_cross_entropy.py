@@ -17,6 +17,7 @@ from absl import logging
 from neurst.criterions import register_criterion
 from neurst.criterions.criterion import Criterion
 from neurst.metrics.metric import MetricWrapper
+from neurst.models.model_utils import input_length_to_nonpadding
 from neurst.utils.flags_core import Flag
 
 
@@ -94,7 +95,6 @@ class LabelSmoothedCrossEntropy(Criterion):
 
         logits = tf.cast(logits, tf.float32)
         labels = model_inp["trg"]
-        labels_padding = model_inp["trg_padding"]
 
         with tf.name_scope("loss"):
             vocab_size = logits.get_shape()[-1]
@@ -105,8 +105,10 @@ class LabelSmoothedCrossEntropy(Criterion):
                 depth=vocab_size,
                 on_value=confidence,
                 off_value=low_confidence)
+            # this may cause NaN when meets bad sample
             xentropy = tf.nn.softmax_cross_entropy_with_logits(
                 logits=logits, labels=soft_target)
+            # xentropy = - tf.reduce_sum(soft_target * tf.nn.log_softmax(logits), axis=-1)
             # Calculate the best (lowest) possible value of cross entropy, and
             # subtract from the cross entropy loss.
             if self._label_smoothing:
@@ -119,7 +121,10 @@ class LabelSmoothedCrossEntropy(Criterion):
             # TODO(ZhaoChengqi) https://github.com/tensorflow/tensorflow/issues/32578
             # xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
             #     logits=logits, labels=labels)
-            weights = tf.cast(1 - labels_padding, tf.float32)
+            if "trg_padding" in model_inp:
+                weights = tf.cast(1 - model_inp["trg_padding"], tf.float32)
+            else:
+                weights = input_length_to_nonpadding(model_inp["trg_length"], tf.shape(labels)[1], tf.float32)
             nll_sum = tf.reduce_sum(xentropy * weights, axis=1)
             n_samples = tf.cast(tf.expand_dims(tf.shape(labels)[0], axis=0), dtype=tf.float32)
             n_tokens = tf.reduce_sum(weights, axis=1)

@@ -4,7 +4,7 @@ import os
 from neurst.layers.decoders.decoder import Decoder
 from neurst.utils.registry import setup_registry
 
-build_decoder, register_decoder = setup_registry("decoder", base_class=Decoder)
+build_decoder, register_decoder = setup_registry(Decoder.REGISTRY_NAME, base_class=Decoder)
 
 models_dir = os.path.dirname(__file__)
 for file in os.listdir(models_dir):

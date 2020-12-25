@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
+import re
 import traceback
 
 import tensorflow as tf
@@ -105,6 +106,7 @@ class AccumgradKerasModel(tf.keras.Model):
             self._update_cycle = 1
         self._clip_value = kwargs.pop("clip_value", None)
         self._clip_norm = kwargs.pop("clip_norm", None)
+        self._freeze_variables = kwargs.pop("freeze_variables", None)
         super(AccumgradKerasModel, self).__init__(*args, **kwargs)
         if self._clip_value:
             self._clip_value = abs(float(self._clip_value))
@@ -114,7 +116,20 @@ class AccumgradKerasModel(tf.keras.Model):
         if self._update_cycle > 1:
             logging.info(f"Accumulating gradients for every {self._update_cycle} steps.")
             self._grad_accumulator = GradientAccumulator(self._update_cycle)
+        if self._freeze_variables:
+            logging.info(f"Variable names matched the pattern {self._freeze_variables} will be freezed.")
         self.accumulate_function = None
+
+    @property
+    def custom_trainable_weights(self):
+        if self._freeze_variables:
+            return [x for x in self.trainable_weights
+                    if re.search(self._freeze_variables, x.name) is None]
+        return self.trainable_weights
+
+    @property
+    def custom_trainable_variables(self):
+        return self.custom_trainable_weights
 
     def compute_gradients(self, data):
         """The logic for gradient computation of one training step.
@@ -157,7 +172,7 @@ class AccumgradKerasModel(tf.keras.Model):
         with tape:
             if isinstance(self.optimizer, lso.LossScaleOptimizer):
                 loss = self.optimizer.get_scaled_loss(loss)
-            gradients = tape.gradient(loss, self.trainable_variables)
+            gradients = tape.gradient(loss, self.custom_trainable_variables)
 
         def _zeros_grads():
             zero_gradients = []
@@ -167,6 +182,8 @@ class AccumgradKerasModel(tf.keras.Model):
                         tf.zeros_like(gradient.values),
                         gradient.indices,
                         dense_shape=gradient.dense_shape))
+                elif gradient is None:
+                    zero_gradients.append(None)
                 else:
                     zero_gradients.append(tf.zeros_like(gradient))
             return zero_gradients
@@ -178,6 +195,7 @@ class AccumgradKerasModel(tf.keras.Model):
         return gradients, {m.name: m.result() for m in self.metrics}
 
     def custom_apply_gradients(self, gradients):
+        trainable_variables = self.custom_trainable_variables
         # Whether to aggregate gradients outside of optimizer. This requires support
         # of the optimizer and doesn't work with ParameterServerStrategy and
         # CentralStroageStrategy.
@@ -190,7 +208,7 @@ class AccumgradKerasModel(tf.keras.Model):
             # LossScaleOptimizer all-reduces in fp16. All-reducing in fp16 can only be
             # done on scaled gradients, not unscaled gradients, for numeric stability.
             gradients = self.optimizer._aggregate_gradients(zip(gradients,  # pylint: disable=protected-access
-                                                                self.trainable_variables))
+                                                                trainable_variables))
         if isinstance(self.optimizer, lso.LossScaleOptimizer):
             gradients = self.optimizer.get_unscaled_gradients(gradients)
         # gradients = self.optimizer._clip_gradients(gradients)  # pylint: disable=protected-access
@@ -200,12 +218,12 @@ class AccumgradKerasModel(tf.keras.Model):
         elif self._clip_norm:
             gradients = [tf.clip_by_norm(grad, self._clip_norm)
                          if grad is not None else None for grad in gradients]
-        if self.trainable_variables:
+        if trainable_variables:
             if aggregate_grads_outside_optimizer:
-                self.optimizer.apply_gradients(zip(gradients, self.trainable_variables),
+                self.optimizer.apply_gradients(zip(gradients, trainable_variables),
                                                experimental_aggregate_gradients=False)
             else:
-                self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+                self.optimizer.apply_gradients(zip(gradients, trainable_variables))
 
     def make_train_function(self):
         """Creates a function that executes one step of training.
@@ -326,7 +344,7 @@ class AccumgradKerasModel(tf.keras.Model):
             max_queue_size=10,
             workers=1,
             use_multiprocessing=False):
-        """ From tf.keras.Model. """
+        """ Copy from tf.keras.Model. """
         training._keras_api_gauge.get_cell('fit').set(True)
         # Legacy graph support is contained in `training_v1.Model`.
         version_utils.disallow_legacy_graph('Model', 'fit')
@@ -451,423 +469,3 @@ class AccumgradKerasModel(tf.keras.Model):
                 del self._eval_data_handler
             callbacks.on_train_end(logs=training_logs)
             return self.history
-
-
-class AccumgradKerasModel3(tf.keras.Model):
-    """ Defines the keras model that supports gradient accumulation.
-    This may cause GPU OOM.
-    """
-
-    def __init__(self, *args, **kwargs):
-        self._update_cycle = int(kwargs.pop("update_cycle", 1))
-        if not self._update_cycle:
-            self._update_cycle = 1
-        self._clip_value = kwargs.pop("clip_value", None)
-        self._clip_norm = kwargs.pop("clip_norm", None)
-        super(AccumgradKerasModel3, self).__init__(*args, **kwargs)
-        if self._clip_value:
-            self._clip_value = abs(float(self._clip_value))
-            logging.info(f"Clipping gradient to = [-{self._clip_value}, {self._clip_value}]")
-        elif self._clip_norm:
-            logging.info(f"Clipping gradient norm to {self._clip_norm}")
-        if self._update_cycle > 1:
-            logging.info(f"Accumulating gradients for every {self._update_cycle} steps.")
-            self._grad_accumulator = GradientAccumulator(self._update_cycle)
-
-    def compute_gradients(self, data):
-        """The logic for gradient computation of one training step.
-
-        This method can be overridden to support custom training logic.
-        This method is called by `Model.make_train_function`.
-
-        This method should contain the mathemetical logic for one step of training.
-        This typically includes the forward pass, loss calculation, backpropagation,
-        and metric updates.
-
-        Configuration details for *how* this logic is run (e.g. `tf.function` and
-        `tf.distribute.Strategy` settings), should be left to
-        `Model.make_train_function`, which can also be overridden.
-
-        Arguments:
-          data: A nested structure of `Tensor`s.
-
-        Returns:
-          A list of gradients corresponding to `Model.trainable_variables`.
-
-        """
-        # These are the only transformations `Model.fit` applies to user-input
-        # data when a `tf.data.Dataset` is provided. These utilities will be exposed
-        # publicly.
-        data = data_adapter.expand_1d(data)
-        x, y, sample_weight = data_adapter.unpack_x_y_sample_weight(data)
-
-        with backprop.GradientTape() as tape:
-            y_pred = self(x, training=True)
-            loss = self.compiled_loss(
-                y, y_pred, sample_weight, regularization_losses=self.losses)
-
-        # For custom training steps, users can just write:
-        #   trainable_variables = self.trainable_variables
-        #   gradients = tape.gradient(loss, trainable_variables)
-        #   self.optimizer.apply_gradients(zip(gradients, trainable_variables))
-        # The _minimize call does a few extra steps unnecessary in most cases,
-        # such as loss scaling and gradient clipping.
-        with tape:
-            if isinstance(self.optimizer, lso.LossScaleOptimizer):
-                loss = self.optimizer.get_scaled_loss(loss)
-            gradients = tape.gradient(loss, self.trainable_variables)
-
-        def _zeros_grads():
-            zero_gradients = []
-            for gradient in gradients:
-                if isinstance(gradient, ops.IndexedSlices):
-                    zero_gradients.append(ops.IndexedSlices(
-                        tf.zeros_like(gradient.values),
-                        gradient.indices,
-                        dense_shape=gradient.dense_shape))
-                else:
-                    zero_gradients.append(tf.zeros_like(gradient))
-            return zero_gradients
-
-        gradients = tf.cond(tf.math.reduce_all(tf.math.is_finite(loss)),
-                            lambda: gradients, _zeros_grads)
-
-        self.compiled_metrics.update_state(y, y_pred, sample_weight)
-        return gradients, {m.name: m.result() for m in self.metrics}
-
-    def custom_apply_gradients(self, gradients):
-        # Whether to aggregate gradients outside of optimizer. This requires support
-        # of the optimizer and doesn't work with ParameterServerStrategy and
-        # CentralStroageStrategy.
-        aggregate_grads_outside_optimizer = (
-            self.optimizer._HAS_AGGREGATE_GRAD  # pylint: disable=protected-access
-            and not isinstance(self.distribute_strategy.extended,
-                               parameter_server_strategy.ParameterServerStrategyExtended))
-        if aggregate_grads_outside_optimizer:
-            # We aggregate gradients before unscaling them, in case a subclass of
-            # LossScaleOptimizer all-reduces in fp16. All-reducing in fp16 can only be
-            # done on scaled gradients, not unscaled gradients, for numeric stability.
-            gradients = self.optimizer._aggregate_gradients(zip(gradients,  # pylint: disable=protected-access
-                                                                self.trainable_variables))
-        if isinstance(self.optimizer, lso.LossScaleOptimizer):
-            gradients = self.optimizer.get_unscaled_gradients(gradients)
-        # gradients = self.optimizer._clip_gradients(gradients)  # pylint: disable=protected-access
-        if self._clip_value:
-            gradients = [tf.clip_by_value(grad, -self._clip_value, self._clip_value)
-                         if grad is not None else None for grad in gradients]
-        elif self._clip_norm:
-            gradients = [tf.clip_by_norm(grad, self._clip_norm)
-                         if grad is not None else None for grad in gradients]
-        if self.trainable_variables:
-            if aggregate_grads_outside_optimizer:
-                self.optimizer.apply_gradients(zip(gradients, self.trainable_variables),
-                                               experimental_aggregate_gradients=False)
-            else:
-                self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
-
-    def make_train_function(self):
-        """Creates a function that executes one step of training.
-
-            This method can be overridden to support custom training logic.
-            This method is called by `Model.fit` and `Model.train_on_batch`.
-
-            Typically, this method directly controls `tf.function` and
-            `tf.distribute.Strategy` settings, and delegates the actual training
-            logic to `Model.train_step`.
-
-            This function is cached the first time `Model.fit` or
-            `Model.train_on_batch` is called. The cache is cleared whenever
-            `Model.compile` is called.
-
-            Returns:
-              Function. The function created by this method should accept a
-              `tf.data.Iterator`, and return a `dict` containing values that will
-              be passed to `tf.keras.Callbacks.on_train_batch_end`, such as
-              `{'loss': 0.2, 'accuracy': 0.7}`.
-            """
-        if self.train_function is not None:
-            return self.train_function
-
-        def step_function(model, iterator):
-            """Runs a single training step."""
-
-            # def run_step(data):
-            #     if model._update_cycle == 1:
-            #         gradients, outputs = model.compute_gradients(data)
-            #     else:
-            #         for idx in range(self._update_cycle):
-            #             if idx == self._update_cycle - 1:
-            #                 this_data = {
-            #                     k: v[idx * (tf.shape(v)[0] // self._update_cycle):]
-            #                     for k, v in data[0][0].items()}
-            #             else:
-            #                 this_data = {
-            #                     k: v[idx * (tf.shape(v)[0] // self._update_cycle): (idx + 1) * (
-            #                         tf.shape(v)[0] // self._update_cycle)] for k, v in data[0][0].items()}
-            #             this_data = ((this_data,),)
-            #             this_grads, outputs = model.compute_gradients(this_data)
-            #             model._grad_accumulator(this_grads)
-            #         gradients = model._grad_accumulator.gradients
-            #     model.custom_apply_gradients(gradients)
-            #     if model._update_cycle > 1:
-            #         model._grad_accumulator.reset()
-            #     # Ensure counter is updated only if `train_step` succeeds.
-            #     with ops.control_dependencies(_minimum_control_deps(outputs)):
-            #         model._train_counter.assign_add(1)  # pylint: disable=protected-access
-            #     return outputs
-
-            def forward_and_apply(data):
-                if model._update_cycle == 1:  # pylint: disable=protected-access
-                    gradients, outputs = model.compute_gradients(data)
-                else:
-                    this_data = {
-                        k: v[(self._update_cycle - 1) * (tf.shape(v)[0] // self._update_cycle):]
-                        for k, v in data[0][0].items()}
-                    this_gradients, outputs = model.compute_gradients(((this_data,),))
-                    model._grad_accumulator(this_gradients)  # pylint: disable=protected-access
-                    gradients = model._grad_accumulator.gradients  # pylint: disable=protected-access
-                model.custom_apply_gradients(gradients)
-                if model._update_cycle > 1:  # pylint: disable=protected-access
-                    model._grad_accumulator.reset()  # pylint: disable=protected-access
-                # Ensure counter is updated only if `train_step` succeeds.
-                with ops.control_dependencies(_minimum_control_deps(outputs)):
-                    model._train_counter.assign_add(1)  # pylint: disable=protected-access
-                return outputs
-
-            def forward(data, idx):
-                this_data = {
-                    k: v[idx * (tf.shape(v)[0] // self._update_cycle): (idx + 1) * (
-                        tf.shape(v)[0] // self._update_cycle)] for k, v in data[0][0].items()}
-                this_grads, outputs = model.compute_gradients(((this_data,),))
-                model._grad_accumulator(this_grads)  # pylint: disable=protected-access
-                return outputs
-
-            err_cnt = 0
-            while err_cnt < 10:
-                try:
-                    data = next(iterator)
-                    break
-                except (StopIteration, tf.errors.OutOfRangeError) as e:
-                    raise e
-                except tf.errors.OpError as e:
-                    tf.print(traceback.format_exc(e))
-                    err_cnt += 1
-
-            for i in range(self._update_cycle - 1):
-                _ = model.distribute_strategy.run(forward, args=(data, i))
-            outputs = model.distribute_strategy.run(forward_and_apply, args=(data,))
-            outputs = training.reduce_per_replica(outputs, self.distribute_strategy)
-            training.write_scalar_summaries(outputs, step=model._train_counter)  # pylint: disable=protected-access
-            return outputs
-
-        if self._steps_per_execution.numpy().item() == 1:
-
-            def train_function(iterator):
-                """Runs a training execution with one step."""
-                return step_function(self, iterator)
-
-        else:
-
-            def train_function(iterator):
-                """Runs a training execution with multiple steps."""
-                outputs = step_function(self, iterator)
-                for _ in tf.range(self._steps_per_execution - 1):
-                    outputs = step_function(self, iterator)
-                return outputs
-
-        if not self.run_eagerly:
-            train_function = tf.function(
-                train_function, experimental_relax_shapes=True)
-
-        self.train_function = train_function
-        return self.train_function
-
-
-class AccumgradKerasModelV2(tf.keras.Model):
-    """ Defines the keras model that supports gradient accumulation. """
-
-    def __init__(self, *args, **kwargs):
-        self._update_cycle = int(kwargs.pop("update_cycle", 1))
-        self._clip_value = kwargs.pop("clip_value", None)
-        self._clip_norm = kwargs.pop("clip_norm", None)
-        if self._clip_value:
-            self._clip_value = abs(float(self._clip_value))
-            logging.info(f"Clipping gradient to = [-{self._clip_value}, {self._clip_value}]")
-        elif self._clip_norm:
-            logging.info(f"Clipping gradient norm to {self._clip_norm}")
-        self._accum_grad_scale = 1. / float(self._update_cycle)
-        if self._update_cycle > 1:
-            logging.info(f"Accumulating gradients for every {self._update_cycle} steps.")
-        super(AccumgradKerasModelV2, self).__init__(*args, **kwargs)
-
-    def compute_gradients(self, data):
-        """The logic for gradient computation of one training step.
-
-        This method can be overridden to support custom training logic.
-        This method is called by `Model.make_train_function`.
-
-        This method should contain the mathemetical logic for one step of training.
-        This typically includes the forward pass, loss calculation, backpropagation,
-        and metric updates.
-
-        Configuration details for *how* this logic is run (e.g. `tf.function` and
-        `tf.distribute.Strategy` settings), should be left to
-        `Model.make_train_function`, which can also be overridden.
-
-        Arguments:
-          data: A nested structure of `Tensor`s.
-
-        Returns:
-          A list of gradients corresponding to `Model.trainable_variables`.
-
-        """
-        # These are the only transformations `Model.fit` applies to user-input
-        # data when a `tf.data.Dataset` is provided. These utilities will be exposed
-        # publicly.
-        data = data_adapter.expand_1d(data)
-        x, y, sample_weight = data_adapter.unpack_x_y_sample_weight(data)
-
-        with backprop.GradientTape() as tape:
-            y_pred = self(x, training=True)
-            loss = self.compiled_loss(
-                y, y_pred, sample_weight, regularization_losses=self.losses)
-
-        # For custom training steps, users can just write:
-        #   trainable_variables = self.trainable_variables
-        #   gradients = tape.gradient(loss, trainable_variables)
-        #   self.optimizer.apply_gradients(zip(gradients, trainable_variables))
-        # The _minimize call does a few extra steps unnecessary in most cases,
-        # such as loss scaling and gradient clipping.
-        with tape:
-            if isinstance(self.optimizer, lso.LossScaleOptimizer):
-                loss = self.optimizer.get_scaled_loss(loss)
-            gradients = tape.gradient(loss, self.trainable_variables)
-
-        def _zeros_grads():
-            zero_gradients = []
-            for gradient in gradients:
-                if isinstance(gradient, ops.IndexedSlices):
-                    zero_gradients.append(ops.IndexedSlices(
-                        tf.zeros_like(gradient.values),
-                        gradient.indices,
-                        dense_shape=gradient.dense_shape))
-                else:
-                    zero_gradients.append(tf.zeros_like(gradient))
-            return zero_gradients
-
-        gradients = tf.cond(tf.math.reduce_all(tf.math.is_finite(loss)),
-                            lambda: gradients, _zeros_grads)
-
-        self.compiled_metrics.update_state(y, y_pred, sample_weight)
-        return gradients, {m.name: m.result() for m in self.metrics}
-
-    def custom_apply_gradients(self, gradients):
-        # Whether to aggregate gradients outside of optimizer. This requires support
-        # of the optimizer and doesn't work with ParameterServerStrategy and
-        # CentralStroageStrategy.
-        aggregate_grads_outside_optimizer = (
-            self.optimizer._HAS_AGGREGATE_GRAD  # pylint: disable=protected-access
-            and not isinstance(self.distribute_strategy.extended,
-                               parameter_server_strategy.ParameterServerStrategyExtended))
-        if aggregate_grads_outside_optimizer:
-            # We aggregate gradients before unscaling them, in case a subclass of
-            # LossScaleOptimizer all-reduces in fp16. All-reducing in fp16 can only be
-            # done on scaled gradients, not unscaled gradients, for numeric stability.
-            gradients = self.optimizer._aggregate_gradients(zip(gradients,  # pylint: disable=protected-access
-                                                                self.trainable_variables))
-        if isinstance(self.optimizer, lso.LossScaleOptimizer):
-            gradients = self.optimizer.get_unscaled_gradients(gradients)
-        # gradients = self.optimizer._clip_gradients(gradients)  # pylint: disable=protected-access
-        if self._clip_value:
-            gradients = [tf.clip_by_value(grad, -self._clip_value, self._clip_value)
-                         if grad is not None else None for grad in gradients]
-        elif self._clip_norm:
-            gradients = [tf.clip_by_norm(grad, self._clip_norm)
-                         if grad is not None else None for grad in gradients]
-        if self.trainable_variables:
-            if aggregate_grads_outside_optimizer:
-                self.optimizer.apply_gradients(zip(gradients, self.trainable_variables),
-                                               experimental_aggregate_gradients=False)
-            else:
-                self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
-
-    def make_train_function(self):
-        """Creates a function that executes one step of training.
-
-            This method can be overridden to support custom training logic.
-            This method is called by `Model.fit` and `Model.train_on_batch`.
-
-            Typically, this method directly controls `tf.function` and
-            `tf.distribute.Strategy` settings, and delegates the actual training
-            logic to `Model.train_step`.
-
-            This function is cached the first time `Model.fit` or
-            `Model.train_on_batch` is called. The cache is cleared whenever
-            `Model.compile` is called.
-
-            Returns:
-              Function. The function created by this method should accept a
-              `tf.data.Iterator`, and return a `dict` containing values that will
-              be passed to `tf.keras.Callbacks.on_train_batch_end`, such as
-              `{'loss': 0.2, 'accuracy': 0.7}`.
-            """
-        if self.train_function is not None:
-            return self.train_function
-
-        def step_function(model, iterator):
-            """Runs a single training step."""
-
-            def run_step(datas):
-                avg_grads = None
-                for idx, data in enumerate(datas):
-                    gradients, outputs = model.compute_gradients(data)
-                    if model._update_cycle == 1:
-                        avg_grads = gradients
-                    elif idx == 0:
-                        avg_grads = [_multiply_gradient(grad, model._accum_grad_scale) for grad in gradients]
-                    else:
-                        avg_grads = [
-                            tf.math.add(tf.convert_to_tensor(_multiply_gradient(grad, model._accum_grad_scale)),
-                                        tf.convert_to_tensor(avg_grad)) if grad is not None else None
-                            for grad, avg_grad in zip(gradients, avg_grads)]
-                model.custom_apply_gradients(avg_grads)
-                # Ensure counter is updated only if `train_step` succeeds.
-                with ops.control_dependencies(_minimum_control_deps(outputs)):
-                    model._train_counter.assign_add(1)  # pylint: disable=protected-access
-                return outputs
-
-            datas = []
-            for _ in range(self._update_cycle):
-                try:
-                    datas.append(next(iterator))
-                except (StopIteration, tf.errors.OutOfRangeError) as e:
-                    raise e
-                except tf.errors.OpError as e:
-                    tf.print(traceback.format_exc(e))
-
-            outputs = model.distribute_strategy.run(run_step, args=(datas,))
-            outputs = training.reduce_per_replica(outputs, self.distribute_strategy)
-            training.write_scalar_summaries(outputs, step=model._train_counter)  # pylint: disable=protected-access
-            return outputs
-
-        if self._steps_per_execution.numpy().item() == 1:
-
-            def train_function(iterator):
-                """Runs a training execution with one step."""
-                return step_function(self, iterator)
-
-        else:
-
-            def train_function(iterator):
-                """Runs a training execution with multiple steps."""
-                outputs = step_function(self, iterator)
-                for _ in tf.range(self._steps_per_execution - 1):
-                    outputs = step_function(self, iterator)
-                return outputs
-
-        if not self.run_eagerly:
-            train_function = tf.function(
-                train_function, experimental_relax_shapes=True)
-
-        self.train_function = train_function
-        return self.train_function

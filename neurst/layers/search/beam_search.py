@@ -306,7 +306,7 @@ def sequence_beam_search(symbols_to_logits_fn,
     decoding_cache = generation_initializer["decoder_internal_cache"]
     encoder_inputs_maxlen = generation_initializer["encoder_inputs_maxlen"]
     eos_id = generation_initializer["eos_id"]
-    unk_id = None if enable_unk else generation_initializer["unk_id"]
+    unk_id = None if enable_unk else generation_initializer.get("unk_id", None)
     if dtype is None:
         dtype = tf.dtypes.as_dtype(compat.CUSTOM_GLOBAL_FLOATX)
     batch_size = tf.shape(decoder_input_ids)[0]

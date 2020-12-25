@@ -8,6 +8,7 @@ NeurST provides various command line tools.
 * [`view_registry`: List registered classes and arguments](#list-registered-classes-and-arguments)
 * [`view_tfrecord`: Examine a TFRecord file](#examine-a-tfrecord-file)
 * [`inspect_checkpoint`: Inspect variables in a checkpoint](#inspect-variables-in-a-checkpoint)
+* [`convert_checkpoint`: Convert a checkpoint from a well-trained model](#convert-a-checkpoint-from-a-well-trained-model)
 
 ------
 
@@ -172,5 +173,24 @@ Tensor Value:
    0.37591913]]
 ```
 
+### Convert a checkpoint from a well-trained model
+`convert_checkpoint` can convert a well-trained model to neurst's checkpoint.
 
+- to see the supported model names:
+```bash
+$ python3 -m neurst.cli.view_registry converter
+
+All registered converter(s): 
+    |  Class  |  Aliases  |
+    |  GoogleBert  |  googlebert, GoogleBert, google_bert  |
+```
+
+- to convert a publicly available `bert-base-uncased` model:
+```bash
+$ python3 -m neurst.cli.convert_checkpoint --model_name google_bert --from bert-base-uncased --to /path/to/save
+```
+or to convert a fairseq transformer model:
+```bash
+$ python3 -m neurst.cli.convert_checkpoint --model_name fairseq_transformer --from /path/to/transformer.pt --to /path/to/save
+```
 

@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import math
 import os
 
-import numpy
 import tensorflow as tf
 from absl import logging
 
@@ -43,6 +43,7 @@ def map_data_for_keras(dataset):
         _fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 
+@deprecated
 def _batch_examples_by_token(dataset,
                              batch_size,
                              bucket_boundaries,
@@ -146,6 +147,37 @@ def create_batch_bucket_boundaries(max_length,
     return bucket_boundaries
 
 
+def associated_bucket_boundaries(a, b):
+    """ Creates training batch bucket boundaries.
+
+    Args:
+        a: A list of bucket boundaries.
+        b: Another list of bucket boundaries.
+
+    Returns:
+        Two refactored lists of bucket boundaries with the same size.
+    """
+    length1 = len(a)
+    length2 = len(b)
+    if length1 == length2:
+        return a, b
+    elif length1 > length2:
+        step_size1 = length1 * 1. / length2
+        step_size2 = 1
+    else:
+        step_size1 = 1
+        step_size2 = length2 * 1. / length1
+    new_boundaries1 = []
+    new_boundaries2 = []
+    i = 1
+    while i < min(length1, length2) + 1:
+        new_boundaries1.append(a[int(math.ceil(i * step_size1)) - 1])
+        new_boundaries2.append(b[int(math.ceil(i * step_size2)) - 1])
+        i += 1
+
+    return new_boundaries1, new_boundaries2
+
+
 @deprecated
 def load_from_tfrecord_and_auto_shard(features_file, shuffle=True,
                                       example_parse_fn=None, deterministic=True):
@@ -187,56 +219,6 @@ def load_from_tfrecord_and_auto_shard(features_file, shuffle=True,
         return dataset
     return dataset.map(example_parse_fn,
                        num_parallel_calls=tf.data.experimental.AUTOTUNE)
-
-
-@deprecated
-def batch_sequential_dataset_sorted(dataset,
-                                    batch_size,
-                                    padding_values,
-                                    padding_length,
-                                    num_replicas_in_sync=1):
-    """ Reads text files, preprocesses, sorts and calls padded_batch.
-
-    Args:
-        datas: A list of data elements, of which is a list of data samples.
-        preprocess_fns: The preprocess function to map the text string to id list.
-            A callable function or a list of function with the same length as `text_files`.
-        batch_size: The number of sentences per batch.
-        padding_values: A tuple of tensors for dataset.padded_batch.
-        padding_length: A tuple passed to dataset.padded_batch.
-        num_replicas_in_sync: The number of GPUs or other workers. We will generate global
-            batches, and each global batch is equally divisible by number of replicas.
-
-    Returns: A tuple of (valid_dataset, argsort_idxs), where
-        - dataset: the dataset sorted by the length of the last data element.
-        - argsort_idxs: the argsort indexes.
-        - max_data_len: the maximum data length of the first data element.
-
-    """
-    if isinstance(dataset, list):
-        datas = dataset
-        lengths = [len(x[0]) for x in datas]
-    else:
-        datas = [x for x in dataset]
-        lengths = [len(x[0].numpy()) for x in datas]
-    argsort_idxs = numpy.argsort(lengths)
-
-    def gen():
-        for idx in argsort_idxs:
-            yield datas[idx]
-
-    valid_dataset = tf.data.Dataset.from_generator(
-        generator=gen, output_types=tuple([v.dtype for v in padding_values]))
-    if batch_size < num_replicas_in_sync:
-        batch_size = num_replicas_in_sync
-    else:
-        batch_size = batch_size // num_replicas_in_sync * num_replicas_in_sync
-
-    valid_dataset = valid_dataset.padded_batch(
-        int(batch_size), padding_length,
-        padding_values=padding_values)
-
-    return valid_dataset, argsort_idxs, max(lengths)
 
 
 def parse_tfexample(serialized_example, name_to_features,
@@ -324,20 +306,17 @@ def load_tfrecords(file_path,
 
 def clean_dataset_by_length(dataset, data_max_lengths):
     """ Filters empty datas, or datas exceeded max length. """
-    # filter out empty lines
-    dataset = dataset.filter(
-        lambda data_sample: not tf.reduce_any([
-            (length != -1) and tf.shape(data_sample[k])[0] <= 1
-            for k, length in data_max_lengths.items()]))
-
-    # filter out with max length
-    dataset = dataset.filter(
+    logging.info(f"Filtering empty data and datas exceeded max length={data_max_lengths}")
+    return dataset.filter(
         lambda data_sample: tf.reduce_all([
-            (length == -1) or (length is None) or tf.shape(data_sample[k])[0] <= length
-            for k, length in data_max_lengths.items()]))
-    return dataset
+            (length == -1 or length is None
+             or tf.less_equal(tf.size(data_sample[k]), length))  # filter by max length
+            and (length == -1 or (length != -1 and tf.size(data_sample[k]) > 1))  # filter out empty lines
+            for k, length in data_max_lengths.items()
+        ]))
 
 
+@deprecated
 def batch_sequential_dataset(dataset,
                              padding_values,
                              example_length_func=None,
@@ -430,3 +409,118 @@ def batch_sequential_dataset(dataset,
         int(batch_size // num_replicas_in_sync * num_replicas_in_sync),
         padding_length, drop_remainder=drop_remainder, padding_values=padding_values)
     return dataset
+
+
+def adjust_batch_size(batch_size=None,
+                      batch_size_per_gpu=None,
+                      bucket_boundaries=None,
+                      boundaries_reduce_to_length_fn=None,
+                      num_replicas_in_sync=1,
+                      verbose=True):
+    if batch_size is None and batch_size_per_gpu is None:
+        raise ValueError("At least one of the `batch_size` and `batch_size_per_gpu` should be provided.")
+    elif batch_size is not None and batch_size_per_gpu is not None:
+        logging.info("Both `batch_size` and `batch_size_per_gpu` are provided, use `batch_size_per_gpu`.")
+    if batch_size_per_gpu is not None:
+        batch_size = int(batch_size_per_gpu * num_replicas_in_sync)
+    if bucket_boundaries is None:
+        batch_size = int(batch_size // num_replicas_in_sync * num_replicas_in_sync)
+        if verbose:
+            logging.info(f"The global batch size is {batch_size} samples.")
+        return batch_size
+    logging.info(f"The global batch size is {batch_size} tokens.")
+    bucket_batch_sizes = []
+    try:
+        i = 0
+        while True:
+            bucket_batch_sizes.append(
+                int(batch_size // boundaries_reduce_to_length_fn({k: v[i] for k, v in bucket_boundaries.items()})
+                    // num_replicas_in_sync * num_replicas_in_sync))
+            i += 1
+
+    except IndexError:
+        pass
+    return bucket_batch_sizes
+
+
+def batch_examples_by_token(dataset,
+                            bucket_boundaries,
+                            bucket_batch_sizes,
+                            padding_values,
+                            example_length_func,
+                            extra_padded_shapes=None,
+                            drop_remainder=True):
+    """Group examples by similar lengths, and return batched dataset.
+
+    Each batch of similar-length examples are padded to the same length, and may
+    have different number of elements in each batch, such that:
+      group_batch_size * padded_length <= batch_size.
+
+    This decreases the number of padding tokens per batch, which improves the
+    training speed.
+
+    Args:
+        dataset: Dataset of unbatched examples.
+        bucket_batch_sizes: Max number of tokens per batch of examples or a list of batch size for each bucket.
+        bucket_boundaries: A list of integers of the boundaries of each bucket.
+        padding_values: A tuple of constants for padding.
+        example_length_func: A callable function, which deduces the input examples to the maximum length.
+        extra_padded_shapes: A dict containing extra shapes (not included in bucket boundaries) for padding.
+        drop_remainder: Whether the last batch should be dropped in the case it has fewer than batch_size.
+
+    Returns:
+      Dataset of batched examples with similar lengths.
+    """
+    cnt = 0
+    try:
+        logging.info("The details of batching logic:")
+        while True:
+            _batch = bucket_batch_sizes
+            if isinstance(bucket_batch_sizes, list):
+                _batch = bucket_batch_sizes[cnt]
+            _bounds = {k: v[cnt] for k, v in bucket_boundaries.items()}
+            logging.info(f"   - batch={_batch}, bucket boundary={_bounds}")
+            cnt += 1
+    except IndexError:
+        logging.info(f"  Total {cnt} input shapes are compiled.")
+    if not isinstance(bucket_batch_sizes, list):
+        bucket_batch_sizes = [bucket_batch_sizes] * cnt
+    # bucket_id will be a tensor, so convert this list to a tensor as well.
+    bucket_batch_sizes = tf.constant(bucket_batch_sizes, dtype=tf.int64)
+    bucket_boundaries = {k: tf.constant(v, dtype=tf.int32) for k, v in bucket_boundaries.items()}
+
+    def example_to_bucket_id(examples):
+        """Return int64 bucket id for this example, calculated based on length."""
+        seq_length = example_length_func(examples)
+
+        conditions_c = tf.reduce_all([
+            tf.less_equal(v, bucket_boundaries[k])
+            for k, v in seq_length.items()], axis=0)
+        bucket_id = tf.reduce_min(tf.where(conditions_c))
+        return bucket_id
+
+    def window_size_fn(bucket_id):
+        """Return number of examples to be grouped when given a bucket id."""
+        return bucket_batch_sizes[bucket_id]
+
+    def batching_fn(bucket_id, grouped_dataset):
+        """Batch and add padding to a dataset of elements with similar lengths."""
+        bucket_batch_size = window_size_fn(bucket_id)
+        padded_shapes = {k: [v[bucket_id]] for k, v in bucket_boundaries.items()}
+        if extra_padded_shapes:
+            for k, v in extra_padded_shapes.items():
+                padded_shapes[k] = v
+
+        # Batch the dataset and add padding so that all input sequences in the
+        # examples have the same length, and all target sequences have the same
+        # lengths as well. Resulting lengths of inputs and targets can differ.
+        return grouped_dataset.padded_batch(
+            bucket_batch_size, padded_shapes,
+            padding_values=padding_values,
+            drop_remainder=drop_remainder)
+
+    return dataset.apply(tf.data.experimental.group_by_window(
+        key_func=example_to_bucket_id,
+        reduce_func=batching_fn,
+        window_size=None,
+        window_size_func=window_size_fn))

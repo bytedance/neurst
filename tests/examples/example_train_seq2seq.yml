@@ -30,12 +30,14 @@ task.class: Seq2Seq
 task.params:
   src_data_pipeline.class: TextDataPipeline
   src_data_pipeline.params:
+    language: zh
     tokenizer: jieba
     subtokenizer: bpe
     subtokenizer_codes: ./tests/examples/codes.bpe4k.zh
     vocab_path: ./tests/examples/vocab.zh
   trg_data_pipeline.class: TextDataPipeline
   trg_data_pipeline.params:
+    language: en
     tokenizer: moses
     subtokenizer: bpe
     subtokenizer_codes: ./tests/examples/codes.bpe4k.en

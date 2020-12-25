@@ -3,7 +3,7 @@ import tensorflow as tf
 
 from neurst.layers.common_layers import (MultiHeadDenseLayer, PositionEmbeddingWrapper, PrePostProcessingWrapper,
                                          TransformerFFN)
-from neurst.layers.modalities import WordEmbeddingSharedWeights
+from neurst.layers.modalities.text_modalities import WordEmbeddingSharedWeights
 
 
 def test_ffn():
@@ -99,7 +99,7 @@ def test_position_embedding():
         share_softmax_weights=False)
     embedding_layer = PositionEmbeddingWrapper(
         timing="sinusoids",
-        embedding_layer=embedding_layer, )
+        embedding_layer=embedding_layer,)
     inputs1d = tf.convert_to_tensor([4, 7, 8], tf.int32)
     inputs2d = tf.convert_to_tensor([[3, 1, 1, 1], [8, 1, 6, 4], [6, 6, 0, 5]], tf.int32)
     _ = embedding_layer(inputs2d)

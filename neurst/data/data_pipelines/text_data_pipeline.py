@@ -11,18 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import copy
-
 from absl import logging
 
 from neurst.data.data_pipelines import register_data_pipeline
 from neurst.data.data_pipelines.data_pipeline import DataPipeline
 from neurst.data.text import build_tokenizer
-from neurst.data.text.symbols_mapper import SymbolsMapper
+from neurst.data.text.vocab import PaddingMode, Vocab
 
 
 @register_data_pipeline("simple_text")
-class TextDataPipeline(DataPipeline):
+class TextDataPipeline(DataPipeline, Vocab):
 
     def __init__(self,
                  vocab_path,
@@ -44,16 +42,14 @@ class TextDataPipeline(DataPipeline):
             glossaries: The glossaries that will not be split by tokenizer/subtokenizer.
             reverse_sequence: A bool, whether to reverse the sequence.
         """
-        super(TextDataPipeline, self).__init__(
-            vocab_path=vocab_path,
-            language=language,
-            tokenizer=tokenizer,
-            subtokenizer=subtokenizer,
-            subtokenizer_codes=subtokenizer_codes,
-            glossaries=glossaries,
-            reverse_sequence=reverse_sequence,
-            **kwargs)
+        DataPipeline.__init__(self, vocab_path=vocab_path, language=language,
+                              tokenizer=tokenizer, subtokenizer=subtokenizer,
+                              subtokenizer_codes=subtokenizer_codes,
+                              glossaries=glossaries,
+                              reverse_sequence=reverse_sequence,
+                              **kwargs)
         self._language = language
+        self._reverse_sequence = reverse_sequence
         self._tokenizer = build_tokenizer(tokenizer, language=language, glossaries=glossaries)
         self._subtokenizer = None
         self._subtokenizer = build_tokenizer(
@@ -64,13 +60,27 @@ class TextDataPipeline(DataPipeline):
                              "We assume this was done on purpose.".format(subtokenizer))
             else:
                 self._subtokenizer.init_subtokenizer(subtokenizer_codes)
-        self._symbols_mapper = SymbolsMapper(vocab_path=vocab_path, reverse=reverse_sequence)
+        tokens = Vocab.load_tokens(vocab_path)
+        unk_token = Vocab.get_unique(tokens, "<UNK>")
+        bos_token = Vocab.get_unique(tokens, "<SEQ_BEG>")
+        eos_token = Vocab.get_unique(tokens, "<SEQ_END>")
+        assert unk_token != bos_token != eos_token
+        Vocab.__init__(self, tokens, [unk_token, bos_token, eos_token], lowercase=False)
+        self._eos_id = Vocab.map_token_to_id(self, eos_token)
+        self._bos_id = Vocab.map_token_to_id(self, bos_token)
+        self._unk_id = Vocab.map_token_to_id(self, unk_token)
 
     @property
     def meta(self):
-        meta = copy.deepcopy(self._symbols_mapper.meta_data)
-        meta["language"] = self._language
-        return meta
+        return {
+            "language": self._language,
+            "vocab_size": self.vocab_size,
+            "eos_id": self._eos_id,
+            "bos_id": self._bos_id,
+            "unk_id": self._unk_id,
+            "pad_id": self._eos_id,
+            "padding_mode": PaddingMode.EOS_AS_PADDING
+        }
 
     def process(self, input, is_processed=False):
         """ Process one data sample.
@@ -87,8 +97,12 @@ class TextDataPipeline(DataPipeline):
                 input = self._tokenizer.tokenize(input)
             if self._subtokenizer:
                 input = self._subtokenizer.tokenize(input, return_str=False)
-        return self._symbols_mapper.map_token_to_id(
-            input, return_str=False, with_bos=False, with_eos=True)
+        if isinstance(input, str):
+            input = input.split()
+        token_ids = Vocab.map_token_to_id(self, input, unknown_default=self._unk_id)
+        if self._reverse_sequence:
+            token_ids = token_ids[::-1]
+        return token_ids + [self._eos_id]
 
     def recover(self, input):
         """ Recover one data sample.
@@ -99,12 +113,21 @@ class TextDataPipeline(DataPipeline):
         Returns:
             A string, the recovered text.
         """
-
+        input = [int(x) for x in input]
+        if input[0] == self._bos_id:
+            input = input[1:]
+        try:
+            eos_pos = input.index(self._eos_id)
+            input = input[:eos_pos]
+        except ValueError:
+            pass
+        token_list = Vocab.map_id_to_token(self, input)
+        if self._reverse_sequence:
+            token_list = token_list[::-1]
         if self._subtokenizer is None:
-            output = self._symbols_mapper.map_id_to_token(input, return_str=True)
+            output = " ".join(token_list)
         else:
-            output = self._symbols_mapper.map_id_to_token(input, return_str=False)
-            output = self._subtokenizer.detokenize(output, return_str=True)
+            output = self._subtokenizer.detokenize(token_list, return_str=True)
         if self._tokenizer:
             output = self._tokenizer.detokenize(output, return_str=True)
         return output

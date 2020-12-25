@@ -11,6 +11,7 @@ EMAIL = "zhaochengqi.d@bytedance.com"
 AUTHOR = "ZhaoChengqi"
 
 # TODO: one must manually install following packages if needed
+# TODO: one must manually install following packages if needed
 ALTERNATIVE_REQUIRES = [
     "jieba>=0.42.1",  # unnecessary for all
     "subword-nmt>=0.3.7",  # unnecessary for all
@@ -19,6 +20,11 @@ ALTERNATIVE_REQUIRES = [
     "python_speech_features>=0.6",  # for speech processing
     "transformers>=3.4.0",  # Not necessary for all
     "sentencepiece>=0.1.7",
+    "mecab-python3>=1.0.3",  # for sacrebleu[ja]
+    "ipadic>=1.0.0",  # for sacrebleu[ja]
+    "torch>=1.7.0",  # for converting models from fairseq
+    "fairseq>=0.10.1",  # for converting models from fairseq
+    "tensorflow_addons>=0.11.2",  # for group normalization
 ]
 
 REQUIRES = ["six>=1.11.0,<2.0.0",

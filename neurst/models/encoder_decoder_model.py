@@ -15,12 +15,13 @@ import tensorflow as tf
 from absl import logging
 
 from neurst.layers.common_layers import PositionEmbeddingWrapper
-from neurst.layers.decoders import build_decoder
-from neurst.layers.encoders import build_encoder
-from neurst.layers.modalities import WordEmbeddingSharedWeights
+from neurst.layers.decoders import Decoder, build_decoder
+from neurst.layers.encoders import Encoder, build_encoder
+from neurst.layers.modalities.text_modalities import WordEmbeddingSharedWeights
 from neurst.models import register_model
 from neurst.models.model import BaseModel
-from neurst.utils.flags_core import Flag
+from neurst.models.model_utils import input_length_to_padding
+from neurst.utils.flags_core import Flag, ModuleFlag
 
 
 @register_model(["seq2seq", "sequence_to_sequence", "SequenceToSequence"])
@@ -68,14 +69,8 @@ class EncoderDecoderModel(BaseModel):
     @staticmethod
     def class_or_method_args():
         return [
-            Flag("encoder.class", dtype=Flag.TYPE.STRING, default=None,
-                 help="The class of encoder."),
-            Flag("encoder.params", dtype=Flag.TYPE.STRING, default=None,
-                 help="Arbitrary parameters for the encoder."),
-            Flag("decoder.class", dtype=Flag.TYPE.STRING, default=None,
-                 help="The class of decoder."),
-            Flag("decoder.params", dtype=Flag.TYPE.STRING, default=None,
-                 help="Arbitrary parameters for the decoder."),
+            ModuleFlag(Encoder.REGISTRY_NAME, default=None, help="The encoder."),
+            ModuleFlag(Decoder.REGISTRY_NAME, default=None, help="The decoder."),
             Flag("modality.share_source_target_embedding", dtype=Flag.TYPE.BOOLEAN, default=False,
                  help="Whether to share source and target embedding table."),
             Flag("modality.share_embedding_and_softmax_weights", dtype=Flag.TYPE.BOOLEAN, default=False,
@@ -115,6 +110,9 @@ class EncoderDecoderModel(BaseModel):
         encoder = build_encoder(args)
         decoder = build_decoder(args)
         model = cls(args, src_meta, trg_meta, src_modality, trg_modality, encoder, decoder, name=name)
+        _ = model({"src": tf.convert_to_tensor([[1, 2, 3]], tf.int64),
+                   "src_padding": tf.convert_to_tensor([[0, 0., 0]], tf.float32),
+                   "trg_input": tf.convert_to_tensor([[1, 2, 3]], tf.int64)})
         return model
 
     @classmethod
@@ -203,11 +201,13 @@ class EncoderDecoderModel(BaseModel):
         Returns:  A tuple of (decoding_internal_states, decoder_input, symbol_to_logit_fn)
         """
         embedded_inputs = self._src_modality(inputs["src"])
-        encoder_outputs = self._encoder(
-            embedded_inputs, inputs["src_padding"], is_training=is_training)
+        src_padding = inputs.get("src_padding", None)
+        if src_padding is None:
+            src_padding = input_length_to_padding(inputs["src_length"], tf.shape(embedded_inputs)[1])
+        encoder_outputs = self._encoder(embedded_inputs, src_padding, is_training=is_training)
         decoder_internal_cache = self._decoder.create_decoding_internal_cache(
             encoder_outputs=encoder_outputs,
-            encoder_inputs_padding=inputs["src_padding"],
+            encoder_inputs_padding=src_padding,
             is_inference=is_inference,
             decode_padded_length=decode_padded_length)
 

@@ -12,8 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
+import json
+import random
 
 import tensorflow as tf
+
+
+class PaddingMode(object):
+    DEFAULT = 1
+    EOS_AS_PADDING = 2
 
 
 class Vocab(object):
@@ -21,8 +28,9 @@ class Vocab(object):
         """ Initialize vocabulary
 
         Args:
-            tokens: a list of words
-            extra_tokens: extra tokens appended to the end
+            tokens: A list of word tokens.
+            extra_tokens: A list of word tokens appended to the end of the vocab, which
+                will not be affected by the `lowercase` option.
             lowercase: whether transfer to lowercase
         """
         assert isinstance(tokens, list), (
@@ -42,11 +50,53 @@ class Vocab(object):
         self._token_to_id_dict = dict([
             (w, i) for i, w in enumerate(self._token_list)])
         self._lowercase = lowercase
-        self._extra_tokens = copy.deepcopy(extra_tokens)
+        self._extra_tokens = extra_tokens
+
+    @property
+    def tokens(self):
+        return self._token_list
 
     @property
     def vocab_size(self):
         return len(self._token_list)
+
+    def add_word(self, w, lowercase=False):
+        """ Adds word to the end of the vocabulary. """
+        if lowercase and self._lowercase:
+            w = w.lower()
+        if w not in self._token_list:
+            self._token_list.append(w)
+            self._token_to_id_dict[w] = len(self._token_list) - 1
+
+    @staticmethod
+    def load_tokens(vocab_path=None, tokens=None):
+        if not ((vocab_path is None) ^ (tokens is None)):
+            raise ValueError("Either `vocab_path` or `tokens` should be provided.")
+        if vocab_path:
+            with tf.io.gfile.GFile(vocab_path) as f:
+                if vocab_path.endswith(".json"):
+                    tokens = list(json.load(f).keys())
+                else:
+                    tokens = [line.strip("\n") for line in f]
+        cleaned_tokens = []
+        assert isinstance(tokens, list)
+        for word in tokens:
+            if (len(word) > 1 and ((word.startswith("'") and word.endswith("'"))
+                                   or (word.startswith('"') and word.endswith('"')))):
+                word = word[1:-1]
+            else:
+                if word.strip() != "":
+                    word = word.strip().split()[0]
+            if word == "":
+                continue
+            cleaned_tokens.append(word)
+        return cleaned_tokens
+
+    @staticmethod
+    def get_unique(codebook, token):
+        while token in codebook:
+            token += str(random.choice(list(range(0, 10))))
+        return token
 
     @staticmethod
     def load_from_file(vocab_path, extra_tokens=None, lowercase=False):
@@ -59,15 +109,7 @@ class Vocab(object):
 
         Returns: A `Vocab` instance
         """
-        tokens = []
-        with tf.io.gfile.GFile(vocab_path) as f:
-            for line in f:
-                a = line.strip().split('\t')
-                word = a[0]
-                if word.strip() == "":
-                    continue
-                tokens.append(word.strip())
-        return Vocab(tokens, extra_tokens, lowercase)
+        return Vocab(Vocab.load_tokens(vocab_path, tokens=None), extra_tokens, lowercase)
 
     def map_token_to_id(self, tokens, unknown_default=None):
         """ Map a token to int id, if unk return unk_id
@@ -79,19 +121,18 @@ class Vocab(object):
         Returns: int id or a list of int ids
         """
 
-        def _map(token2id, lc, t):
-            if lc and t not in self._extra_tokens:
+        def _map(t):
+            if self._lowercase and t not in self._extra_tokens:
                 t = t.lower()
             try:
-                return token2id[t]
+                return self._token_to_id_dict[t]
             except KeyError:
                 return unknown_default
 
         if isinstance(tokens, list):
-            return [_map(self._token_to_id_dict, self._lowercase, t)
-                    for t in tokens]
+            return [_map(t) for t in tokens]
         assert isinstance(tokens, str)
-        return _map(self._token_to_id_dict, self._lowercase, tokens)
+        return _map(tokens)
 
     def map_id_to_token(self, ids):
         """ Map an integer(s) to word token(s)

@@ -11,7 +11,7 @@ validator.params:
   eval_search_method: beam_search
   eval_search_method.params:
     beam_size: 4
-    length_penalty: 0.6
+    length_penalty: -1
     maximum_decode_length: 180
     extra_decode_length: 50
   eval_metric: tok_bleu

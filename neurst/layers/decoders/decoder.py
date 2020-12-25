@@ -25,6 +25,7 @@ from neurst.utils.configurable import extract_constructor_params
 @six.add_metaclass(ABCMeta)
 class Decoder(tf.keras.layers.Layer):
     """Base class for decoders. """
+    REGISTRY_NAME = "decoder"
 
     def __init__(self, name=None, **kwargs):
         """ Initializes the parameters of the decoder. """
@@ -35,12 +36,11 @@ class Decoder(tf.keras.layers.Layer):
         super(Decoder, self).build(input_shape)
 
     @abstractmethod
-    def create_decoding_internal_cache(
-            self,
-            encoder_outputs,
-            encoder_inputs_padding,
-            is_inference=False,
-            decode_padded_length=None):
+    def create_decoding_internal_cache(self,
+                                       encoder_outputs,
+                                       encoder_inputs_padding,
+                                       is_inference=False,
+                                       decode_padded_length=None):
         """ Creates internal cache for decoding.
 
         Args:

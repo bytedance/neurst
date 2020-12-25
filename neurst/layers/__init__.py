@@ -14,9 +14,15 @@ register_base_layer(TransformerFFN)
 register_base_layer(LightConvolutionLayer)
 
 
-def build_transformer_component(layer_args, dropout_rate):
+def build_transformer_component(layer_args,
+                                dropout_rate,
+                                pre_norm=True,
+                                epsilon=1e-6,
+                                name_postfix=None):
     base_layer = build_base_layer(layer_args)
     return PrePostProcessingWrapper(
         layer=base_layer,
         dropout_rate=dropout_rate,
-        name=base_layer.name + "_prepost_wrapper")
+        epsilon=epsilon,
+        pre_norm=pre_norm,
+        name=base_layer.name + (name_postfix or "_prepost_wrapper"))

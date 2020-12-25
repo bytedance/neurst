@@ -32,10 +32,13 @@ class SequenceTokenMetricLayer(MetricLayer):
     def calculate(self, input, output):
         """ Calculates metric values according to model input and output. """
         x = input[self._name_prefix]
-        x_padding = input[self._name_prefix + "_padding"]
         ms = {self._name_prefix + "_tokens": tf.cast(tf.shape(x)[0] * tf.shape(x)[1], tf.float32)}
-        ms[self._name_prefix + "_real_tokens"] = (ms[self._name_prefix + "_tokens"]
-                                                  - tf.cast(tf.reduce_sum(x_padding), tf.float32))
+        if self._name_prefix + "_padding" in input:
+            x_len = ms[self._name_prefix + "_tokens"] - tf.cast(
+                tf.reduce_sum(input[self._name_prefix + "_padding"]), tf.float32)
+        else:
+            x_len = tf.reduce_sum(tf.cast(input[self._name_prefix + "_length"], tf.float32))
+        ms[self._name_prefix + "_real_tokens"] = x_len
         return ms
 
 
@@ -59,3 +62,20 @@ class AudioFramesMetricLayer(MetricLayer):
         ms = {self._name_prefix + "_tokens": tf.cast(tf.shape(x)[0] * tf.shape(x)[1], tf.float32),
               self._name_prefix + "_real_tokens": tf.cast(tf.reduce_sum(x_len), tf.float32)}
         return ms
+
+
+class BatchCountMetricLayer(MetricLayer):
+    """Custom a layer of metrics for Transformer model."""
+
+    def __init__(self, key):
+        super(BatchCountMetricLayer, self).__init__()
+        self._key = key
+
+    def build(self, input_shape):
+        super(BatchCountMetricLayer, self).build(input_shape)
+        self.build_metric_reduction("samples", METRIC_REDUCTION.SUM)
+
+    def calculate(self, input, output):
+        """ Calculates metric values according to model input and output. """
+        x = input[self._key]
+        return {"samples": tf.cast(tf.shape(x)[0], tf.float32)}

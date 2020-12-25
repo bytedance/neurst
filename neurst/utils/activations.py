@@ -15,21 +15,17 @@ import numpy
 import tensorflow as tf
 
 
-def gelu(x, approximate=True):
+def gelu(x, non_approximate=False):
     """Gaussian Error Linear Unit.
     This is a smoother version of the RELU.
     Original paper: https://arxiv.org/abs/1606.08415
     Args:
         x: float Tensor to perform activation.
-        approximate: use tanh approximation
+        non_approximate: use tanh approximation
     Returns:
         `x` with the GELU activation applied.
     """
-    if approximate:
-        cdf = 0.5 * (1.0 + tf.tanh(
-            (numpy.sqrt(2 / numpy.pi) * (x + 0.044715 * tf.pow(x, 3)))))
-        return x * cdf
-    else:
+    if non_approximate:
         # TODO: check fp16
         # https://github.com/tensorflow/tensorflow/issues/25052
         if x.dtype.base_dtype.name == "float16":
@@ -42,6 +38,9 @@ def gelu(x, approximate=True):
             return x * tf.saturate_cast(cdf, tf.float16)
 
         return x * cdf
+    cdf = 0.5 * (1.0 + tf.tanh(
+        (numpy.sqrt(2 / numpy.pi) * (x + 0.044715 * tf.pow(x, 3)))))
+    return x * cdf
 
 
 def glu(x):
@@ -60,8 +59,8 @@ def get_activation(activ):
     elif activ == "relu":
         return tf.nn.relu
     elif activ == "gelu":
-        return lambda x: gelu(x, approximate=False)
-    elif activ == "gelu_approx":
-        return lambda x: gelu(x, approximate=True)
+        return lambda x: gelu(x, non_approximate=False)
+    elif activ == "gelu_nonapprox":
+        return lambda x: gelu(x, non_approximate=True)
     else:
         raise ValueError("Unknown activation: {}".format(activ))

@@ -348,7 +348,8 @@ def intelligent_parse_flags(flag_list, arg_parser: argparse.ArgumentParser,
             if submodule_cls is None:
                 continue
             top_program_parsed_args[f.cls_key] = submodule_cls
-            top_program_parsed_args[f.params_key] = {}
+            if top_program_parsed_args.get(f.params_key, None) is None:
+                top_program_parsed_args[f.params_key] = {}
             module_arg_parser = get_argparser(f.module_name, submodule_cls)
             module_parsed_args, remaining_argv = module_arg_parser.parse_known_args(remaining_argv)
             module_parsed_args = yaml_load_checking(module_parsed_args.__dict__)

@@ -651,9 +651,10 @@ def test_seq2seq():
            1.045481]]])) ** 2) < 1e-9
 
     # test share / no share
+    params = copy.deepcopy(params)
     params["modality.share_embedding_and_softmax_weights"] = True
     params["modality.share_source_target_embedding"] = True
-    model = build_model({"model.class": "transformer", "params": params},
+    model = build_model({"class": "transformer", "params": params},
                         src_meta=src_vocab_meta, trg_meta=src_vocab_meta)
     _ = model(parsed_inputs, is_training=False)
     assert len(model._src_modality.trainable_weights) == 2
@@ -666,9 +667,10 @@ def test_seq2seq():
             assert "shared_symbol_modality" in w.name
     assert model._output_linear_layer is None
 
+    params = copy.deepcopy(params)
     params["modality.share_embedding_and_softmax_weights"] = False
     params["modality.share_source_target_embedding"] = True
-    model = build_model({"model.class": "transformer", "params": params},
+    model = build_model({"class": "transformer", "params": params},
                         src_meta=src_vocab_meta, trg_meta=src_vocab_meta)
     _ = model(parsed_inputs, is_training=False)
     assert len(model._trg_modality.trainable_weights) == 1
@@ -677,9 +679,10 @@ def test_seq2seq():
     assert "shared_symbol_modality" in model._src_modality.trainable_weights[0].name
     assert model._output_linear_layer is not None
 
+    params = copy.deepcopy(params)
     params["modality.share_embedding_and_softmax_weights"] = True
     params["modality.share_source_target_embedding"] = False
-    model = build_model({"model.class": "transformer", "params": params},
+    model = build_model({"class": "transformer", "params": params},
                         src_meta=src_vocab_meta, trg_meta=src_vocab_meta)
     _ = model(parsed_inputs, is_training=False)
     assert len(model._trg_modality.trainable_weights) == 2
@@ -690,9 +693,10 @@ def test_seq2seq():
     assert "input_symbol_modality" in model._src_modality.trainable_weights[0].name
     assert model._output_linear_layer is None
 
+    params = copy.deepcopy(params)
     params["modality.share_embedding_and_softmax_weights"] = False
     params["modality.share_source_target_embedding"] = False
-    model = build_model({"model.class": "transformer", "params": params},
+    model = build_model({"class": "transformer", "params": params},
                         src_meta=src_vocab_meta, trg_meta=src_vocab_meta)
     _ = model(parsed_inputs, is_training=False)
     assert len(model._trg_modality.trainable_weights) == 1

@@ -4,32 +4,34 @@
 
 The final performance of speech translation on Argumented LibriSpeech is: 
 
+> See [RESULTS](/examples/speech_to_text/augmented_librispeech/RESULTS.md) for the comparison with counterparts. 
+
 - **ASR (dmodel=256, WER)** 
 
-|Framework|Model|Dev|Test| |
-|---|---|---|---|---|
-|NeurST|Transformer ASR |8.3|8.9| pure end-to-end, beam=4, no length penalty |
-|Espnet (Inaguma et al., 2020)| Transformer ASR + ctc | 6.5 | 6.4 | multi-task training with ctc loss | 
+|Model|Dev|Test|
+|---|---|---|
+|Transformer ASR |8.3|8.9|
+ 
 
 - **MT/ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)**
 
-|Framework|Model|Dev|Test|
-|---|---|---|---|
-|NeurST|Transformer MT |20.8 / 19.3 | 19.3 / 17.6 |
-|NeurST|cascade ST (Transformer ASR -> Transformer MT) | 18.3 / 17.0| 17.4 / 16.0 |
-|NeurST|end2end Transformer ST + ASR pretrain | 18.3 / 16.9 | 16.9 / 15.5  |
+|Model|Dev|Test|
+|---|---|---|
+|Transformer MT |20.8 / 19.3 | 19.3 / 17.6 |
+|cascade ST (Transformer ASR -> Transformer MT) | 18.3 / 17.0| 17.4 / 16.0 |
+|Transformer ST + ASR pretrain | 18.3 / 16.9 | 16.9 / 15.5  |
+|Transformer ST + ASR pretrain + SpecAug | 19.3 / 17.8 | 17.8 / 16.3  |
+|Transformer ST ensemble above 2 models | **19.3** / **18.0** | **18.3 / 16.8**  |
 
 - **MT/ST (dmodel=256, case-insensitive, tokenized BLEU/detokenized BLEU)**
 
-|Framework|Model|Dev|Test|
-|---|---|---|---|
-|NeurST|Transformer MT | 21.7 / 20.2 | 20.2 / 18.5 |
-|Espnet (Inaguma et al., 2020)| Transformer MT| ---- / 19.6 | ---- / 18.1 |
-|NeurST|cascade ST (Transformer ASR -> Transformer MT) | 19.2 / 17.8 | 18.2 / 16.8 |
-|Espnet (Inaguma et al., 2020)| cascade ST (Transformer ASR + ctc -> Transformer MT) | ---- / ---- | ---- / 17.0 |
-|NeurST|end2end Transformer ST + ASR pretrain | 19.2 / 17.8 | 17.9 / 16.5 |
-|Espnet (Inaguma et al., 2020)|end2end Transformer ST + ASR pretrain | ---- / ---- | ---- / 15.5 |
-|Espnet (Inaguma et al., 2020)|end2end Transformer ST + ASR/MT pretrain + SpecAug | ---- / ---- | ---- / 16.7 |
+|Model|Dev|Test|
+|---|---|---|
+|Transformer MT | 21.7 / 20.2 | 20.2 / 18.5 |
+|cascade ST (Transformer ASR -> Transformer MT) | 19.2 / 17.8 | 18.2 / 16.8 |
+|Transformer ST + ASR pretrain | 19.2 / 17.8 | 17.9 / 16.5 |
+|Transformer ST + ASR pretrain + SpecAug | 20.2 / 18.7 | 18.7 / 17.2  |
+|Transformer ST ensemble above 2 models | **20.3** / **18.9** | **19.2** / **17.7**  |
 
 In this recipe, we will introduce how to pre-process the Augmented LibriSpeech corpus and train/evaluate a speech translation model using neurst.
 
@@ -44,6 +46,7 @@ In this recipe, we will introduce how to pre-process the Augmented LibriSpeech c
     * [Accelerating Training with TensorFlow XLA](#accelerating-training-with-tensorflow-xla)
     * [Evaluation on Testset](#evaluation-on-testset)
     * [Training ST with ASR pretraining](#training-st-with-asr-pretraining)
+    * [SpecAugment](#specaugment)
     * [Cascade ST](#cascade-st)
  
  
@@ -224,7 +227,7 @@ python3 -m neurst.cli.run_exp \
     --model_dir /path_to_data/asr_st/asr_benchmark
 ```
 
-This process will constantly scan the `model_dir`, evaluate each checkpoint and store the checkpoints with best metrics (e.g. WER for ASR) into `{model_dir}/best` directory along with the corresponding averaged version into `{model_dir}/best_avg`. 
+This process will constantly scan the `model_dir`, evaluate each checkpoint and store the checkpoints with best metrics (e.g. WER for ASR) into `{model_dir}/best` directory along with the corresponding averaged version (by default 10 latest checkpoints) into `{model_dir}/best_avg`. 
 
 ### Evaluation on Testset
 By running with
@@ -253,6 +256,10 @@ On this basis, we can further initialize the ST decoder with MT decoder by follo
     --pretrain_variable_pattern "(TransformerEncoder)|(input_audio)" "(TransformerDecoder)|(target_symbol)"
 ``` 
 > To inspect the names of model variables, use `inspect_checkpoint` tool (see [neurst/cli/README.md](/neurst/cli/README.md)).  
+
+
+### SpecAugment
+To further improve the performance of ASR or ST, we can apply SpecAugment (Park et al., 2019) by option `--specaug VALUE`. Alternatively, the VALUE can be set to LB, LD, SM and SS (described in the original paper), or a json-like string defining the detailed arguments (see [neurst/utils/audio_lib.py](/neurst/utils/audio_lib.py)))
 
 
 ### Cascade ST

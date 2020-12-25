@@ -30,19 +30,24 @@ class PrePostProcessingWrapper(tf.keras.layers.Layer):
     This class only defines the "n" - layer - "da" mode.
     """
 
-    def __init__(self, layer, dropout_rate=0.1,
-                 name="layer_prepostprocess"):
+    def __init__(self, layer, dropout_rate=0.1, epsilon=1e-12,
+                 pre_norm=True, name="layer_prepostprocess"):
         """ Initializes.
 
         Args:
             layer: The layer.
             dropout_rate: The dropout rate.
+            epsilon: The epsilon of layer norm.
+            pre_norm: Applies norm->layer->dropout->residual if True, else
+                layer->dropout->residual->norm
             name: The name of this layer.
         """
         super(PrePostProcessingWrapper, self).__init__(name=name)
         self._dropout_rate = dropout_rate
+        self._epsilon = epsilon
         self._layer = layer
         self._norm_layer = None
+        self._pre_norm = pre_norm
 
     def get_config(self):
         return dict(
@@ -52,23 +57,28 @@ class PrePostProcessingWrapper(tf.keras.layers.Layer):
     def build(self, input_shape):
         """ Creates norm layer. """
         self._norm_layer = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, dtype="float32", name="ln")
+            epsilon=self._epsilon, dtype="float32", name="ln")
         super(PrePostProcessingWrapper, self).build(input_shape)
 
     def call(self, inputs, *args, **kwargs):
-        """ call norm before applying layer
-        and call dropout+residuatl after applying layer
-        """
         is_training = kwargs["is_training"]
-        # n
-        y = self._norm_layer(inputs)
-        # layer: self att / ffn
-        y = self._layer(y, *args, **kwargs)
-        # d
-        if is_training:
-            y = tf.nn.dropout(y, rate=self._dropout_rate)
-        # a
-        return inputs + y
+        if self._pre_norm:
+            # n
+            y = self._norm_layer(inputs)
+            # layer: self att / ffn
+            y = self._layer(y, *args, **kwargs)
+            # d
+            if is_training:
+                y = tf.nn.dropout(y, rate=self._dropout_rate)
+            # a
+            return inputs + y
+        else:
+            y = self._layer(inputs, *args, **kwargs)
+            # d
+            if is_training:
+                y = tf.nn.dropout(y, rate=self._dropout_rate)
+            # an
+            return self._norm_layer(inputs + y)
 
 
 class TransformerFFN(tf.keras.layers.Layer):
@@ -275,6 +285,7 @@ class PositionEmbeddingWrapper(tf.keras.layers.Layer):
                  timing,
                  embedding_layer,
                  max_positions=512,
+                 sinusoids_as_variable=False,
                  name="position_emb_wrapper"):
         """ Initializes the position embedding layer.
 
@@ -283,6 +294,8 @@ class PositionEmbeddingWrapper(tf.keras.layers.Layer):
                 and 'emb' are supported.
             embedding_layer: The embedding layer.
             max_positions: The maximum positions.
+            sinusoids_as_variable: Whether the sinusoids position embedding
+                is pre-calculated and fixed.
             name: The name of this layer.
         """
         super(PositionEmbeddingWrapper, self).__init__(name=name)
@@ -290,8 +303,13 @@ class PositionEmbeddingWrapper(tf.keras.layers.Layer):
         self._embedding_layer = embedding_layer
         self._embedding_dim = embedding_layer.embedding_dim
         self._max_positions = max_positions
+        self._sinusoids_as_variable = sinusoids_as_variable
         assert self._timing in [None, "sinusoids", "emb"], (
             "Unknown position embedding type: \"{}\"".format(timing))
+
+    @property
+    def embedding_layer(self):
+        return self._embedding_layer
 
     def get_config(self):
         return dict(
@@ -301,13 +319,22 @@ class PositionEmbeddingWrapper(tf.keras.layers.Layer):
             name=self.name)
 
     def build(self, input_shape):
-        if self._timing == "emb":
-            self._position_emb_table = self.add_weight(
-                "weights",
-                shape=[self._max_positions, self._embedding_dim],
-                initializer=tf.random_normal_initializer(
-                    mean=0., stddev=self._embedding_dim ** -0.5),
-                trainable=True)
+        with tf.name_scope("position_embeddings"):
+            if self._timing == "emb":
+                self._position_emb_table = self.add_weight(
+                    "weights",
+                    shape=[self._max_positions, self._embedding_dim],
+                    initializer=tf.random_normal_initializer(
+                        mean=0., stddev=self._embedding_dim ** -0.5),
+                    trainable=True)
+            elif self._timing == "sinusoids" and self._sinusoids_as_variable:
+                self._position_emb_table = self.add_weight(
+                    "weights",
+                    shape=[self._max_positions, self._embedding_dim],
+                    initializer=tf.constant_initializer(
+                        self.add_sinusoids_timing_signal(
+                            tf.zeros([1, self._max_positions, self._embedding_dim]), None).numpy()[0]),
+                    trainable=False)
         super(PositionEmbeddingWrapper, self).build(input_shape)
 
     @staticmethod
@@ -381,14 +408,18 @@ class PositionEmbeddingWrapper(tf.keras.layers.Layer):
             raise ValueError("\"time\" should be provided when input x has 2-dims")
         if self._timing == "sinusoids":
             emb *= self._embedding_dim ** 0.5
-            return self.add_sinusoids_timing_signal(
-                x=emb, time=time)
-        if self._timing == "emb":
-            if x_ndims == 2:
-                position = tf.convert_to_tensor(time, dtype=tf.int32)
-            elif x_ndims == 3:
-                position = tf.range(tf.shape(emb)[1])
-            else:
-                raise ValueError("need a Tensor with rank 2 or 3")
-            position_emb = tf.gather(self._position_emb_table, position)
-            return emb + tf.expand_dims(position_emb, axis=0)
+        # TO load from positional embedding from other repos, e.g. fairseq
+        #     return self.add_sinusoids_timing_signal(
+        #         x=emb, time=time)
+        # if self._timing == "emb":
+        if self._timing == "sinusoids" and not self._sinusoids_as_variable:
+            return self.add_sinusoids_timing_signal(x=emb, time=time)
+        if x_ndims == 2:
+            position_emb = tf.gather(self._position_emb_table,
+                                     tf.convert_to_tensor(time, dtype=tf.int32))
+        elif x_ndims == 3:
+            position_emb = tf.slice(self._position_emb_table, [0, 0],
+                                    [tf.shape(emb)[1], -1])
+        else:
+            raise ValueError("need a Tensor with rank 2 or 3")
+        return emb + tf.expand_dims(position_emb, axis=0)
