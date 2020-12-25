@@ -52,5 +52,16 @@ pip3 install -e .
 ```
 If there exists ImportError during running, manually install the required packages at that time.
 
+## Citation
+```
+@misc{zhao2020neurst,
+      title={NeurST: Neural Speech Translation Toolkit}, 
+      author={Chengqi Zhao and Mingxuan Wang and Lei Li},
+      year={2020},
+      eprint={2012.10018},
+      archivePrefix={arXiv},
+}
+```
+
 ## Contact
 Any questions or suggestions, please feel free to contact us: [zhaochengqi.d@bytedance.com](mailto:zhaochengqi.d@bytedance.com), [wangmingxuan.89@bytedance.com](mailto:wangmingxuan.89@bytedance.com).
