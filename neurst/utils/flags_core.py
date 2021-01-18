@@ -164,17 +164,18 @@ class ModuleFlag(object):
     def params_key(self):
         return self.name + ".params"
 
-    def define(self, arg_parser: argparse.ArgumentParser):
+    def define(self, arg_parser: argparse.ArgumentParser, backend="tf"):
         """ Adds argument to the parser.
 
         Args:
             arg_parser: An ArgumentParser object.
+            backend: The DL backend.
 
         Returns: The parser.
         """
         _DEFINED_FLAGS[self.name] = self
         Flag(name=self.cls_key, dtype=Flag.TYPE.STRING, alias=self.name,
-             choices=list(REGISTRIES[self.module_name].keys()), default=self.default,
+             choices=list(REGISTRIES[backend][self.module_name].keys()), default=self.default,
              help=f"The class name of {self.module_name} for '{self.help}'").define(
             arg_parser, default_is_none=False)
         Flag(name=self.params_key, dtype=Flag.TYPE.STRING, default="{}",
@@ -219,23 +220,24 @@ def define_flags(flag_list: list, arg_parser=None, with_config_file=True) -> arg
     return arg_parser
 
 
-def get_argparser(module_name, cls_name) -> argparse.ArgumentParser:
+def get_argparser(module_name, cls_name, backend="tf") -> argparse.ArgumentParser:
     """ Returns the argument parser for the class.
 
     Args:
         module_name: The registered module name.
         cls_name: The class name (or alias).
+        backend: The DL backend.
 
     Returns: An argument parser that parses the class args.
     """
     arg_parser = argparse.ArgumentParser()
-    if hasattr(REGISTRIES[module_name][cls_name], "class_or_method_args"):
-        for f in REGISTRIES[module_name][cls_name].class_or_method_args():
+    if hasattr(REGISTRIES[backend][module_name][cls_name], "class_or_method_args"):
+        for f in REGISTRIES[backend][module_name][cls_name].class_or_method_args():
             f.define(arg_parser)
     return arg_parser
 
 
-def _flatten_args(flag_list, from_args):
+def _flatten_args(flag_list, from_args, backend="tf"):
     args = copy.deepcopy(from_args)
     flattened_args = {}
     for f in flag_list:
@@ -249,8 +251,8 @@ def _flatten_args(flag_list, from_args):
             elif f.name in args:
                 flattened_args[f.cls_key] = args.pop(f.name)
             if f.cls_key in flattened_args and flattened_args[f.cls_key] and args.get(f.params_key, None):
-                if hasattr(REGISTRIES[f.module_name][flattened_args[f.cls_key]], "class_or_method_args"):
-                    for ff in REGISTRIES[f.module_name][flattened_args[f.cls_key]].class_or_method_args():
+                if hasattr(REGISTRIES[backend][f.module_name][flattened_args[f.cls_key]], "class_or_method_args"):
+                    for ff in REGISTRIES[backend][f.module_name][flattened_args[f.cls_key]].class_or_method_args():
                         if isinstance(ff, Flag):
                             if ff.name in args[f.params_key] and ff.name not in flattened_args:
                                 flattened_args[ff.name] = args[f.params_key].pop(ff.name)
@@ -316,7 +318,8 @@ def parse_flags(flag_list, arg_parser: argparse.ArgumentParser,
 
 
 def intelligent_parse_flags(flag_list, arg_parser: argparse.ArgumentParser,
-                            args_preload_func=_args_preload_from_config_files):
+                            args_preload_func=_args_preload_from_config_files,
+                            backend="tf"):
     """ Parses flags from argument parser.
 
     Args:
@@ -324,6 +327,7 @@ def intelligent_parse_flags(flag_list, arg_parser: argparse.ArgumentParser,
         arg_parser: The program argument parser.
         args_preload_func: A callable function for pre-loading arguments, maybe from
             config file, hyper parameter set.
+        backend: The DL backend.
     """
     program_parsed_args, remaining_argv = arg_parser.parse_known_args()
     cfg_file_args = {}
@@ -353,10 +357,10 @@ def intelligent_parse_flags(flag_list, arg_parser: argparse.ArgumentParser,
             module_arg_parser = get_argparser(f.module_name, submodule_cls)
             module_parsed_args, remaining_argv = module_arg_parser.parse_known_args(remaining_argv)
             module_parsed_args = yaml_load_checking(module_parsed_args.__dict__)
-            if hasattr(REGISTRIES[f.module_name][submodule_cls], "class_or_method_args"):
+            if hasattr(REGISTRIES[backend][f.module_name][submodule_cls], "class_or_method_args"):
                 cfg_file_args = _flatten_args(
-                    REGISTRIES[f.module_name][submodule_cls].class_or_method_args(), cfg_file_args)
-                for inner_f in REGISTRIES[f.module_name][submodule_cls].class_or_method_args():
+                    REGISTRIES[backend][f.module_name][submodule_cls].class_or_method_args(), cfg_file_args)
+                for inner_f in REGISTRIES[backend][f.module_name][submodule_cls].class_or_method_args():
                     flag_key = inner_f.name
                     if isinstance(inner_f, ModuleFlag):
                         flag_key = inner_f.cls_key
@@ -383,28 +387,30 @@ def intelligent_parse_flags(flag_list, arg_parser: argparse.ArgumentParser,
     return top_program_parsed_args, remaining_argv
 
 
-def extend_define_and_parse(flag_name, args, remaining_argv):
+def extend_define_and_parse(flag_name, args, remaining_argv, backend="tf"):
     f = _DEFINED_FLAGS.get(flag_name, None)
     if f is None or not isinstance(f, ModuleFlag):
         return args
-    if not hasattr(REGISTRIES[f.module_name][args[f.cls_key]], "class_or_method_args"):
+    if not hasattr(REGISTRIES[backend][f.module_name][args[f.cls_key]], "class_or_method_args"):
         return args
     arg_parser = argparse.ArgumentParser()
-    for ff in REGISTRIES[f.module_name][args[f.cls_key]].class_or_method_args():
+    for ff in REGISTRIES[backend][f.module_name][args[f.cls_key]].class_or_method_args():
         if isinstance(ff, ModuleFlag):
             if args[f.params_key].get(ff.cls_key, None):
-                if hasattr(REGISTRIES[ff.module_name][args[f.params_key][ff.cls_key]], "class_or_method_args"):
-                    for fff in REGISTRIES[ff.module_name][args[f.params_key][ff.cls_key]].class_or_method_args():
+                this_cls = REGISTRIES[backend][ff.module_name][args[f.params_key][ff.cls_key]]
+                if hasattr(this_cls, "class_or_method_args"):
+                    for fff in this_cls.class_or_method_args():
                         fff.define(arg_parser)
     parsed_args, remaining_argv = arg_parser.parse_known_args(remaining_argv)
     parsed_args = yaml_load_checking(parsed_args.__dict__)
-    for ff in REGISTRIES[f.module_name][args[f.cls_key]].class_or_method_args():
+    for ff in REGISTRIES[backend][f.module_name][args[f.cls_key]].class_or_method_args():
         if isinstance(ff, ModuleFlag):
             if args[f.params_key].get(ff.cls_key, None):
-                if hasattr(REGISTRIES[ff.module_name][args[f.params_key][ff.cls_key]], "class_or_method_args"):
+                this_cls = REGISTRIES[backend][ff.module_name][args[f.params_key][ff.cls_key]]
+                if hasattr(this_cls, "class_or_method_args"):
                     if args[f.params_key].get(ff.params_key, None) is None:
                         args[f.params_key][ff.params_key] = {}
-                    for fff in REGISTRIES[ff.module_name][args[f.params_key][ff.cls_key]].class_or_method_args():
+                    for fff in this_cls.class_or_method_args():
                         flag_key = fff.name
                         if isinstance(fff, ModuleFlag):
                             flag_key = fff.cls_key
@@ -430,7 +436,7 @@ def extend_define_and_parse(flag_name, args, remaining_argv):
     return args, remaining_argv
 
 
-def verbose_flags(flag_list, args, remaining_argv):
+def verbose_flags(flag_list, args, remaining_argv, backend="tf"):
     logging.info("==========================================================================")
     logging.info("Parsed all matched flags: ")
     verbose_args = copy.deepcopy(args)
@@ -443,9 +449,9 @@ def verbose_flags(flag_list, args, remaining_argv):
                 logging.info(f" {f.cls_key}: {verbose_args[f.cls_key]}")
             if f.params_key in verbose_args:
                 if (verbose_args.get(f.cls_key, None) and hasattr(
-                    REGISTRIES[f.module_name][verbose_args[f.cls_key]], "class_or_method_args")):
+                    REGISTRIES[backend][f.module_name][verbose_args[f.cls_key]], "class_or_method_args")):
                     logging.info(f" {f.params_key}:")
-                    for ff in REGISTRIES[f.module_name][verbose_args[f.cls_key]].class_or_method_args():
+                    for ff in REGISTRIES[backend][f.module_name][verbose_args[f.cls_key]].class_or_method_args():
                         if isinstance(ff, Flag):
                             if ff.name in verbose_args[f.params_key]:
                                 logging.info(f"   {ff.name}: {verbose_args[f.params_key][ff.name]}"

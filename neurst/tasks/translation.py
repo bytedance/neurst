@@ -47,7 +47,7 @@ class Translation(Seq2Seq):
     def class_or_method_args():
         this_args = super(Translation, Translation).class_or_method_args()
         this_args.extend([
-            Flag("gpu_efficient_level", dtype=Flag.TYPE.INTEGER, default=GPU_EFFICIENT_LEVEL.LEVEL1,
+            Flag("gpu_efficient_level", dtype=Flag.TYPE.INTEGER, default=GPU_EFFICIENT_LEVEL.LEVEL0,
                  choices=tuple(GPU_EFFICIENT_LEVEL),
                  help="The efficient level for training using XLA, from 0~5."),
             Flag("auto_scaling_batch_size", dtype=Flag.TYPE.BOOLEAN, default=None,

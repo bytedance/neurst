@@ -13,6 +13,7 @@
 # limitations under the License.
 import multiprocessing
 import os
+from distutils.version import LooseVersion
 from urllib.request import urlretrieve
 
 import numpy
@@ -75,7 +76,11 @@ def to_numpy_or_python_type(tensors, bytes_as_str=False):
     """
 
     def _to_single_numpy_or_python_type(t):
-        if isinstance(t, tf.Tensor):
+        if LooseVersion(tf.__version__) < LooseVersion("2.4"):
+            is_tf_tensor = isinstance(t, tf.Tensor)
+        else:
+            is_tf_tensor = tf.is_tensor(t)
+        if is_tf_tensor:
             x = t.numpy()
             if numpy.ndim(x) == 0:
                 x = x.item()
@@ -160,3 +165,16 @@ def download_with_tqdm(url, filename):
     with TqdmUpTo(unit="B", unit_scale=True, unit_divisor=1024,
                   miniters=1, desc=filename) as t:
         urlretrieve(url, filename, reporthook=t.update_to, data=None)
+
+
+def assert_equal_numpy(tensor_a, tensor_b, epsilon=1e-6):
+    """
+
+    Args:
+        tensor_a: A numpy.ndarray
+        tensor_b: A numpy.ndarray
+        epsilon: The epsilon
+    """
+    assert tensor_a.shape == tensor_b.shape
+    diff = numpy.sqrt(numpy.sum((tensor_a - tensor_b) ** 2))
+    assert diff < epsilon, diff

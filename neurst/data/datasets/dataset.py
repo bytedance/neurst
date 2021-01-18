@@ -51,6 +51,10 @@ class Dataset(object):
         """
         dataset = tf.data.Dataset.from_generator(self.build_iterator(map_func),
                                                  output_types=map_output_dtypes)
+        options = tf.data.Options()
+        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+        dataset = dataset.with_options(options)
+
         if auto_shard:
             worker_id, num_workers, strategy = get_distributed_worker_setting()
             if num_workers > 1 and strategy in ["horovod", "byteps"]:

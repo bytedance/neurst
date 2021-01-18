@@ -162,7 +162,7 @@ class Seq2Seq(Task):
             if data_status != compat.DataStatus.PROJECTED:
                 text = dp.process(text, is_processed=(data_status == compat.DataStatus.PROCESSED))
             if mode == compat.ModeKeys.TRAIN and trunc and max_len:
-                if isinstance(text, tf.Tensor):
+                if compat.is_tf_tensor(text):
                     text = tf.cond(
                         tf.less_equal(tf.size(text), max_len), lambda: text,
                         lambda: tf.concat([text[:(max_len - 1)], text[-1:]], axis=0))

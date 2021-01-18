@@ -20,16 +20,13 @@ from typing import Tuple
 
 import tensorflow as tf
 from absl import logging
-from tensorflow.python.distribute import distribution_strategy_context, reduce_util
-from tensorflow.python.framework import dtypes
-from tensorflow.python.ops import control_flow_ops
-from tensorflow.python.training.experimental.loss_scale import DynamicLossScale, _assign_if_finite, _op_in_graph_mode
-from tensorflow.python.util import nest
 
 from neurst.criterions import Criterion
 from neurst.data.datasets import Dataset
 from neurst.data.datasets.multiple_dataset import MultipleDataset
 from neurst.training import distribution_utils
+from neurst.training.hvd_utils import HorovodDistributedLossScaleOptimizer
+from neurst.training.revised_dynamic_loss_scale import RevisedDynamicLossScale
 from neurst.utils import compat
 from neurst.utils.checkpoints import AverageCheckpointSaver, KeepBestCheckpointSaver
 from neurst.utils.configurable import ModelConfigs
@@ -72,9 +69,12 @@ def startup_env(dtype="float16",
         raise ValueError(f"Not supported dtype={dtype} (now only accept float32 and float16)")
     if dtype == "float16":
         logging.info("Using float16 as computation dtype.")
-        from tensorflow.keras.mixed_precision import experimental as mixed_precision
-        policy = mixed_precision.Policy("mixed_float16", loss_scale="dynamic")
-        mixed_precision.set_policy(policy)
+        if compat.IS_PREV_TF_2_4_0:
+            from tensorflow.keras.mixed_precision import experimental as mixed_precision
+            policy = mixed_precision.Policy("mixed_float16")
+            mixed_precision.set_policy(policy)
+        else:
+            tf.keras.mixed_precision.set_global_policy("mixed_float16")
         compat.register_computation_dtype("float16", -6.e4)
     if enable_check_numerics:
         logging.info("Enable checking numerics.")
@@ -350,69 +350,50 @@ class TrainingStatusRecorder(object):
             os.kill(os.getpid(), signal.SIGUSR1)
 
 
-# (TensorFlow 2.3!) there is a bug on math_ops.reduce_all under Horovod+fp16+XLA
-def _refacor_is_all_finite(grads):
-    """Returns a scalar boolean tensor indicating if all gradients are finite."""
-    is_finite_per_grad = []
-    for g in grads:
-        if g is None:
-            continue
-        # is_not_finite = tf.logical_not(tf.math.is_finite(g))
-        # reduced_is_finite = tf.logical_not(tf.reduce_any(is_not_finite))
+def handle_fp16_and_distributed_optimizer(optimizer, lr_schedule, hvd_backend=None):
+    if hvd_backend == "horovod":
+        import horovod.tensorflow.keras as hvd
+        from horovod.tensorflow import Compression
+    elif hvd_backend == "byteps":
+        import byteps.tensorflow.keras as hvd
+        from byteps.tensorflow import Compression
 
-        is_finite = tf.math.is_finite(g)
-        reduced_is_finite = tf.equal(tf.size(g, out_type=tf.int64),
-                                     tf.math.reduce_sum(tf.cast(is_finite, tf.int64)))
-        is_finite_per_grad.append(reduced_is_finite)
-    return tf.math.reduce_all(is_finite_per_grad)
+    if hvd_backend:
+        compression = Compression.none
+        if compat.CUSTOM_GLOBAL_FLOATX == "float16":
+            compression = Compression.fp16
 
+    if lr_schedule is not None and hvd_backend is None:
+        # TODO(ZhaoChengqi): pay attention to API changes
+        optimizer._set_hyper("learning_rate", lr_schedule)
+    # specify the following scenario
+    if compat.CUSTOM_GLOBAL_FLOATX == "float16":
+        if compat.IS_PREV_TF_2_4_0:
+            from tensorflow.keras.mixed_precision.experimental import LossScaleOptimizer
+            from tensorflow.python.keras import backend
+            from tensorflow.python.training.experimental.loss_scale import get_loss_scale_weights
 
-class RevisedDynamicLossScale(DynamicLossScale):
-    def update(self, grads):
-        """Updates loss scale based on if gradients are finite in current step."""
-        grads = nest.flatten(grads)
-        if distribution_strategy_context.has_strategy():
-            distribution = distribution_strategy_context.get_cross_replica_context()
-
-            def get_is_finite(grads):
-                is_finite = _refacor_is_all_finite(grads)
-                # We cast to float, because we cannot reduce booleans with
-                # DistributionStrategy.
-                return tf.cast(is_finite, dtypes.float32)
-
-            is_finite_float = distribution.extended.call_for_each_replica(
-                get_is_finite, args=(grads,))
-            reduced_is_finite_float = distribution.reduce(reduce_util.ReduceOp.SUM,
-                                                          is_finite_float, axis=None)
-            is_finite = tf.equal(reduced_is_finite_float,
-                                 distribution.num_replicas_in_sync)
+            revised_loss_scale = RevisedDynamicLossScale()
+            if hvd_backend:
+                opt = LossScaleOptimizer(optimizer, loss_scale=1)
+                opt = hvd.DistributedOptimizer(opt, compression=compression, sparse_as_dense=True)
+                opt._loss_scale = revised_loss_scale
+                for weight in get_loss_scale_weights(opt._loss_scale):
+                    backend.track_variable(weight)
+                opt._track_trackable(opt._loss_scale, 'loss_scale', overwrite=True)
+            else:
+                opt = LossScaleOptimizer(optimizer, loss_scale=revised_loss_scale)
         else:
-            is_finite = _refacor_is_all_finite(grads)
+            if hvd_backend:
+                opt = HorovodDistributedLossScaleOptimizer(inner_optimizer=optimizer,
+                                                           compression=compression,
+                                                           sparse_as_dense=True,
+                                                           hvd_backend=hvd_backend)
+            else:
+                opt = tf.keras.mixed_precision.LossScaleOptimizer(optimizer)
+                opt._loss_scale = RevisedDynamicLossScale(
+                    initial_loss_scale=2 ** 15, growth_steps=2000, multiplier=2)
+                opt._track_trackable(opt._loss_scale, "loss_scale", overwrite=True)
+        return opt
 
-        def update_if_finite_grads():
-            """Update assuming the gradients are finite."""
-
-            def incr_loss_scale():
-                new_loss_scale = self._current_loss_scale * self._multiplier
-                return control_flow_ops.group(
-                    _assign_if_finite(self._current_loss_scale, new_loss_scale),
-                    self._num_good_steps.assign(0))
-
-            return control_flow_ops.cond(
-                self._num_good_steps + 1 >= self._increment_period,
-                incr_loss_scale, lambda: _op_in_graph_mode(
-                    self._num_good_steps.assign_add(1)))
-
-        def update_if_not_finite_grads():
-            """Update assuming the gradients are nonfinite."""
-
-            new_loss_scale = tf.math.maximum(
-                self._current_loss_scale / self._multiplier, 1)
-            return control_flow_ops.group(
-                self._num_good_steps.assign(0),
-                self._current_loss_scale.assign(new_loss_scale))
-
-        update_op = control_flow_ops.cond(is_finite, update_if_finite_grads,
-                                          update_if_not_finite_grads)
-        should_apply_gradients = is_finite
-        return update_op, should_apply_gradients
+    return optimizer

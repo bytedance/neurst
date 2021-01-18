@@ -17,7 +17,7 @@ import os
 
 import tensorflow as tf
 
-from neurst.utils.compat import register_distributed_worker_setting
+from neurst.utils.compat import IS_PREV_TF_2_4_0, register_distributed_worker_setting
 
 
 def tpu_initialize(tpu_address):
@@ -31,7 +31,7 @@ def tpu_initialize(tpu_address):
     """
     cluster_resolver = tf.distribute.cluster_resolver.TPUClusterResolver(
         tpu=tpu_address)
-    if tpu_address not in ('', 'local'):
+    if tpu_address not in ("", "local"):
         tf.config.experimental_connect_to_cluster(cluster_resolver)
     tf.tpu.experimental.initialize_tpu_system(cluster_resolver)
     return cluster_resolver
@@ -50,11 +50,18 @@ def _collective_communication(all_reduce_alg):
     Raises:
       ValueError: if `all_reduce_alg` not in [None, 'ring', 'nccl']
     """
-    collective_communication_options = {
-        None: tf.distribute.experimental.CollectiveCommunication.AUTO,
-        "ring": tf.distribute.experimental.CollectiveCommunication.RING,
-        "nccl": tf.distribute.experimental.CollectiveCommunication.NCCL
-    }
+    if IS_PREV_TF_2_4_0:
+        collective_communication_options = {
+            None: tf.distribute.experimental.CollectiveCommunication.AUTO,
+            "ring": tf.distribute.experimental.CollectiveCommunication.RING,
+            "nccl": tf.distribute.experimental.CollectiveCommunication.NCCL
+        }
+    else:
+        collective_communication_options = {
+            None: tf.distribute.experimental.CommunicationImplementation.AUTO,
+            "ring": tf.distribute.experimental.CommunicationImplementation.RING,
+            "nccl": tf.distribute.experimental.CommunicationImplementation.NCCL
+        }
     if all_reduce_alg not in collective_communication_options:
         raise ValueError(
             "When used with `multi_worker_mirrored`, valid values for "
@@ -139,7 +146,7 @@ def get_distribution_strategy(distribution_strategy="mirrored",
     if distribution_strategy == "tpu":
         # When tpu_address is an empty string, we communicate with local TPUs.
         cluster_resolver = tpu_initialize(tpu_address)
-        return tf.distribute.experimental.TPUStrategy(cluster_resolver)
+        return tf.distribute.TPUStrategy(cluster_resolver)
 
     if distribution_strategy == "multi_worker_mirrored":
         if worker_hosts is None:
@@ -160,6 +167,7 @@ def get_distribution_strategy(distribution_strategy="mirrored",
             },
             'task': {'type': 'worker', 'index': task_index}
         })
+        # if IS_TF_2_3: # TODO fit non-experimental multiworker strategy
         strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy(
             communication=_collective_communication(all_reduce_alg))
         strategy.extended.experimental_enable_get_next_as_optional = True

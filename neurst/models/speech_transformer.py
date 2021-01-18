@@ -58,7 +58,7 @@ class SpeechTransformer(EncoderDecoderModel):
                  help="The stride size for the first two conv layer"),
             Flag("modality.source.channels", dtype=Flag.TYPE.INTEGER, default=256,
                  help="The channels for the first two conv layer"),
-            Flag("modality.source.layer_norm", dtype=Flag.TYPE.BOOLEAN, default=True,
+            Flag("modality.source.layer_norm", dtype=Flag.TYPE.BOOLEAN, default=False,
                  help="Whether to apply layer norm in convolution layers."),
             Flag("encoder.num_layers", dtype=Flag.TYPE.INTEGER, default=None,
                  help="The number of stacking layers of the encoder."),

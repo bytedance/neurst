@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import re
+from distutils.version import LooseVersion
 
 import tensorflow as tf
 from absl import logging
@@ -22,6 +23,8 @@ from neurst.utils.checkpoints import NameBasedCheckpointManager
 GLOBAL_SETTING = dict()
 FLOAT_MIN = -1.e9
 CUSTOM_GLOBAL_FLOATX = "float32"
+
+IS_PREV_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion("2.4")
 
 
 def _broadcast_global_setting(name, var):
@@ -150,3 +153,9 @@ def wrapper_var_name(name_from_ckpt):
     name = name_from_ckpt.replace(".S", "/")
     name = name.replace("/.ATTRIBUTES/VARIABLE_VALUE", "")
     return name
+
+
+def is_tf_tensor(x):
+    if IS_PREV_TF_2_4_0:
+        return isinstance(x, tf.Tensor)
+    return tf.is_tensor(x)
