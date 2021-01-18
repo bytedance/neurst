@@ -274,8 +274,16 @@ def load_tfrecords(file_path,
 
     Returns: A dataset.
     """
-    _features_files = glob_tfrecords(file_path)
-    shuffle = shuffle and (num_shards == 1)
+    _features_files = []
+    for _file in flatten_string_list(file_path):
+        if tf.io.gfile.isdir(_file):
+            _features_files.append(os.path.join(_file, "*train*"))
+        elif tf.io.gfile.exists(_file):
+            _features_files.append(_file)
+        else:
+            _features_files.append(_file + "*")
+    shuffle = (shuffle is True) and (num_shards == 1)
+    # Note that it is quite slow when passing a large list to `list_files`
     dataset = tf.data.Dataset.list_files(_features_files, shuffle=shuffle)
     if num_shards > 1:
         logging.info("Shard %d of the whole dataset(total %d workers).", sharding_index, num_shards)
@@ -285,6 +293,9 @@ def load_tfrecords(file_path,
         worker_id, num_workers, strategy = get_distributed_worker_setting()
         if num_workers > 1 and strategy in ["horovod", "byteps"] and not shuffle and auto_shard:
             logging.info("Shard %d of the whole dataset(total %d workers).", worker_id, num_workers)
+            options = tf.data.Options()
+            options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.OFF
+            dataset = dataset.with_options(options)
             dataset = dataset.shard(num_workers, worker_id)
     logging.info("Loading TF Records from: ")
     for _f in dataset:

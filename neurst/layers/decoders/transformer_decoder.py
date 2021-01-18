@@ -222,6 +222,7 @@ class TransformerDecoder(Decoder):
                         is_training=is_training)
                 # ffn
                 x = ffn_layer(x, is_training=is_training)
+        outputs = x
         if not self.get_config()["post_normalize"]:
             outputs = self._output_norm_layer(x)
         if ori_ndims == 2:

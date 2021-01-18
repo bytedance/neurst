@@ -202,7 +202,7 @@ class SpeechToText(Task):
             else:
                 assert data_status["transcript"] == compat.DataStatus.PROJECTED
             if mode == compat.ModeKeys.TRAIN and trunc_trg and max_trg_len:
-                if isinstance(text, tf.Tensor):
+                if compat.is_tf_tensor(text):
                     text = tf.cond(
                         tf.less_equal(tf.size(text), max_trg_len), lambda: text,
                         lambda: tf.concat([text[:(max_trg_len - 1)], text[-1:]], axis=0))
@@ -215,7 +215,7 @@ class SpeechToText(Task):
             feature = _process_audio(data["audio"])
             ret = {"audio": feature,
                    "audio_length": tf.cast(
-                       (tf.shape(feature)[0] if isinstance(feature, tf.Tensor)
+                       (tf.shape(feature)[0] if compat.is_tf_tensor(feature)
                         else feature.shape[0]) // self._audio_feature_dim // self._audio_feature_channels,
                        dtype=tf.int64)}
             if with_label:

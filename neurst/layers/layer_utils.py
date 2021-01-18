@@ -68,7 +68,7 @@ def stack_beam_size(x, beam_size):
           [batch_size, 1, 1, timesteps] when tensor.ndims == 4.
         NotImplementedError: if tensor.ndims > 4.
     """
-    assert isinstance(x, tf.Tensor)
+    assert compat.is_tf_tensor(x)
     original_shape = tf.shape(x)
     x = tf.expand_dims(x, axis=1)
     tile_dims = [1] * x.shape.ndims
@@ -103,7 +103,7 @@ def dynamic_tensorshape_except_last_dim(tensor):
     for i in range(len(shape_list) - 1):
         shape_list[i] = None
 
-    if isinstance(shape_list[-1], tf.Tensor):
+    if compat.is_tf_tensor(shape_list[-1]):
         shape_list[-1] = None
     return tf.TensorShape(shape_list)
 

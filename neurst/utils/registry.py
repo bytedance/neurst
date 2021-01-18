@@ -21,10 +21,15 @@ REGISTRIES = {}
 REGISTRIED_CLS2ALIAS = {}
 
 
-def setup_registry(registry_name, base_class=None, create_fn=None, verbose_creation=False):
-    if registry_name not in REGISTRIES:
-        REGISTRIES[registry_name] = {}
-        REGISTRIED_CLS2ALIAS[registry_name] = {}
+def setup_registry(registry_name, base_class=None, create_fn=None,
+                   verbose_creation=False, backend="tf"):
+    if backend not in REGISTRIES:
+        REGISTRIES[backend] = {}
+        REGISTRIED_CLS2ALIAS[backend] = {}
+
+    if registry_name not in REGISTRIES[backend]:
+        REGISTRIES[backend][registry_name] = {}
+        REGISTRIED_CLS2ALIAS[backend][registry_name] = {}
 
     from neurst.utils.flags_core import Flag, ModuleFlag
 
@@ -65,9 +70,9 @@ def setup_registry(registry_name, base_class=None, create_fn=None, verbose_creat
         if isinstance(cls_, str):
             if cls_.lower() == "none":
                 return None
-            if cls_ not in REGISTRIES[registry_name]:
+            if cls_ not in REGISTRIES[backend][registry_name]:
                 raise ValueError("Not registered class name: {}.".format(cls_))
-            cls_ = REGISTRIES[registry_name][cls_]
+            cls_ = REGISTRIES[backend][registry_name][cls_]
             builder = cls_
         elif callable(cls_):
             builder = cls_
@@ -109,12 +114,12 @@ def setup_registry(registry_name, base_class=None, create_fn=None, verbose_creat
             names.add(cls_.__name__.lower())
             names.add("_".join(re.sub("([A-Z])", r' \1', cls_.__name__).lower().strip().split()))
             for n in names:
-                if n in REGISTRIES[registry_name]:
-                    if REGISTRIES[registry_name][n] != cls_:
+                if n in REGISTRIES[backend][registry_name]:
+                    if REGISTRIES[backend][registry_name][n] != cls_:
                         raise ValueError('Cannot register duplicate {} (under {})'.format(n, registry_name))
                 else:
-                    REGISTRIES[registry_name][n] = cls_
-            REGISTRIED_CLS2ALIAS[registry_name][cls_.__name__] = names
+                    REGISTRIES[backend][registry_name][n] = cls_
+            REGISTRIED_CLS2ALIAS[backend][registry_name][cls_.__name__] = names
             return cls_
 
         if isinstance(name, str):

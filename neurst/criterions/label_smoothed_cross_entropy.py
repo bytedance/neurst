@@ -18,6 +18,7 @@ from neurst.criterions import register_criterion
 from neurst.criterions.criterion import Criterion
 from neurst.metrics.metric import MetricWrapper
 from neurst.models.model_utils import input_length_to_nonpadding
+from neurst.utils.compat import is_tf_tensor
 from neurst.utils.flags_core import Flag
 
 
@@ -90,7 +91,7 @@ class LabelSmoothedCrossEntropy(Criterion):
         logits = model_out
         if isinstance(model_out, dict):
             logits = model_out["logits"]
-        elif not isinstance(model_out, tf.Tensor):
+        elif not is_tf_tensor(model_out):
             raise ValueError("Not supported type of model_out: {}".format(type(model_out)))
 
         logits = tf.cast(logits, tf.float32)

@@ -107,10 +107,10 @@ class LearningRateScheduler(CentralizedCallback):
         if not hasattr(self.model.optimizer, 'lr'):
             raise ValueError('Optimizer must have a "lr" attribute.')
         lr = self._lr_schedule(step)
-        if not isinstance(lr, (tf.Tensor, float, numpy.float32, numpy.float64)):
+        if not (compat.is_tf_tensor(lr) or isinstance(lr, (float, numpy.float32, numpy.float64))):
             raise ValueError('The output of the "schedule" function '
                              'should be float.')
-        if isinstance(lr, tf.Tensor) and not lr.dtype.is_floating:
+        if compat.is_tf_tensor(lr) and not lr.dtype.is_floating:
             raise ValueError('The dtype of Tensor should be float')
         K.set_value(self.model.optimizer.lr, K.get_value(lr))
 
@@ -159,14 +159,16 @@ class MetricReductionCallback(CentralizedCallback):
             from tensorflow.python.eager import context
             if context.executing_eagerly():
                 with tf.device(self._device):
-                    reduced_logs[metric] = bps.push_pull(K.constant(value, name=metric)).numpy()
+                    reduced_logs[metric] = bps.push_pull(K.constant(value, name=metric),
+                                                         op=bps.ops.ReduceOps.Sum).numpy()
             else:
                 if metric not in self.variables:
                     with tf.name_scope('MetricAverageCallback') as scope:
                         var = tf.Variable(value, name=metric)
                         K.get_session().run(var.initializer)
                         self._m_vars[metric] = var
-                        self._allreduce_ops[metric] = bps.push_pull(var, scope, device_dense=self._device)
+                        self._allreduce_ops[metric] = bps.push_pull(var, scope, device_dense=self._device,
+                                                                    op=bps.ops.ReduceOps.Sum)
                 else:
                     K.set_value(self._m_vars[metric], value)
                 reduced_logs[metric] = K.get_session().run(self._allreduce_ops[metric])

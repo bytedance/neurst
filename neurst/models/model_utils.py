@@ -56,7 +56,7 @@ def input_length_to_nonpadding(lengths, max_len, dtype=None):
     return tf.sequence_mask(
         lengths=tf.cast(lengths, tf.int32),
         maxlen=tf.cast(max_len, tf.int32),
-        dtype=(dtype or tf.dtypes.as_dtype(compat.CUSTOM_GLOBAL_FLOATX)))  # 1.0 for padding
+        dtype=(dtype or tf.dtypes.as_dtype(compat.CUSTOM_GLOBAL_FLOATX)))  # 1.0 for non-padding
 
 
 def input_length_to_padding(lengths, max_len, dtype=None):

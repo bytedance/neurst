@@ -18,6 +18,8 @@ import tensorflow as tf
 import yaml
 from absl import logging
 
+from neurst.utils.compat import is_tf_tensor
+
 
 class SpecAugment(object):
     """ Implements SpecAugment, https://arxiv.org/abs/1904.08779 """
@@ -250,6 +252,6 @@ class SpecAugment(object):
             A tuple (augmented spectrogram, new true_length) if ndims of `spectrogram` is 3,
             else the augmented spectrogram.
         """
-        if isinstance(spectrogram, tf.Tensor):
+        if is_tf_tensor(spectrogram):
             return self._call_tf(spectrogram)
         return self._call_numpy(spectrogram)

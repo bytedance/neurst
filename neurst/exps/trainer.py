@@ -16,9 +16,6 @@ from distutils.version import LooseVersion
 
 import tensorflow as tf
 from absl import logging
-from tensorflow.keras.mixed_precision.experimental import LossScaleOptimizer
-from tensorflow.python.keras import backend
-from tensorflow.python.training.experimental import loss_scale as loss_scale_module
 
 from neurst.criterions import Criterion, build_criterion
 from neurst.data.dataset_utils import map_data_for_keras
@@ -29,45 +26,11 @@ from neurst.optimizers import OPTIMIZER_REGISTRY_NAME, build_optimizer
 from neurst.optimizers.schedules import LR_SCHEDULE_REGISTRY_NAME, build_lr_schedule
 from neurst.training import (CustomCheckpointCallback, LearningRateScheduler, MetricReductionCallback, Validator,
                              build_validator, training_utils)
-from neurst.training.accumgrad_keras_model import AccumgradKerasModel
+from neurst.training.gradaccum_keras_model import GradAccumKerasModel
 from neurst.utils import compat
 from neurst.utils.checkpoints import restore_checkpoint_if_possible, restore_checkpoint_if_possible_v2
 from neurst.utils.flags_core import Flag, ModuleFlag
 from neurst.utils.misc import flatten_string_list
-
-
-def _handle_fp16_and_distributed_optimizer(optimizer, lr_schedule, hvd_backend=None):
-    if hvd_backend == "horovod":
-        import horovod.tensorflow.keras as hvd
-        from horovod.tensorflow import Compression
-    elif hvd_backend == "byteps":
-        import byteps.tensorflow.keras as hvd
-        from byteps.tensorflow import Compression
-
-    if hvd_backend:
-        compression = Compression.none
-        if compat.CUSTOM_GLOBAL_FLOATX == "float16":
-            compression = Compression.fp16
-
-    if lr_schedule is not None and hvd_backend is None:
-        # TODO(ZhaoChengqi): pay attention to API changes
-        optimizer._set_hyper("learning_rate", lr_schedule)
-    # specify the following scenario
-    # there is a bug under TF2.3+Horovod+fp16+XLA
-    if compat.CUSTOM_GLOBAL_FLOATX == "float16":
-        logging.info("NOTICE: using revised DynamicLossScale under fp16")
-        revised_loss_scale = training_utils.RevisedDynamicLossScale()
-        if hvd_backend:
-            opt = LossScaleOptimizer(optimizer, loss_scale=1)
-            opt = hvd.DistributedOptimizer(opt, compression=compression, sparse_as_dense=True)
-            opt._loss_scale = revised_loss_scale
-            for weight in loss_scale_module.get_loss_scale_weights(opt._loss_scale):
-                backend.track_variable(weight)
-            opt._track_trackable(opt._loss_scale, 'loss_scale', overwrite=True)
-        else:
-            opt = LossScaleOptimizer(optimizer, loss_scale=revised_loss_scale)
-        return opt
-    return optimizer
 
 
 @register_exp("train")
@@ -109,9 +72,11 @@ class Trainer(BaseExperiment):
             self._criterion = build_criterion(args)
             self._criterion.set_model(self.model)
             self._lr_schedule_args = args
-            self._optimizer = build_optimizer(args)
+            if compat.IS_PREV_TF_2_4_0:
+                self._optimizer = build_optimizer(args)
+            else:
+                self._optimizer = build_optimizer(args, clipnorm=self._clip_norm, clipvalue=self._clip_value)
             assert self._optimizer is not None, "optimizer parameters must be provided for training."
-            # self._optimizer = _handle_fp16_and_distributed_optimizer(optimizer, self._lr_schedule, self._hvd_backend)
         self._validator = build_validator(args)
         self._experimental_count_batch_num = args["experimental_count_batch_num"]
         self._freeze_variables = args["freeze_variables"]
@@ -218,18 +183,28 @@ class Trainer(BaseExperiment):
             model_out = self.model(formatted_inps, is_training=True)
             for metric_layer in self.task.build_metric_layer():
                 model_out = metric_layer([formatted_inps, model_out])
-            if LooseVersion(tf.__version__) >= LooseVersion("2.3"):
-                keras_model = AccumgradKerasModel(inps, model_out,
+            if (LooseVersion(tf.__version__) < LooseVersion("2.3")
+                or LooseVersion(tf.__version__) >= LooseVersion("2.5")):
+                logging.info(f"Warning: Need further check on AccumgradKerasModel when TF version={tf.__version__}. "
+                             f"Here we ignore update_cycle={self._update_cycle}, "
+                             f"clip_value={self._clip_value}, clip_norm={self._clip_norm}.")
+                keras_model = tf.keras.Model(inps, model_out)
+            elif compat.IS_PREV_TF_2_4_0:
+                from neurst.training.gradaccum_keras_model import TF23GradAccumKerasModel
+                keras_model = TF23GradAccumKerasModel(inps, model_out,
+                                                      update_cycle=self._update_cycle,
+                                                      clip_value=self._clip_value,
+                                                      clip_norm=self._clip_norm,
+                                                      freeze_variables=self._freeze_variables)
+            else:
+                keras_model = GradAccumKerasModel(inps, model_out,
                                                   update_cycle=self._update_cycle,
                                                   clip_value=self._clip_value,
                                                   clip_norm=self._clip_norm,
                                                   freeze_variables=self._freeze_variables)
-            else:
-                logging.info(f"Warning: ignore update_cycle={self._update_cycle}, grad_clip={self._grad_clip} "
-                             f"when TensorFlow version < 2.3.")
-                keras_model = tf.keras.Model(inps, model_out)
+
             loss = self._criterion.reduce_loss(formatted_inps, model_out)
-            if isinstance(loss, (list, tuple, tf.Tensor)):
+            if compat.is_tf_tensor(loss) or isinstance(loss, (list, tuple)):
                 keras_model.add_loss(loss)
             elif isinstance(loss, dict):
                 for _name, _loss in loss.items():
@@ -240,7 +215,7 @@ class Trainer(BaseExperiment):
                                  "unsupported value of type: {}".format(type(loss)))
             self._restore_ckpt_or_pretrain()
             self._lr_schedule = build_lr_schedule(self._lr_schedule_args)
-            self._optimizer = _handle_fp16_and_distributed_optimizer(
+            self._optimizer = training_utils.handle_fp16_and_distributed_optimizer(
                 self._optimizer, self._lr_schedule, self._hvd_backend)
             if self._hvd_backend is None:
                 keras_model.compile(self._optimizer)
