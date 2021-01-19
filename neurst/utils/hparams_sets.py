@@ -18,7 +18,7 @@ from neurst.utils.registry import REGISTRIES
 
 def register_hparams_set(name, backend="tf"):
     registry_name = "hparams_set"
-    if registry_name not in REGISTRIES:
+    if registry_name not in REGISTRIES[backend]:
         REGISTRIES[backend][registry_name] = {}
 
     def register_x_fn(fn_, short_name=None):

@@ -360,7 +360,7 @@ def restore_checkpoint_if_possible_v2(model, path, model_name=None, from_prefix=
 
     Args:
         model: A keras model.
-        path: The path to the neurst checkpoint or the path/key for the converter.
+        path: The path to the bytedseq checkpoint or the path/key for the converter.
         model_name: The converter name for converting checkpoints.
         from_prefix: The name prefix.
         to_prefix: The target name prefix.
@@ -370,11 +370,15 @@ def restore_checkpoint_if_possible_v2(model, path, model_name=None, from_prefix=
     """
     if not (model_name or from_prefix or to_prefix):
         return restore_checkpoint_if_possible(model, path, name_pattern)
-    logging.info(f"Loading {model_name} ({path}).")
+
     converter: Converter = build_converter(model_name)
-    tmp_ckpt = "ram://tmp_ckpt"
-    converter.convert(path, tmp_ckpt)
-    latest_ckpt_path = tf.train.latest_checkpoint(tmp_ckpt)
+    if converter is None:
+        latest_ckpt_path = path
+    else:
+        logging.info(f"Loading {model_name} ({path}).")
+        tmp_ckpt = "ram://tmp_ckpt"
+        converter.convert(path, tmp_ckpt)
+        latest_ckpt_path = tf.train.latest_checkpoint(tmp_ckpt)
     if from_prefix is None:
         from_prefix = checkpoint_scope_name(latest_ckpt_path)
     else:
