@@ -1,0 +1,19 @@
+validator.class: SeqGenerationValidator
+validator.params:
+  eval_dataset: ParallelTextDataset
+  eval_dataset.params:
+    src_file: DEV_SRC
+    trg_file: DEV_TRG
+  eval_batch_size: 64
+  eval_start_at: 5000
+  eval_steps: 1000
+  eval_criterion: label_smoothed_cross_entropy
+  eval_search_method: beam_search
+  eval_search_method.params:
+    beam_size: 4
+    length_penalty: 0.6
+    maximum_decode_length: 160
+    extra_decode_length: 50
+  eval_metric: bleu
+  eval_top_checkpoints_to_keep: 10
+  eval_auto_average_checkpoints: True

@@ -178,7 +178,8 @@ def make_predictions(strategy,
                      model: tf.keras.models.Model,
                      tfds,
                      custom_dataset,
-                     map_func=None):
+                     map_func=None,
+                     eagerly=False):
     """ Makes predictions.
         The `tf_ds` are created by `build_datasets` fn.
 
@@ -189,6 +190,7 @@ def make_predictions(strategy,
         custom_dataset: A Dataset object.
         map_func: A callable function that tasks custom dataset and eval result as inputs
             and converters each eval result.
+        eagerly: Whether to run eagerly.
 
     Returns: A dict of evaluation results for each dataset
         or the evaluation result for single dataset.
@@ -197,12 +199,20 @@ def make_predictions(strategy,
         tfds = {_SINGLE_DS_NAME: tfds}
     results = {}
     with get_strategy_scope(strategy):
-        predict_fn = model.make_predict_function()
+        if eagerly:
+            def predict_fn(iterator):
+                data = next(iterator)
+                return model(data)
+        else:
+            predict_fn = model.make_predict_function()
         for name, ds in tfds.items():
             assert isinstance(ds, tf.data.Dataset), (
                 "Unsupported type of dataset({}): {}".format(ds, type(ds)))
-            iterator = iter(maybe_distribution_dataset(strategy, ds.prefetch(
-                tf.data.experimental.AUTOTUNE)))
+            if eagerly:
+                iterator = iter(ds.prefetch(tf.data.experimental.AUTOTUNE))
+            else:
+                iterator = iter(maybe_distribution_dataset(strategy, ds.prefetch(
+                    tf.data.experimental.AUTOTUNE)))
             this_results = []
             while True:
                 try:

@@ -535,3 +535,22 @@ def batch_examples_by_token(dataset,
         reduce_func=batching_fn,
         window_size=None,
         window_size_func=window_size_fn))
+
+
+def take_one_record(data_path):
+    _file_path = flatten_string_list(data_path)[0]
+    if tf.io.gfile.isdir(_file_path):
+        _feature_file = os.path.join(_file_path, "*train*")
+    elif tf.io.gfile.exists(_file_path):
+        _feature_file = _file_path
+    else:
+        _feature_file = _file_path + "*"
+    dataset = tf.data.Dataset.list_files([_feature_file], shuffle=False)
+    dataset = dataset.interleave(
+        lambda f: tf.data.TFRecordDataset(f, buffer_size=128 * 1024 * 1024),
+        cycle_length=10,
+        num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    for x in dataset.take(1):
+        example = tf.train.Example()
+        example.ParseFromString(x.numpy())
+        return example

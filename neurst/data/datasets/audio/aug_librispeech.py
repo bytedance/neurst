@@ -18,7 +18,6 @@ from absl import logging
 
 from neurst.data.datasets import register_dataset
 from neurst.data.datasets.audio.audio_dataset import RawAudioDataset
-from neurst.utils.compat import DataStatus
 
 
 @register_dataset("AugmentedLibriSpeech")
@@ -44,14 +43,6 @@ class AugLibriSpeech(RawAudioDataset):
         super(AugLibriSpeech, self).__init__(args)
         self._transc_transla_list = None
 
-    @property
-    def status(self):
-        return {
-            "audio": DataStatus.RAW,
-            "transcript": DataStatus.RAW,
-            "translation": DataStatus.RAW
-        }
-
     def load_transcripts(self):
         """ Loads transcripts and translations. """
         if self._transc_transla_list is not None:
@@ -75,7 +66,7 @@ class AugLibriSpeech(RawAudioDataset):
 
         trans = [(idx, tc.strip().lower(), ts.strip(), gts.strip()) for idx, tc, ts, gts
                  in zip(mapping_id, transcript, translation, g_translation)
-                 if tc.strip() and ts.strip() and gts.strip()]
+                 if self._validate(tc) and self._validate(ts) and self._validate(gts)]
         # [uttid, transcript, translation, google-translation]
         self._transc_transla_list = trans
         self._transcripts = [x[1] for x in trans]
@@ -114,11 +105,9 @@ class AugLibriSpeech(RawAudioDataset):
                         b = io.BytesIO(binary_data)
                         audio = self.extract_audio_feature(fileobj=b, mode="wav")
                         b.close()
-                        data_sample = {
-                            "audio": audio,
-                            "transcript": transcript,
-                            "translation": translation,
-                        }
+                        data_sample = self._pack_example_as_dict(
+                            audio=audio, transcript=transcript, translation=translation,
+                            src_lang=self.LANGUAGES.EN, trg_lang=self.LANGUAGES.FR)
                         if map_func is None:
                             yield data_sample
                         else:

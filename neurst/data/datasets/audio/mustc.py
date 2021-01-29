@@ -21,7 +21,6 @@ from absl import logging
 
 from neurst.data.datasets import register_dataset
 from neurst.data.datasets.audio.audio_dataset import RawAudioDataset
-from neurst.utils.compat import DataStatus
 from neurst.utils.flags_core import Flag
 
 try:
@@ -53,6 +52,7 @@ class MuSTC(RawAudioDataset):
         if self._extraction in ["tst", "test"]:
             self._extraction = "tst-COMMON"
         self._transc_transla_dict = None
+        self._trg_lang = None
 
     @staticmethod
     def class_or_method_args():
@@ -60,16 +60,8 @@ class MuSTC(RawAudioDataset):
         this_args.append(
             Flag("extraction", dtype=Flag.TYPE.STRING, default=None,
                  choices=MuSTC.EXTRACTION_CHOICES,
-                 help="The dataset portion to be extracted, e.g. train, dev, test (tst-COMMON)."))
+                 help="The dataset portion to be extracted, i.e. train, dev, test (tst-COMMON)."))
         return this_args
-
-    @property
-    def status(self):
-        return {
-            "audio": DataStatus.RAW,
-            "transcript": DataStatus.RAW,
-            "translation": DataStatus.RAW
-        }
 
     def load_transcripts(self):
         """ Loads transcripts and translations. """
@@ -88,6 +80,7 @@ class MuSTC(RawAudioDataset):
                     elif filename.endswith(".en"):
                         srcs = fp.read().decode("utf-8").strip().split("\n")
                     elif filename[-2:] in MuSTC.TARGET_LANGUAGES:
+                        self._trg_lang = filename[-2:]
                         trgs = fp.read().decode("utf-8").strip().split("\n")
                     if srcs is not None and trgs is not None and segments is not None:
                         break
@@ -106,6 +99,7 @@ class MuSTC(RawAudioDataset):
                         f.close()
                     elif re.match(r"^.*/{}.({})$".format(self._extraction, "|".join(MuSTC.TARGET_LANGUAGES)),
                                   tarinfo.name):
+                        self._trg_lang = tarinfo.name[-2:]
                         f = tar.extractfile(tarinfo)
                         trgs = f.read().decode("utf-8").strip().split("\n")
                         f.close()
@@ -119,7 +113,7 @@ class MuSTC(RawAudioDataset):
         for src, trg, seg in zip(srcs, trgs, segments):
             src = src.strip()
             trg = trg.strip()
-            if not src or not trg:
+            if not self._validate(src) or not self._validate(trg):
                 continue
             if seg["wav"] not in self._transc_transla_dict:
                 self._transc_transla_dict[seg["wav"]] = []
@@ -175,12 +169,11 @@ class MuSTC(RawAudioDataset):
                                 dtype='int16')
                         start = int(offset * sample_rate)
                         end = int((offset + duration) * sample_rate) + 1
-                        data_sample = {
-                            "audio": self.extract_audio_feature(
-                                sig=ori_audio[start:end], rate=sample_rate),
-                            "transcript": transcript,
-                            "translation": transla,
-                        }
+                        data_sample = self._pack_example_as_dict(
+                            audio=self.extract_audio_feature(sig=ori_audio[start:end], rate=sample_rate),
+                            transcript=transcript, translation=transla, src_lang=self.LANGUAGES.EN,
+                            trg_lang=getattr(self.LANGUAGES, self._trg_lang))
+
                         if map_func is None:
                             yield data_sample
                         else:
@@ -220,12 +213,10 @@ class MuSTC(RawAudioDataset):
                                 b.close()
                             start = int(offset * sample_rate)
                             end = int((offset + duration) * sample_rate) + 1
-                            data_sample = {
-                                "audio": self.extract_audio_feature(
-                                    sig=ori_audio[start:end], rate=sample_rate),
-                                "transcript": transcript,
-                                "translation": transla,
-                            }
+                            data_sample = self._pack_example_as_dict(
+                                audio=self.extract_audio_feature(sig=ori_audio[start:end], rate=sample_rate),
+                                transcript=transcript, translation=transla,
+                                src_lang=self.LANGUAGES.EN, trg_lang=getattr(self.LANGUAGES, self._trg_lang))
                             if map_func is None:
                                 yield data_sample
                             else:

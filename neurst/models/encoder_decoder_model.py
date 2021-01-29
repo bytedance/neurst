@@ -184,6 +184,30 @@ class EncoderDecoderModel(BaseModel):
         else:
             return self._output_linear_layer(features)
 
+    def get_decoder_output(self, symbols, cache, time=None,
+                           is_training=False, decode_padded_length=None):
+        """ Forward pass of the decoder.
+
+        Args:
+            symbols: Current decoded sequence.
+            cache: A dictionary of values storing the encoder output, encoder-decoder
+                attention bias, and previous decoder attention values.
+            time: Loop index, or None for transformer training.
+            is_training: Whether is under training or not.
+            decode_padded_length: The maximum decoding length when inference, for creating
+                static-shape cache.
+
+        Returns: A Tensor.
+        """
+        inputs = self._trg_modality(symbols, time=time)
+        if decode_padded_length is None:
+            decoder_output = self._decoder(inputs, cache, is_training=is_training,
+                                           decode_loop_step=None)
+        else:
+            decoder_output = self._decoder(inputs, cache, is_training=is_training,
+                                           decode_loop_step=time)
+        return decoder_output
+
     def get_symbols_to_logits_fn(self, inputs, is_training, is_inference,
                                  decode_padded_length=None):
         """ Prepares for decoding.
@@ -222,13 +246,8 @@ class EncoderDecoderModel(BaseModel):
 
             Returns: The logits Tensor.
             """
-            inputs = self._trg_modality(symbols, time=time)
-            if decode_padded_length is None:
-                decoder_output = self._decoder(inputs, cache, is_training=is_training,
-                                               decode_loop_step=None)
-            else:
-                decoder_output = self._decoder(inputs, cache, is_training=is_training,
-                                               decode_loop_step=time)
+            decoder_output = self.get_decoder_output(symbols, cache, time,
+                                                     is_training, decode_padded_length)
             logits = self.output_logits_layer(decoder_output)
             return logits
 
