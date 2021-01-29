@@ -21,7 +21,7 @@ MOSES_TOKENIZER=$1/scripts/tokenizer/tokenizer.perl
 
 if [[ ! -f $MOSES_TOKENIZER ]]; then
     echo "Fail to find Moses tokenizer: ${MOSES_TOKENIZER}"
-    echo "Usage: ./03-preprocess_mt_st.sh MOSES_DIR DATA_PATH"
+    echo "Usage: ./03-preprocess.sh MOSES_DIR DATA_PATH"
     exit 1
 fi
 

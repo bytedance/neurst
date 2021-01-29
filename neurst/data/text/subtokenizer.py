@@ -352,7 +352,7 @@ def _count_tokens(files, file_byte_limit=1e6):
                 else:
                     if file_byte_budget < 0:
                         break
-                    line = line.strip()
+                    line = " ".join(line.strip().split())
                     file_byte_budget -= len(line)
                     counter = 0
 
@@ -411,7 +411,7 @@ def _escape_token(token, alphabet):
     return u"".join(ret) + "_"
 
 
-@register_tokenizer("sub_tokenizer")
+@register_tokenizer(["sub_tokenizer", "word_piece", "wordpiece"])
 class Subtokenizer(Tokenizer):
 
     def __init__(self, language, glossaries=None, **kwargs):

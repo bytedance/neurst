@@ -6,11 +6,10 @@ from setuptools import find_packages, setup
 
 NAME = "neurst"
 DESCRIPTION = "Neural Speech Translation Toolkit"
-URL = ""
+URL = "https://github.com/bytedance/neurst"
 EMAIL = "zhaochengqi.d@bytedance.com"
 AUTHOR = "ZhaoChengqi"
 
-# TODO: one must manually install following packages if needed
 # TODO: one must manually install following packages if needed
 ALTERNATIVE_REQUIRES = [
     "jieba>=0.42.1",  # unnecessary for all
@@ -25,6 +24,7 @@ ALTERNATIVE_REQUIRES = [
     "torch>=1.7.0",  # for converting models from fairseq
     "fairseq>=0.10.1",  # for converting models from fairseq
     "tensorflow_addons>=0.11.2",  # for group normalization
+    "pydub>=0.24.1",  # for audio processing
 ]
 
 REQUIRES = ["six>=1.11.0,<2.0.0",

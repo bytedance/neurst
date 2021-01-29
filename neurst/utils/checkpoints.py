@@ -360,7 +360,7 @@ def restore_checkpoint_if_possible_v2(model, path, model_name=None, from_prefix=
 
     Args:
         model: A keras model.
-        path: The path to the bytedseq checkpoint or the path/key for the converter.
+        path: The path to the neurst checkpoint or the path/key for the converter.
         model_name: The converter name for converting checkpoints.
         from_prefix: The name prefix.
         to_prefix: The target name prefix.

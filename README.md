@@ -18,7 +18,7 @@ NeurST provides reference implementations of various models, including:
 NeurST provides several **strong and reproducible benchmarks** for various tasks:
 
 - Translation
-    - coming soon...
+    - [Transformer models on WMT14 en->de](/examples/translation)
 
 - Speech-to-Text
     - [Augmented Librispeech](/examples/speech_to_text/augmented_librispeech)

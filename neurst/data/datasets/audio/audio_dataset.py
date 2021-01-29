@@ -15,15 +15,17 @@ import contextlib
 import os
 import tarfile
 import time
+import uuid
 import zipfile
 from abc import ABCMeta, abstractmethod
+from collections import namedtuple
 
 import six
 import tensorflow as tf
 from absl import logging
 
 from neurst.data.audio import FeatureExtractor, build_feature_extractor
-from neurst.data.dataset_utils import glob_tfrecords, load_tfrecords
+from neurst.data.dataset_utils import load_tfrecords, take_one_record
 from neurst.data.datasets import Dataset, TFRecordDataset, register_dataset
 from neurst.data.datasets.text_gen_dataset import TextGenDataset
 from neurst.utils.compat import DataStatus
@@ -35,6 +37,13 @@ try:
 except (ImportError, OSError):
     pass
 
+try:
+    from pydub import AudioSegment
+except ImportError:
+    pass
+
+_languages = ["en", "de", "fr"]
+
 
 @six.add_metaclass(ABCMeta)
 class RawAudioDataset(Dataset):
@@ -45,8 +54,13 @@ class RawAudioDataset(Dataset):
             "audio": ......,
             "transcript": ......,
             "translation": ......,
+            "src_lang": ......,
+            "trg_lang": ......
         }
     """
+    LANGUAGES = namedtuple("languages",
+                           ([x.upper() for x in _languages] + _languages))(
+        *(_languages + _languages))
 
     def __init__(self, args):
         super(RawAudioDataset, self).__init__()
@@ -62,15 +76,57 @@ class RawAudioDataset(Dataset):
         except OSError:
             raise OSError("sndfile library not found. Please install with: "
                           "apt-get install libsndfile1")
+        try:
+            from pydub import AudioSegment
+            _ = AudioSegment
+        except ImportError:
+            raise ImportError("Please install pydub with: pip3 install pydub")
+        excluded_file = args["excluded_file"]
+        self._excluded_str = None
+        if excluded_file is not None:
+            if not tf.io.gfile.exists(excluded_file):
+                raise ValueError(f"`excluded_file` not found: {excluded_file}")
+            with tf.io.gfile.GFile(excluded_file) as fp:
+                self._excluded_str = " ".join(set([x.strip().lower() for x in fp]))
+
+    @property
+    def status(self):
+        return {
+            "audio": DataStatus.RAW,
+            "transcript": DataStatus.RAW,
+            "translation": DataStatus.RAW,
+            "src_lang": DataStatus.RAW,
+            "trg_lang": DataStatus.RAW
+        }
 
     @staticmethod
     def class_or_method_args():
         return [
             Flag("input_tarball", dtype=Flag.TYPE.STRING, default=None,
                  help="The original tarball."),
+            Flag("excluded_file", dtype=Flag.TYPE.STRING, default=None,
+                 help="A file containing transcriptions or translations "
+                      "that would be removed when reading the corpus "
+                      "(for filtering out testsets)."),
             ModuleFlag(FeatureExtractor.REGISTRY_NAME, default=None,
                        help="The audio feature extractor.")
         ]
+
+    def _validate(self, text):
+        """ Validate the text. """
+        # roughly match
+        if text.strip() == "":
+            return None
+        if self._excluded_str:
+            txt = text.lower()
+            txt_tokens = txt.strip().split()
+            if txt in self._excluded_str:
+                return None
+            elif (len(txt_tokens) > 10
+                  and (" ".join(txt_tokens[:len(txt_tokens) // 2]) in self._excluded_str
+                       or " ".join(txt_tokens[len(txt_tokens) // 2:]) in self._excluded_str)):
+                return None
+        return text
 
     @contextlib.contextmanager
     def open_tarball(self, mode="tar"):
@@ -102,13 +158,11 @@ class RawAudioDataset(Dataset):
         else:
             raise NotImplementedError(f"Unsupported type of input tarball: {self._input_tarball}.")
 
-    def extract_audio_feature(self, sig=None, rate=None,
-                              file=None, fileobj=None,
-                              mode="wav"):
+    def extract_audio_feature(self, sig=None, rate=None, file=None, fileobj=None, mode="wav"):
         """ Reads the audio data and extracts audio features.
 
         Args:
-            signal: A 1-D or 2-D numpy array of either integer or float data-type, the audio data.
+            sig: A 1-D or 2-D numpy array of either integer or float data-type, the audio data.
             rate: int, the sample rate.
             file: str, the file to read from.
             fileobj: file-like object, the file to read from.
@@ -123,11 +177,30 @@ class RawAudioDataset(Dataset):
             mode = mode.lower()
             if mode in ["flac", "wav"]:
                 sig, rate = soundfile.read(file or fileobj, dtype='float32')
+            elif mode == "mp3":  # need to re-sample and convert
+                tmp_wav = os.path.join(os.path.dirname(__file__), "_tmp.wav")
+                mp3 = AudioSegment.from_file(file or fileobj, "mp3")
+                mp3.set_frame_rate(16000).export(tmp_wav, format="wav")
+                sig, rate = soundfile.read(tmp_wav, dtype="float32")
             else:
                 raise NotImplementedError
         if self._feature_extractor is None:
             return sig
         return self._feature_extractor(sig, rate)
+
+    @staticmethod
+    def _pack_example_as_dict(audio, transcript=None, translation=None,
+                              src_lang=None, trg_lang=None):
+        example = {"audio": audio, "uuid": uuid.uuid4()}
+        if transcript is not None:
+            assert src_lang is not None
+            example["transcript"] = transcript
+            example["src_lang"] = src_lang
+        if translation is not None:
+            assert trg_lang is not None
+            example["translation"] = translation
+            example["trg_lang"] = trg_lang
+        return example
 
     @property
     def transcripts(self):
@@ -150,11 +223,6 @@ class RawAudioDataset(Dataset):
         elif self.translations is not None:
             return len(self.translations)
         raise ValueError("Fail to get the number of samples.")
-
-    @property
-    @abstractmethod
-    def status(self):
-        raise NotImplementedError
 
     @abstractmethod
     def load_transcripts(self):
@@ -188,21 +256,19 @@ class AudioTFRecordDataset(TFRecordDataset, TextGenDataset):
         super(AudioTFRecordDataset, self).__init__(args)
         self._feature_key = args["feature_key"]
         self._transcript_key = args["transcript_key"]
-        for x in tf.data.TFRecordDataset(glob_tfrecords(self._data_path)).take(1):
-            example = tf.train.Example()
-            example.ParseFromString(x.numpy())
-            if len(example.features.feature[self._feature_key].float_list.value) > 0:
-                self._audio_is_extracted = True
-            elif len(example.features.feature[self._feature_key].int64_list.value) > 0:
-                self._audio_is_extracted = False
-            else:
-                raise ValueError
-            if len(example.features.feature[self._transcript_key].bytes_list.value) > 0:
-                self._transcript_is_projected = False
-            elif len(example.features.feature[self._transcript_key].int64_list.value) > 0:
-                self._transcript_is_projected = True
-            else:
-                raise ValueError
+        example = take_one_record(self._data_path)
+        if len(example.features.feature[self._feature_key].float_list.value) > 0:
+            self._audio_is_extracted = True
+        elif len(example.features.feature[self._feature_key].int64_list.value) > 0:
+            self._audio_is_extracted = False
+        else:
+            raise ValueError
+        if len(example.features.feature[self._transcript_key].bytes_list.value) > 0:
+            self._transcript_is_projected = False
+        elif len(example.features.feature[self._transcript_key].int64_list.value) > 0:
+            self._transcript_is_projected = True
+        else:
+            raise ValueError
         if not hasattr(self, "_audio_is_extracted"):
             raise ValueError(f"Fail to read {self._data_path}")
 
@@ -306,27 +372,25 @@ class AudioTripleTFRecordDataset(TFRecordDataset, TextGenDataset):
         self._feature_key = args["feature_key"]
         self._transcript_key = args["transcript_key"]
         self._translation_key = args["translation_key"]
-        for x in tf.data.TFRecordDataset(glob_tfrecords(self._data_path)).take(1):
-            example = tf.train.Example()
-            example.ParseFromString(x.numpy())
-            if len(example.features.feature[self._feature_key].float_list.value) > 0:
-                self._audio_is_extracted = True
-            elif len(example.features.feature[self._feature_key].int64_list.value) > 0:
-                self._audio_is_extracted = False
-            else:
-                raise ValueError
-            if len(example.features.feature[self._transcript_key].bytes_list.value) > 0:
-                self._transcript_is_projected = False
-            elif len(example.features.feature[self._transcript_key].int64_list.value) > 0:
-                self._transcript_is_projected = True
-            else:
-                raise ValueError
-            if len(example.features.feature[self._translation_key].bytes_list.value) > 0:
-                self._translation_is_projected = False
-            elif len(example.features.feature[self._translation_key].int64_list.value) > 0:
-                self._translation_is_projected = True
-            else:
-                raise ValueError
+        example = take_one_record(self._data_path)
+        if len(example.features.feature[self._feature_key].float_list.value) > 0:
+            self._audio_is_extracted = True
+        elif len(example.features.feature[self._feature_key].int64_list.value) > 0:
+            self._audio_is_extracted = False
+        else:
+            raise ValueError
+        if len(example.features.feature[self._transcript_key].bytes_list.value) > 0:
+            self._transcript_is_projected = False
+        elif len(example.features.feature[self._transcript_key].int64_list.value) > 0:
+            self._transcript_is_projected = True
+        else:
+            raise ValueError
+        if len(example.features.feature[self._translation_key].bytes_list.value) > 0:
+            self._translation_is_projected = False
+        elif len(example.features.feature[self._translation_key].int64_list.value) > 0:
+            self._translation_is_projected = True
+        else:
+            raise ValueError
         if not hasattr(self, "_audio_is_extracted"):
             raise ValueError(f"Fail to read {self._data_path}")
         self._transcripts = None

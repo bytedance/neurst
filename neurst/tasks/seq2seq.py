@@ -21,6 +21,7 @@ from neurst.data.data_pipelines import DataPipeline, build_data_pipeline
 from neurst.data.data_pipelines.text_data_pipeline import TextDataPipeline
 from neurst.data.datasets import Dataset
 from neurst.data.datasets.parallel_text_dataset import AbstractParallelDataset
+from neurst.data.text.vocab import PaddingMode
 from neurst.layers.metric_layers.token_metric_layers import BatchCountMetricLayer, SequenceTokenMetricLayer
 from neurst.metrics import build_metric
 from neurst.models import build_model
@@ -50,7 +51,7 @@ class Seq2Seq(Task):
         trg_data_pipeline_params = args.get("trg_data_pipeline.params", None) or {}
         self._trg_data_pipeline = build_data_pipeline(
             trg_data_pipeline_cls, **trg_data_pipeline_params)
-        self._target_begin_of_sentence = args["target_begin_of_sentence"]
+        self._target_begin_of_sentence = args.get("target_begin_of_sentence", "bos")
         super(Seq2Seq, self).__init__(args)
 
     def get_config(self):
@@ -116,9 +117,9 @@ class Seq2Seq(Task):
         Returns: The input data for model.
         """
         input_dict = {"src": batch_of_data["feature"],
-                      "src_length": deduce_text_length(batch_of_data["feature"],
-                                                       self._src_data_pipeline.meta["pad_id"],
-                                                       self._src_data_pipeline.meta["padding_mode"])}
+                      "src_length": deduce_text_length(
+                          batch_of_data["feature"], self._src_data_pipeline.meta["pad_id"],
+                          self._src_data_pipeline.meta.get("padding_mode", PaddingMode.EOS_AS_PADDING))}
         bosid = (self._trg_data_pipeline.meta["eos_id"] if self._target_begin_of_sentence == "eos"
                  else self._trg_data_pipeline.meta["bos_id"])
         target_bos = tf.tile([tf.convert_to_tensor(bosid, dtype=tf.int64)],
@@ -127,9 +128,9 @@ class Seq2Seq(Task):
             input_dict["trg_input"] = target_bos
         else:
             input_dict["trg"] = batch_of_data["label"]
-            input_dict["trg_length"] = deduce_text_length(batch_of_data["label"],
-                                                          self._trg_data_pipeline.meta["pad_id"],
-                                                          self._trg_data_pipeline.meta["padding_mode"])
+            input_dict["trg_length"] = deduce_text_length(
+                batch_of_data["label"], self._trg_data_pipeline.meta["pad_id"],
+                self._trg_data_pipeline.meta.get("padding_mode", PaddingMode.EOS_AS_PADDING))
             input_dict["trg_input"] = tf.concat([tf.expand_dims(target_bos, axis=1),
                                                  batch_of_data["label"][:, :-1]], axis=1)
         return input_dict
