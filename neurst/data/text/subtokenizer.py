@@ -432,17 +432,21 @@ class Subtokenizer(Tokenizer):
 
     def init_subtokenizer(self, codes):
         subtoken_list = []
-        with tf.io.gfile.GFile(codes, mode="r") as f:
-            for line in f:
-                subtoken = line.strip()
-                if ((subtoken.startswith("'") and subtoken.endswith("'"))
-                    or (subtoken.startswith('"') and subtoken.endswith('"'))):
-                    subtoken = subtoken[1:-1]  # Remove surrounding single-quotes
-                if subtoken in self._reserved_tokens:
-                    continue
-                if " " in subtoken:
-                    self._space_wrapper = None
-                subtoken_list.append(subtoken)
+        if isinstance(codes, list):
+            subtokens = codes
+        else:
+            with tf.io.gfile.GFile(codes, mode="r") as f:
+                subtokens = [line for line in f]
+        for subtoken in subtokens:
+            subtoken = subtoken.strip()
+            if ((subtoken.startswith("'") and subtoken.endswith("'"))
+                or (subtoken.startswith('"') and subtoken.endswith('"'))):
+                subtoken = subtoken[1:-1]  # Remove surrounding single-quotes
+            if subtoken in self._reserved_tokens:
+                continue
+            if " " in subtoken:
+                self._space_wrapper = None
+            subtoken_list.append(subtoken)
         self._all_subtoken_strings = subtoken_list + self._reserved_tokens
         # we remember the maximum length of any subtoken to avoid having to
         # check arbitrarily long strings.

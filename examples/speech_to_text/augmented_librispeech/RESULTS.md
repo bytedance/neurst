@@ -33,7 +33,7 @@ test, case-insensitive
 
 |Framework|Model|Dev|Test| |
 |---|---|---|---|---|
-|NeurST|Transformer ASR |8.3|8.9| pure end-to-end, beam=4, no length penalty |
+|NeurST|Transformer ASR |8.8|8.8| pure end-to-end, beam=4, no length penalty |
 |Espnet (Inaguma et al., 2020)| Transformer ASR + ctc | 6.5 | 6.4 | multi-task training with ctc loss | 
 
 
