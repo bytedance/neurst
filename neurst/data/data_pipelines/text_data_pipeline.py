@@ -35,7 +35,7 @@ class TextDataPipeline(DataPipeline, Vocab):
 
         Args:
             language: The language.
-            vocab_path: The path to the vocabulary file.
+            vocab_path: The path to the vocabulary file, or a list of word tokens.
             tokenizer: The tokenizer name.
             subtokenizer: The name of tokenizer for subword encoding.
             subtokenizer_codes: The subword codes.
@@ -60,7 +60,10 @@ class TextDataPipeline(DataPipeline, Vocab):
                              "We assume this was done on purpose.".format(subtokenizer))
             else:
                 self._subtokenizer.init_subtokenizer(subtokenizer_codes)
-        tokens = Vocab.load_tokens(vocab_path)
+        if isinstance(vocab_path, list):
+            tokens = Vocab.load_tokens(tokens=vocab_path)
+        else:
+            tokens = Vocab.load_tokens(vocab_path=vocab_path)
         unk_token = Vocab.get_unique(tokens, "<UNK>")
         bos_token = Vocab.get_unique(tokens, "<SEQ_BEG>")
         eos_token = Vocab.get_unique(tokens, "<SEQ_END>")

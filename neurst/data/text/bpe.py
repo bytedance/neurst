@@ -22,8 +22,12 @@ class BPE(Tokenizer):
 
         self.separator = separator
         if vocabulary:
-            with tf.io.gfile.GFile(vocabulary) as fp:
-                self.vocab = [line.strip().split()[0] for line in fp]
+            if isinstance(vocabulary, str):
+                with tf.io.gfile.GFile(vocabulary) as fp:
+                    self.vocab = [line.strip().split()[0] for line in fp]
+            else:
+                assert isinstance(vocabulary, list), f"Unsupported type of vocabulary: {type(vocabulary)}"
+                self.vocab = [line.strip().split()[0] for line in vocabulary]
         else:
             self.vocab = []
         self._built = False

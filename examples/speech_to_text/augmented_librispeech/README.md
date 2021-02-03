@@ -10,7 +10,7 @@ The final performance of speech translation on Argumented LibriSpeech is:
 
 |Model|Dev|Test|
 |---|---|---|
-|Transformer ASR |8.3|8.9|
+|Transformer ASR |8.8|8.8|
  
 
 - **MT/ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)**

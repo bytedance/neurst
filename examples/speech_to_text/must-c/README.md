@@ -6,6 +6,20 @@ The final performance of speech translation on 8 languages of MuST-C (tst-COMMON
 
 > See [RESULTS](/examples/speech_to_text/must-c/RESULTS.md) for the comparison with counterparts. 
 
+The benchmark models:
+
+|Language| Models|
+|---|---|
+|DE | \[[ASR](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/de/asr.tgz)\] \[[MT](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/de/mt.tgz)\] \[[ST](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/de/st.tgz)\] \[[ST+SpecAug](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/de/st_specaug.tgz)\] |
+|ES | \[[ASR](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/es/asr.tgz)\] \[[MT](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/es/mt.tgz)\] \[[ST](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/es/st.tgz)\] \[[ST+SpecAug](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/es/st_specaug.tgz)\] |
+|FR | \[[ASR](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/fr/asr.tgz)\] \[[MT](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/fr/mt.tgz)\] \[[ST](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/fr/st.tgz)\] \[[ST+SpecAug](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/fr/st_specaug.tgz)\] |
+|IT | \[[ASR](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/it/asr.tgz)\] \[[MT](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/it/mt.tgz)\] \[[ST](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/it/st.tgz)\] \[[ST+SpecAug](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/it/st_specaug.tgz)\] |
+|NL | \[[ASR](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/nl/asr.tgz)\] \[[MT](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/nl/mt.tgz)\] \[[ST](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/nl/st.tgz)\] \[[ST+SpecAug](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/nl/st_specaug.tgz)\] |
+|PT | \[[ASR](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/pt/asr.tgz)\] \[[MT](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/pt/mt.tgz)\] \[[ST](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/pt/st.tgz)\] \[[ST+SpecAug](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/pt/st_specaug.tgz)\] |
+|RO | \[[ASR](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/ro/asr.tgz)\] \[[MT](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/ro/mt.tgz)\] \[[ST](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/ro/st.tgz)\] \[[ST+SpecAug](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/ro/st_specaug.tgz)\] |
+|RU | \[[ASR](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/ru/asr.tgz)\] \[[MT](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/ru/mt.tgz)\] \[[ST](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/ru/st.tgz)\] \[[ST+SpecAug](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/speech_to_text/mustc/ru/st_specaug.tgz)\] |
+
+
 - **ASR (dmodel=256, WER)** 
 
 |Model|DE|ES|FR|IT|NL|PT|RO|RU|

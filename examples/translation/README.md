@@ -16,6 +16,7 @@ We take WMT14 EN->DE as an example.
     * [Word piece](#word-piece)
     * [Compound Split BLEU](#compound-split-bleu)
     * [WMT14 EN2DE Benchmark](#wmt14-en2de-benchmark)
+        * [Benchmark models](#benchmark-models)
         * (Base) Tokenized BLEU
         * (Base) Detokenized BLEU (sacreBLEU)
         * (Big) Tokenized BLEU
@@ -131,6 +132,19 @@ It increases the matched n-grams and results in a much higher BLEU score.
 Here, we also provide such operation by overwriting the metric option when evaluation (`--metric compound_split_bleu`). But we still recommend to use tokenized BLEU or sacreBLEU.
 
 ### WMT14 EN2DE Benchmark
+
+#### Benchmark Models
+|                        | hparams | norm type |  |
+|------------------------|---------|-----------|----- |
+| BPE                    | base    | pre-norm  | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_bpe_prenorm.tgz)\]|
+| BPE                    | base    | post-norm | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_bpe_postnorm.tgz)\]|
+| BPE                    | big     | pre-norm  | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_bpe_prenorm.tgz)\]|
+| BPE                    | big     | post-norm | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_bpe_postnorm.tgz)\]|
+| word piece             | base    | pre-norm  | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_wp_prenorm.tgz)\]|
+| word piece             | base    | post-norm | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_wp_postnorm.tgz)\]|
+| word piece             | big     | pre-norm  | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm.tgz)\]|
+| word piece             | big     | post-norm | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_postnorm.tgz)\]|
+
 
 #### (Base) Tokenized BLEU
 |                        | hparams | norm type | dev(newstest2013) | test(newstest2014) |
