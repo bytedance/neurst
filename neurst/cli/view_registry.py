@@ -29,17 +29,17 @@ def cli_main():
         print("           Show detailed parameters of the class.")
         print()
         print("All registry names: ")
-        for k in REGISTRIES:
+        for k in REGISTRIES["tf"]:
             print(f"    - {k}")
         exit()
 
     registry_name = sys.argv[1].lower()
-    if registry_name not in REGISTRIES:
+    if registry_name not in REGISTRIES["tf"]:
         print(f"Unknown registry name: {registry_name}")
     elif len(sys.argv) == 2:
         print(f"All registered {registry_name}(s): ")
         clsname2alias = {}
-        for name, cls in REGISTRIES[registry_name].items():
+        for name, cls in REGISTRIES["tf"][registry_name].items():
             clsname = cls.__name__
             if clsname not in clsname2alias:
                 clsname2alias[clsname] = []
@@ -60,13 +60,13 @@ def cli_main():
             else:
                 print(f"Pre-defined hyperparameters set of `{detail_name}`: ")
                 print(json.dumps(get_hyper_parameters(detail_name), indent=4))
-        elif detail_name not in REGISTRIES[registry_name]:
+        elif detail_name not in REGISTRIES["tf"][registry_name]:
             print(f"Unknown class: {detail_name} under `{registry_name}`")
         else:
-            if hasattr(REGISTRIES[registry_name][detail_name], "class_or_method_args"):
+            if hasattr(REGISTRIES["tf"][registry_name][detail_name], "class_or_method_args"):
                 flags = []
                 module_flags = []
-                for f in REGISTRIES[registry_name][detail_name].class_or_method_args():
+                for f in REGISTRIES["tf"][registry_name][detail_name].class_or_method_args():
                     if isinstance(f, ModuleFlag):
                         module_flags.append(f)
                     else:

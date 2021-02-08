@@ -26,6 +26,8 @@ from neurst.optimizers import OPTIMIZER_REGISTRY_NAME, build_optimizer
 from neurst.optimizers.schedules import LR_SCHEDULE_REGISTRY_NAME, build_lr_schedule
 from neurst.training import (CustomCheckpointCallback, LearningRateScheduler, MetricReductionCallback, Validator,
                              build_validator, training_utils)
+from neurst.sparsity.pruning_optimizer import create_pruning_optimizer
+from neurst.sparsity.pruning_schedule import PolynomialDecay, PruningSchedule, build_pruning_schedule
 from neurst.training.gradaccum_keras_model import GradAccumKerasModel
 from neurst.utils import compat
 from neurst.utils.checkpoints import restore_checkpoint_if_possible, restore_checkpoint_if_possible_v2
@@ -80,6 +82,9 @@ class Trainer(BaseExperiment):
         self._validator = build_validator(args)
         self._experimental_count_batch_num = args["experimental_count_batch_num"]
         self._freeze_variables = args["freeze_variables"]
+        self._pruning_schedule = build_pruning_schedule(args)
+        self._pruning_variable_pattern = args["pruning_variable_pattern"]
+        self._nopruning_variable_pattern = args["nopruning_variable_pattern"]
 
     @staticmethod
     def class_or_method_args():
@@ -88,6 +93,8 @@ class Trainer(BaseExperiment):
             ModuleFlag(OPTIMIZER_REGISTRY_NAME, help="The optimizer for training."),
             ModuleFlag(LR_SCHEDULE_REGISTRY_NAME, help="The learning schedule for training."),
             ModuleFlag(Validator.REGISTRY_NAME, help="The validation process while training."),
+            ModuleFlag(PruningSchedule.REGISTRY_NAME, help="The schedule for weight weight_pruning.",
+                       default=PolynomialDecay.__name__),
             Flag("tb_log_dir", dtype=Flag.TYPE.STRING, default=None,
                  help="The path to store tensorboard summary, or `model_dir`/train by default."),
             Flag("train_steps", dtype=Flag.TYPE.INTEGER, default=10000000,
@@ -117,7 +124,12 @@ class Trainer(BaseExperiment):
             Flag("experimental_count_batch_num", dtype=Flag.TYPE.BOOLEAN, default=None,
                  help="Pre-scan the dataset for training and count the number of batches."),
             Flag("freeze_variables", dtype=Flag.TYPE.STRING, default=None,
-                 help="Variables whose names are matched with this regex will be freezed.")
+                 help="Variables whose names are matched with this regex will be freezed."),
+            Flag("pruning_variable_pattern", dtype=Flag.TYPE.STRING, default=None,
+                 help="The regular expression that indicates the variables will be pruned."),
+            Flag("nopruning_variable_pattern", dtype=Flag.TYPE.STRING, default=None,
+                 help="The regular expression that indicates the variables will NOT be pruned "
+                      "(will take effect if `pruning_variable_pattern`=None)."),
         ]
 
     def _restore_ckpt_or_pretrain(self):
@@ -215,6 +227,11 @@ class Trainer(BaseExperiment):
                                  "unsupported value of type: {}".format(type(loss)))
             self._restore_ckpt_or_pretrain()
             self._lr_schedule = build_lr_schedule(self._lr_schedule_args)
+            if self._pruning_schedule is not None:
+                self._optimizer = create_pruning_optimizer(self._optimizer, self.model, self._pruning_schedule,
+                                                           pruning_variable_pattern=self._pruning_variable_pattern,
+                                                           nopruning_variable_pattern=self._nopruning_variable_pattern,
+                                                           keep_prune_property=True)
             self._optimizer = training_utils.handle_fp16_and_distributed_optimizer(
                 self._optimizer, self._lr_schedule, self._hvd_backend)
             if self._hvd_backend is None:

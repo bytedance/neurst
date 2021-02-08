@@ -18,7 +18,8 @@ __all__ = [
     "tasks",
     "utils",
     "training",
-    "optimizers"
+    "optimizers",
+    "sparsity"
 ]
 
 importlib.import_module("neurst.criterions")
@@ -39,6 +40,7 @@ importlib.import_module("neurst.metrics")
 importlib.import_module("neurst.models")
 importlib.import_module("neurst.optimizers")
 importlib.import_module("neurst.optimizers.schedules")
+importlib.import_module("neurst.sparsity")
 importlib.import_module("neurst.tasks")
 importlib.import_module("neurst.training")
 importlib.import_module("neurst.utils")
