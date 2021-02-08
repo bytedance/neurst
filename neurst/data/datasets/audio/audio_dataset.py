@@ -178,7 +178,7 @@ class RawAudioDataset(Dataset):
             if mode in ["flac", "wav"]:
                 sig, rate = soundfile.read(file or fileobj, dtype='float32')
             elif mode == "mp3":  # need to re-sample and convert
-                tmp_wav = os.path.join(os.path.dirname(__file__), "_tmp.wav")
+                tmp_wav = os.path.join(os.path.dirname(__file__), f"_tmp{time.time()}.wav")
                 mp3 = AudioSegment.from_file(file or fileobj, "mp3")
                 mp3.set_frame_rate(16000).export(tmp_wav, format="wav")
                 sig, rate = soundfile.read(tmp_wav, dtype="float32")
@@ -191,7 +191,7 @@ class RawAudioDataset(Dataset):
     @staticmethod
     def _pack_example_as_dict(audio, transcript=None, translation=None,
                               src_lang=None, trg_lang=None):
-        example = {"audio": audio, "uuid": uuid.uuid4()}
+        example = {"audio": audio, "uuid": str(uuid.uuid4())}
         if transcript is not None:
             assert src_lang is not None
             example["transcript"] = transcript
