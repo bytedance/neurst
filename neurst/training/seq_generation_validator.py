@@ -73,7 +73,7 @@ class SeqGenerationValidator(CriterionValidator):
                          "in SeqGenerationValidator for validation process.")
             self._validate_gen = False
             return self
-        self._gen_metric = task.get_eval_metric(self.args, name="eval_metric")
+        self._gen_metric = task.get_eval_metric(self.args, name="eval_metric", ds=self._custom_dataset)
         if self._gen_metric is None:
             logging.info("WARNING: no metric is provided "
                          "in SeqGenerationValidator for validation process.")

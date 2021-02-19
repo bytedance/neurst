@@ -34,9 +34,14 @@ class AbstractParallelDataset(TextGenDataset):
          }
     """
 
-    def __init__(self):
+    def __init__(self, src_lang=None, trg_lang=None):
         self._sources = None
-        super(AbstractParallelDataset, self).__init__()
+        self._src_lang = src_lang
+        super(AbstractParallelDataset, self).__init__(trg_lang=trg_lang)
+
+    @property
+    def src_lang(self):
+        return self._src_lang
 
     @property
     @abstractmethod
@@ -65,7 +70,7 @@ class ParallelTextDataset(AbstractParallelDataset):
 
     def __init__(self, args):
         """ Initializes the dataset. """
-        super(ParallelTextDataset, self).__init__()
+        super(ParallelTextDataset, self).__init__(src_lang=args["src_lang"], trg_lang=args["trg_lang"])
         self._src_file = args["src_file"]
         assert self._src_file, "`src_file` must be provided for ParallelTextDataset."
         self._trg_file = args["trg_file"]
@@ -78,6 +83,8 @@ class ParallelTextDataset(AbstractParallelDataset):
             Flag("trg_file", dtype=Flag.TYPE.STRING, help="The target text file"),
             Flag("data_is_processed", dtype=Flag.TYPE.BOOLEAN,
                  help="Whether the text data is already processed."),
+            Flag("src_lang", dtype=Flag.TYPE.STRING, default=None, help="The source language"),
+            Flag("trg_lang", dtype=Flag.TYPE.STRING, default=None, help="The target language"),
         ]
 
     @property
@@ -113,9 +120,13 @@ class ParallelTextDataset(AbstractParallelDataset):
             n = 0
             for src in fsrc:
                 n += 1
-                data = {"feature": src.strip()}
+                data = {"feature": " ".join(src.strip().split())}
                 if ftrg is not None:
-                    data["label"] = ftrg.readline().strip()
+                    data["label"] = " ".join(ftrg.readline().strip().split())
+                if self.src_lang is not None:
+                    data["src_lang"] = self.src_lang
+                if self.trg_lang is not None:
+                    data["trg_lang"] = self.trg_lang
                 if total_shards > 1:
                     if n < range_begin:
                         continue

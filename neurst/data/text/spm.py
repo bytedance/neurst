@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import time
 
 import tensorflow as tf
 from absl import logging
@@ -23,7 +24,7 @@ from neurst.data.text.tokenizer import Tokenizer
 @register_tokenizer("spm")
 class SentencePiece(Tokenizer):
 
-    def __init__(self, language, glossaries=None, **kwargs):
+    def __init__(self, language=None, glossaries=None, **kwargs):
         _ = kwargs
         super(SentencePiece, self).__init__(
             language=language, glossaries=glossaries)
@@ -38,7 +39,7 @@ class SentencePiece(Tokenizer):
     def _lazy_init(self):
         codes = self._codes
         if codes.startswith("hdfs://"):
-            local_path = os.path.join(os.path.dirname(__file__), "spm.model")
+            local_path = os.path.join(os.path.dirname(__file__), "spm{}.model".format(int(time.time())))
             logging.info("Copying spm model: {} to local: {}".format(codes, local_path))
             tf.io.gfile.copy(codes, local_path, overwrite=True)
             codes = local_path

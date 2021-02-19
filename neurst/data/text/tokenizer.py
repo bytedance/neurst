@@ -61,7 +61,7 @@ class Tokenizer(object):
         Returns: A string.
         """
         if isinstance(text, str):
-            return text
+            return " ".join(text.strip().split())
         elif isinstance(text, list):
             return delimiter.join(text)
         else:

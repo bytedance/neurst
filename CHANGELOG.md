@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - PyTorch version Transformer & SpeechTransformer model.
 - Instruction for training transformer models on WMT14 EN->DE.
-- Audio extraction of CommonVoice. 
+- Audio extraction for CommonVoice/IWSLT.
+- Support weight pruning. 
+- Data sampler and dataset for multilingual machine translation
+- Multilingual Translation task
+
 
 ### Changed
 
