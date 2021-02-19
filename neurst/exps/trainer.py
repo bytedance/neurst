@@ -24,10 +24,10 @@ from neurst.exps import BaseExperiment, register_exp
 from neurst.models.model_utils import summary_model_variables
 from neurst.optimizers import OPTIMIZER_REGISTRY_NAME, build_optimizer
 from neurst.optimizers.schedules import LR_SCHEDULE_REGISTRY_NAME, build_lr_schedule
-from neurst.training import (CustomCheckpointCallback, LearningRateScheduler, MetricReductionCallback, Validator,
-                             build_validator, training_utils)
 from neurst.sparsity.pruning_optimizer import create_pruning_optimizer
 from neurst.sparsity.pruning_schedule import PolynomialDecay, PruningSchedule, build_pruning_schedule
+from neurst.training import (CustomCheckpointCallback, LearningRateScheduler, MetricReductionCallback, Validator,
+                             build_validator, training_utils)
 from neurst.training.gradaccum_keras_model import GradAccumKerasModel
 from neurst.utils import compat
 from neurst.utils.checkpoints import restore_checkpoint_if_possible, restore_checkpoint_if_possible_v2

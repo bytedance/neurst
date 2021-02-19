@@ -357,28 +357,34 @@ def intelligent_parse_flags(flag_list, arg_parser: argparse.ArgumentParser,
             module_arg_parser = get_argparser(f.module_name, submodule_cls)
             module_parsed_args, remaining_argv = module_arg_parser.parse_known_args(remaining_argv)
             module_parsed_args = yaml_load_checking(module_parsed_args.__dict__)
+
             if hasattr(REGISTRIES[backend][f.module_name][submodule_cls], "class_or_method_args"):
-                cfg_file_args = _flatten_args(
+                key_cfg_file_args = _flatten_args(
                     REGISTRIES[backend][f.module_name][submodule_cls].class_or_method_args(), cfg_file_args)
                 for inner_f in REGISTRIES[backend][f.module_name][submodule_cls].class_or_method_args():
                     flag_key = inner_f.name
                     if isinstance(inner_f, ModuleFlag):
                         flag_key = inner_f.cls_key
+                        cfg_file_args.pop(flag_key, None)
                     if module_parsed_args[flag_key] is not None:
                         top_program_parsed_args[f.params_key][flag_key] = module_parsed_args[flag_key]
                         top_program_parsed_args.pop(flag_key, None)
+                        key_cfg_file_args.pop(flag_key, None)
                         cfg_file_args.pop(flag_key, None)
                     elif flag_key in top_program_parsed_args:
                         top_program_parsed_args[f.params_key][flag_key] = top_program_parsed_args.pop(flag_key)
+                        key_cfg_file_args.pop(flag_key, None)
                         cfg_file_args.pop(flag_key, None)
-                    elif flag_key in cfg_file_args:
-                        top_program_parsed_args[f.params_key][flag_key] = cfg_file_args.pop(flag_key)
+                    elif flag_key in key_cfg_file_args:
+                        top_program_parsed_args[f.params_key][flag_key] = key_cfg_file_args.pop(flag_key)
+                        cfg_file_args.pop(flag_key, None)
 
                     if isinstance(inner_f, ModuleFlag):
                         top_program_parsed_args[f.params_key][inner_f.params_key] = deep_merge_dict(
                             cfg_file_args.pop(inner_f.params_key, {}) or {},
-                            deep_merge_dict(top_program_parsed_args.pop(inner_f.params_key, {}) or {},
-                                            module_parsed_args.pop(inner_f.params_key, {}) or {}))
+                            deep_merge_dict(top_program_parsed_args[f.params_key].pop(inner_f.params_key, {}) or {},
+                                            deep_merge_dict(top_program_parsed_args.pop(inner_f.params_key, {}) or {},
+                                                            module_parsed_args.pop(inner_f.params_key, {}) or {})))
     top_program_parsed_args = deep_merge_dict(cfg_file_args, top_program_parsed_args)
     for f in flag_list:
         if isinstance(f, Flag):

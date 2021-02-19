@@ -22,9 +22,14 @@ from neurst.data.datasets.dataset import Dataset
 class TextGenDataset(Dataset):
     """ The abstract dataset for text generation, which must implement `get_targets` function. """
 
-    def __init__(self):
+    def __init__(self, trg_lang=None):
         self._targets = None
+        self._trg_lang = trg_lang
         super(TextGenDataset, self).__init__()
+
+    @property
+    def trg_lang(self):
+        return self._trg_lang
 
     @property
     @abstractmethod

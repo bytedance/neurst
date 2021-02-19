@@ -222,7 +222,8 @@ def load_from_tfrecord_and_auto_shard(features_file, shuffle=True,
 
 
 def parse_tfexample(serialized_example, name_to_features,
-                    name_mapping=None, map_func=None):
+                    name_mapping=None, map_func=None,
+                    auxiliary_elements=None):
     """ Parses TF example from TF Record. """
     parsed = tf.io.parse_single_example(serialized_example, name_to_features)
     elements = {}
@@ -231,6 +232,9 @@ def parse_tfexample(serialized_example, name_to_features,
             elements[k] = tf.sparse.to_dense(v)
         else:
             elements[name_mapping[k]] = tf.sparse.to_dense(v)
+    if isinstance(auxiliary_elements, dict):
+        elements.update(auxiliary_elements)
+
     if map_func is None:
         return elements
     return map_func(elements)
@@ -257,7 +261,8 @@ def load_tfrecords(file_path,
                    map_func=None,
                    sharding_index=0,
                    num_shards=1,
-                   auto_shard=False) -> tf.data.Dataset:
+                   auto_shard=False,
+                   auxiliary_elements=None) -> tf.data.Dataset:
     """ Loads TFRecords and does autot-sharding according to worker num.
 
     Args:
@@ -271,6 +276,8 @@ def load_tfrecords(file_path,
         sharding_index: The manually defined index for sharding.
         num_shards: The manually defined number of shards operating in parallel.
         auto_shard: Automatically shard the TFRecord parts if True.
+        auxiliary_elements: A dict containing auxiliary elements that will
+            append to the data sample.
 
     Returns: A dataset.
     """
@@ -311,7 +318,8 @@ def load_tfrecords(file_path,
 
     if name_to_features is None:
         return dataset
-    return dataset.map(lambda x: parse_tfexample(x, name_to_features, feature_name_mapping, map_func),
+    return dataset.map(lambda x: parse_tfexample(x, name_to_features, feature_name_mapping, map_func,
+                                                 auxiliary_elements=auxiliary_elements),
                        num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 

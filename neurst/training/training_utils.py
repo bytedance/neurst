@@ -53,11 +53,14 @@ def minimal_multiple(val, factor):
 
 def maximum_lower_multiple(val, factor):
     multiple = minimal_multiple(val, factor)
-    if (multiple - val) // factor > 0.5:
+    if (multiple - val) * 1. / factor > 0.25:
         cand = multiple - factor
         if cand <= 0:
-            return multiple
-        return cand
+            return val
+        elif (val - cand) * 1. / factor >= 0.25:
+            return val
+        else:
+            return cand
     return multiple
 
 

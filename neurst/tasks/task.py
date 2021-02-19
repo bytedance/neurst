@@ -97,6 +97,6 @@ class Task(object):
         """ Builds a list of metric layers for logging and tensorboard. """
         return []
 
-    def get_eval_metric(self, args, name="metric"):
+    def get_eval_metric(self, args, name="metric", ds=None):
         """ Returns a neurst.metrics.metric.Metric object for evaluation."""
         return None
