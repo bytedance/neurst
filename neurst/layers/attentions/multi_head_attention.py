@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import tensorflow as tf
+from neurst.layers.quantization.quant_layers import QuantLayer
 
 from neurst.layers.common_layers import MultiHeadDenseLayer
 from neurst.utils.configurable import extract_constructor_params
 
 
-class MultiHeadAttention(tf.keras.layers.Layer):
+class MultiHeadAttention(QuantLayer):
     """ Class of multi-head scaled-dot-product attention with input/output
         transformations. """
 
@@ -84,6 +85,8 @@ class MultiHeadAttention(tf.keras.layers.Layer):
             is_output_transform=False,
             use_bias=True,
             name="kv_transform")
+        self.add_activation_quantizer(name="output", activation="act")
+        self.add_activation_quantizer(name="softmax", activation="softmax")
         self.built = True
 
     def compute_qkv(self, query, memory, cache, decode_loop_step=None):
@@ -139,7 +142,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
             # Note that softmax internally performs math operations using float32
             # for numeric stability. When training with float16, we keep the input
             # and output in float16 for better performance.
-            weights = tf.nn.softmax(logits)
+            weights = self.quant(tf.nn.softmax(logits), name="softmax")
         else:
             raise NotImplementedError(
                 "att_fn for \"{}\" not implemented.".format(self._attention_type))
@@ -194,7 +197,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         # T: length_k
         # H: num units per head
         # attention output: [batch_size, length_q, num_heads, num_units_per_head]
-        attention_output = tf.einsum("BNFT,BTNH->BFNH", weights, v)
+        attention_output = self.quant(tf.einsum("BNFT,BTNH->BFNH", weights, v), name="output")
 
         # Run the outputs through another linear projection layer. Recombining heads
         # is automatically done --> [batch_size, length_q, num_units]
@@ -219,6 +222,8 @@ class MultiHeadSelfAttention(MultiHeadAttention):
             is_output_transform=False,
             use_bias=True,
             name="qkv_transform")
+        self.add_activation_quantizer(name="output", activation="act")
+        self.add_activation_quantizer(name="softmax", activation="softmax")
         self.built = True
 
     def call(self, query, bias=None, cache=None, is_training=True, decode_loop_step=None):

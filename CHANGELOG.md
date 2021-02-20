@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support weight pruning. 
 - Data sampler and dataset for multilingual machine translation
 - Multilingual Translation task
+- Support int8 quantization for transformer model
 
 
 ### Changed

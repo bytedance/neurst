@@ -106,6 +106,7 @@ class TransformerEncoder(Encoder):
             self._output_norm_layer = tf.keras.layers.LayerNormalization(
                 epsilon=params["layer_postprocess_epsilon"],
                 dtype="float32", name="output_ln")
+            self.add_activation_quantizer(name="output_ln", activation="act")
         super(TransformerEncoder, self).build(input_shape)
 
     def call(self, inputs, inputs_padding, is_training=True):
@@ -145,4 +146,5 @@ class TransformerEncoder(Encoder):
             if self._return_all_layers:
                 return all_layers
             return x
-        return self._output_norm_layer(x)
+        outputs = self.quant(self._output_norm_layer(x), name="output_ln")
+        return outputs

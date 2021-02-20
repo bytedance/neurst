@@ -16,8 +16,8 @@ from typing import Tuple
 
 import tensorflow as tf
 from absl import logging
-from bytedseq.layers.metric_layers.token_metric_layers import (AudioFramesMetricLayer, BatchCountMetricLayer,
-                                                               SequenceTokenMetricLayer)
+from neurst.layers.metric_layers.token_metric_layers import (AudioFramesMetricLayer, BatchCountMetricLayer,
+                                                             SequenceTokenMetricLayer)
 
 from neurst.data import dataset_utils
 from neurst.data.data_pipelines import DataPipeline, build_data_pipeline
@@ -383,7 +383,7 @@ class SpeechToText(Task):
                 BatchCountMetricLayer("src")]
 
     def get_eval_metric(self, args, name="metric", ds=None):
-        """ Returns a bytedseq.metrics.metric.Metric object for evaluation."""
+        """ Returns a neurst.metrics.metric.Metric object for evaluation."""
         if ds is None:
             return None
         elif hasattr(ds, "trg_lang") and ds.trg_lang is not None:

@@ -81,7 +81,7 @@ class AudioConvSubsamplingLayer(tf.keras.layers.Layer):
             activation=None,
             use_bias=True,
             name="output_dense")
-        super(AudioConvSubsamplingLayer, self).__init__(input_shape)
+        super(AudioConvSubsamplingLayer, self).build(input_shape)
 
     def call(self, inputs, **kwargs):
         """ Gets token embeddings or computes logits.
@@ -220,7 +220,7 @@ class Wav2vec2FeatureExtractor(tf.keras.layers.Layer):
             self._conv_layers.append(Wav2vec2ConvBlock(
                 dim, kernel, stride, dropout_rate=self._dropout,
                 use_bias=self._conv_bias, norm_type=norm_type, name=f"conv_block{i}"))
-        super(Wav2vec2FeatureExtractor, self).__init__(input_shape)
+        super(Wav2vec2FeatureExtractor, self).build(input_shape)
 
     def call(self, inputs, is_training=False):
         """ Applies the convolutional feature extration.

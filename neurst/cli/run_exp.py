@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from absl import app, logging
+from neurst.layers.quantization import QuantLayer
 
 import neurst.utils.flags_core as flags_core
 from neurst.data.datasets import Dataset, build_dataset
@@ -38,6 +39,10 @@ FLAG_LIST = [
                          "e.g. transformer_base, transformer_big or transformer_768_16e_3d."),
     flags_core.Flag("model_dir", dtype=flags_core.Flag.TYPE.STRING,
                     help="The path to the checkpoint for saving and loading."),
+    flags_core.Flag("enable_quant", dtype=flags_core.Flag.TYPE.BOOLEAN, default=False,
+                    help="Whether to enable quantization for finetuning."),
+    flags_core.Flag("quant_params", dtype=flags_core.Flag.TYPE.STRING,
+                    help="A dict of parameters for quantization."),
     flags_core.ModuleFlag(BaseExperiment.REGISTRY_NAME, help="The program."),
     flags_core.ModuleFlag(Task.REGISTRY_NAME, help="The binding task."),
     flags_core.ModuleFlag(BaseModel.REGISTRY_NAME, help="The model."),
@@ -78,6 +83,11 @@ def run_experiment(args, remaining_argv):
         dtype=args["dtype"],
         enable_check_numerics=args["enable_check_numerics"],
         enable_xla=args["enable_xla"])
+
+    # initialize parameters for quantization.
+    if args.get("quant_params", None) is None:
+        args["quant_params"] = {}
+    QuantLayer.global_init(args["enable_quant"], **args["quant_params"])
 
     # create exps: trainer, evaluator or ...
     with training_utils.get_strategy_scope(strategy):

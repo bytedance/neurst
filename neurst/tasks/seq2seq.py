@@ -272,7 +272,7 @@ class Seq2Seq(Task):
                 BatchCountMetricLayer("src")]
 
     def get_eval_metric(self, args, name="metric", ds=None):
-        """ Returns a bytedseq.metrics.metric.Metric object for evaluation."""
+        """ Returns a neurst.metrics.metric.Metric object for evaluation."""
         if ds is None:
             return None
         elif hasattr(ds, "trg_lang") and ds.trg_lang is not None:

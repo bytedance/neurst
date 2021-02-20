@@ -17,13 +17,13 @@ from __future__ import absolute_import, division, print_function
 from abc import ABCMeta, abstractmethod
 
 import six
-import tensorflow as tf
 
 from neurst.utils.configurable import extract_constructor_params
+from neurst.layers.quantization.quant_layers import QuantLayer
 
 
 @six.add_metaclass(ABCMeta)
-class Decoder(tf.keras.layers.Layer):
+class Decoder(QuantLayer):
     """Base class for decoders. """
     REGISTRY_NAME = "decoder"
 

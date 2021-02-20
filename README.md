@@ -19,11 +19,11 @@ NeurST provides several **strong and reproducible benchmarks** for various tasks
 
 - Translation
     - [Transformer models on WMT14 en->de](/examples/translation)
-
 - Speech-to-Text
     - [Augmented Librispeech](/examples/speech_to_text/augmented_librispeech)
     - [MuST-C](/examples/speech_to_text/must-c)
-
+- [Weight Pruning](/examples/weight_pruning/README.md)
+- [Quantization Aware Training](/examples/quantization/README.md) 
 
 ### Additionally
 
