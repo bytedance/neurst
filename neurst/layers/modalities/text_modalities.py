@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import tensorflow as tf
+from neurst.layers.quantization.quant_layers import QuantLayer
 
 from neurst.utils.configurable import extract_constructor_params
 
 
-class WordEmbeddingSharedWeights(tf.keras.layers.Layer):
+class WordEmbeddingSharedWeights(QuantLayer):
     """Calculates input embeddings and pre-softmax linear with shared weights. """
 
     def __init__(self,
@@ -77,7 +78,7 @@ class WordEmbeddingSharedWeights(tf.keras.layers.Layer):
                     shape=(self._vocab_size,),
                     # initializer=tf.zeros_initializer,
                     trainable=True)
-        super(WordEmbeddingSharedWeights, self).__init__(input_shape)
+        super(WordEmbeddingSharedWeights, self).build(input_shape)
 
     def _bottom(self, x):
         """ Embedding lookup.
@@ -87,7 +88,7 @@ class WordEmbeddingSharedWeights(tf.keras.layers.Layer):
 
         Returns: A 2/3-d Tensor according to `x`.
         """
-        emb = tf.gather(self._shared_weights, x)
+        emb = tf.gather(self.quant_weight(self._shared_weights), x)
         return emb
 
     def _top(self, x):
@@ -100,9 +101,12 @@ class WordEmbeddingSharedWeights(tf.keras.layers.Layer):
         """
         original_shape = tf.shape(x)
         logits = tf.matmul(tf.reshape(x, [-1, self._embedding_dim]),
-                           self._shared_weights, transpose_b=True)
+                           tf.cast(self.quant_weight(self._shared_weights), x.dtype),
+                           transpose_b=True)
         if self._bias is not None:
             logits += self._bias
+
+        # logits = self.quant(logits, name="logits")
 
         return tf.reshape(logits, tf.concat(
             [original_shape[:-1], [self._vocab_size]], axis=0))
@@ -172,7 +176,7 @@ class TokenTypeEmbedding(tf.keras.layers.Layer):
                 trainable=True,
                 initializer=tf.random_normal_initializer(
                     mean=0., stddev=self._embedding_dim ** -0.5))
-        super(TokenTypeEmbedding, self).__init__(input_shape)
+        super(TokenTypeEmbedding, self).build(input_shape)
 
     def call(self, inputs, **kwargs):
         """ Gets token em beddings or computes logits.
@@ -251,7 +255,7 @@ class BertEmbedding(tf.keras.layers.Layer):
             trainable=True)
         self._norm_layer = tf.keras.layers.LayerNormalization(
             epsilon=self._epsilon, dtype="float32", name="ln")
-        super(BertEmbedding, self).__init__(input_shape)
+        super(BertEmbedding, self).build(input_shape)
 
     def call(self, tokens, tokens_type=None, is_training=False):
         """ Gets bert embedding.

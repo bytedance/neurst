@@ -15,10 +15,12 @@ import math
 
 import tensorflow as tf
 
+from neurst.layers.quantization.quant_dense_layer import QuantDense
+from neurst.layers.quantization.quant_layers import QuantLayer
 from neurst.utils.activations import get_activation
 
 
-class PrePostProcessingWrapper(tf.keras.layers.Layer):
+class PrePostProcessingWrapper(QuantLayer):
     """ Custom prepost processing for transformer.
 
     The sequence is specified as a string which may contain the
@@ -58,6 +60,7 @@ class PrePostProcessingWrapper(tf.keras.layers.Layer):
         """ Creates norm layer. """
         self._norm_layer = tf.keras.layers.LayerNormalization(
             epsilon=self._epsilon, dtype="float32", name="ln")
+        self.add_activation_quantizer(name="ln", activation="act")
         super(PrePostProcessingWrapper, self).build(input_shape)
 
     def call(self, inputs, *args, **kwargs):
@@ -65,6 +68,7 @@ class PrePostProcessingWrapper(tf.keras.layers.Layer):
         if self._pre_norm:
             # n
             y = self._norm_layer(inputs)
+            y = self.quant(y, name="ln")
             # layer: self att / ffn
             y = self._layer(y, *args, **kwargs)
             # d
@@ -81,7 +85,7 @@ class PrePostProcessingWrapper(tf.keras.layers.Layer):
             return self._norm_layer(inputs + y)
 
 
-class TransformerFFN(tf.keras.layers.Layer):
+class TransformerFFN(QuantLayer):
     """ Applies the position-wise feed-forward as described
     in https://arxiv.org/abs/1706.03762 """
 
@@ -118,13 +122,14 @@ class TransformerFFN(tf.keras.layers.Layer):
             name=self.name)
 
     def build(self, input_shape):
-        self._conv1 = tf.keras.layers.Dense(
-            self._filter_size,
+        self._conv1 = QuantDense(
+            units=self._filter_size,
             activation=self._activation_fn,
             use_bias=True,
-            name="dense1")
-        self._conv2 = tf.keras.layers.Dense(
-            self._output_size,
+            name="dense1",
+            activation_quantizer=self._activation)
+        self._conv2 = QuantDense(
+            units=self._output_size,
             activation=None,
             use_bias=True,
             name="dense2")
@@ -148,7 +153,7 @@ class TransformerFFN(tf.keras.layers.Layer):
         return output
 
 
-class MultiHeadDenseLayer(tf.keras.layers.Layer):
+class MultiHeadDenseLayer(QuantLayer):
     """ Auto splitting or combining heads for the linear transformation. """
 
     def __init__(self,
@@ -231,6 +236,7 @@ class MultiHeadDenseLayer(tf.keras.layers.Layer):
                 shape=self.bias_shape,
                 initializer=self._bias_initializer,
                 trainable=True)
+        self.add_activation_quantizer(name="output", activation=self._activation)
         super(MultiHeadDenseLayer, self).build(input_shape)
 
     def call(self, inputs):
@@ -246,7 +252,8 @@ class MultiHeadDenseLayer(tf.keras.layers.Layer):
                 num_units_per_head] per `self._output_units` when output_projection
                 is False, otherwise [batch_size, length, output_units].
         """
-        kernel = tf.keras.backend.reshape(self._kernel, self.kernel_shape)
+        kernel = tf.cast(tf.keras.backend.reshape(self.quant_weight(self._kernel), self.kernel_shape),
+                         inputs.dtype)
         if self._is_output_transform:
             # a: batch
             # b: length
@@ -276,10 +283,12 @@ class MultiHeadDenseLayer(tf.keras.layers.Layer):
         if self._activation_fn is not None:
             output = tf.nest.map_structure(
                 self._activation_fn, output)
+        output = tf.nest.map_structure(
+            lambda x: self.quant(x, name="output"), output)
         return tf.nest.pack_sequence_as(self._output_units, output)
 
 
-class PositionEmbeddingWrapper(tf.keras.layers.Layer):
+class PositionEmbeddingWrapper(QuantLayer):
 
     def __init__(self,
                  timing,
@@ -415,11 +424,11 @@ class PositionEmbeddingWrapper(tf.keras.layers.Layer):
         if self._timing == "sinusoids" and not self._sinusoids_as_variable:
             return self.add_sinusoids_timing_signal(x=emb, time=time)
         if x_ndims == 2:
-            position_emb = tf.gather(self._position_emb_table,
+            position_emb = tf.gather(self.quant(self._position_emb_table, name="weights"),
                                      tf.convert_to_tensor(time, dtype=tf.int32))
         elif x_ndims == 3:
-            position_emb = tf.slice(self._position_emb_table, [0, 0],
-                                    [tf.shape(emb)[1], -1])
+            position_emb = tf.slice(self.quant(self._position_emb_table, name="weights"),
+                                    [0, 0], [tf.shape(emb)[1], -1])
         else:
             raise ValueError("need a Tensor with rank 2 or 3")
         return emb + tf.expand_dims(position_emb, axis=0)

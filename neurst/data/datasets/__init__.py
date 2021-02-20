@@ -15,4 +15,4 @@ for file in os.listdir(models_dir):
         module = importlib.import_module('neurst.data.datasets.' + model_name)
 
 importlib.import_module("neurst.data.datasets.audio")
-importlib.import_module("bytedseq.data.datasets.data_sampler")
+importlib.import_module("neurst.data.datasets.data_sampler")

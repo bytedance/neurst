@@ -119,6 +119,7 @@ class TransformerDecoder(Decoder):
             self._output_norm_layer = tf.keras.layers.LayerNormalization(
                 epsilon=params["layer_postprocess_epsilon"],
                 dtype="float32", name="output_ln")
+            self.add_activation_quantizer(name="output_ln", activation="act")
         super(TransformerDecoder, self).build(input_shape)
 
     def create_decoding_internal_cache(self,
@@ -224,7 +225,7 @@ class TransformerDecoder(Decoder):
                 x = ffn_layer(x, is_training=is_training)
         outputs = x
         if not self.get_config()["post_normalize"]:
-            outputs = self._output_norm_layer(x)
+            outputs = self.quant(self._output_norm_layer(x), name="output_ln")
         if ori_ndims == 2:
             outputs = tf.squeeze(outputs, axis=1)
         return outputs

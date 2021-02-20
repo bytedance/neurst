@@ -20,6 +20,7 @@ import tensorflow as tf
 from neurst.data.datasets import Dataset
 from neurst.utils.configurable import copy_dict_list
 from neurst.utils.flags_core import COMMON_DATA_ARGS
+from neurst.layers.quantization.quant_layers import QuantLayer
 
 
 @six.add_metaclass(ABCMeta)
@@ -37,7 +38,9 @@ class Task(object):
             "model.class": model.__class__.__name__,
             "model.params": copy_dict_list(model.args),
             "task.class": self.__class__.__name__,
-            "task.params": self.get_config()
+            "task.params": self.get_config(),
+            "enable_quant": QuantLayer.enable_quant,
+            "quant_params": QuantLayer.get_global_config()
         }
 
     def create_inputs(self, mode):
