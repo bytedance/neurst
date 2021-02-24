@@ -46,6 +46,13 @@ class LogMelFbank(FeatureExtractor):
                  help="The step between successive windows in seconds. Default is 0.01s.")
         ]
 
+    @property
+    def feature_dim(self):
+        return self._nfilt
+
+    def seconds(self, feature):
+        return (numpy.shape(feature)[0] - 1.) * self._winstep + self._winlen
+
     def __call__(self, signal, rate):
         inp = logfbank(signal, samplerate=rate, nfilt=self._nfilt,
                        winlen=self._winlen, winstep=self._winstep).astype(numpy.float32)

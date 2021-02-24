@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import tensorflow as tf
-from neurst.layers.quantization.quant_layers import QuantLayer
 
 from neurst.layers.common_layers import MultiHeadDenseLayer
+from neurst.layers.quantization.quant_layers import QuantLayer
 from neurst.utils.configurable import extract_constructor_params
 
 

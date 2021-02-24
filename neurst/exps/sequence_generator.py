@@ -42,7 +42,7 @@ class SequenceGenerator(BaseExperiment):
         super(SequenceGenerator, self).__init__(**kwargs)
         self._output_file = args["output_file"]
         self._save_metric = args["save_metric"]
-        self._metric = self.task.get_eval_metric(args)
+        self._metric = self.task.get_eval_metric(args, ds=self.custom_dataset)
         self._search_layer = build_search_layer(args)
 
     @staticmethod

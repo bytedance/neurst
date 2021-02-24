@@ -22,6 +22,14 @@ class FloatIdentity(FeatureExtractor):
     def __init__(self, args):
         _ = args
 
+    def seconds(self, feature):
+        # by default: sample rate=16000
+        return len(feature) / 16000.
+
+    @property
+    def feature_dim(self):
+        return 1
+
     def __call__(self, signal, rate):
         if type(signal[0]) is float:
             return numpy.array(signal)

@@ -273,9 +273,7 @@ class Seq2Seq(Task):
 
     def get_eval_metric(self, args, name="metric", ds=None):
         """ Returns a neurst.metrics.metric.Metric object for evaluation."""
-        if ds is None:
-            return None
-        elif hasattr(ds, "trg_lang") and ds.trg_lang is not None:
+        if ds is not None and hasattr(ds, "trg_lang") and ds.trg_lang is not None:
             return build_metric(args[name + ".class"], language=ds.trg_lang,
                                 **args[name + ".params"])
         return build_metric(args[name + ".class"], language=self._trg_data_pipeline.meta["language"],

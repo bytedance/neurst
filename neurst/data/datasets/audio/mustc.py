@@ -41,7 +41,8 @@ class MuSTC(RawAudioDataset):
     Homepage: https://ict.fbk.eu/must-c/
     """
     EXTRACTION_CHOICES = ["train", "dev", "tst", "test", "tst-HE", "tst-COMMON"]
-    TARGET_LANGUAGES = ["nl", "fr", "de", "it", "pt", "ro", "ru", "es"]
+    TARGET_LANGUAGES = ["nl", "fr", "de", "it", "pt", "ro", "ru", "es",
+                        "ar", "cs", "fa", "tr", "vi", "zh"]
 
     def __init__(self, args):
         super(MuSTC, self).__init__(args)

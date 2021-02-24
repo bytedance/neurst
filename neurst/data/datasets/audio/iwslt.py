@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-import re
 import time
 
 import tensorflow as tf
@@ -21,19 +20,7 @@ from absl import logging
 
 from neurst.data.datasets import register_dataset
 from neurst.data.datasets.audio.audio_dataset import RawAudioDataset
-
-
-def _extract_from_xml(lines):
-    texts = []
-    for x in lines:
-        if isinstance(x, bytes):
-            x = x.decode("utf-8")
-        x = x.strip()
-        if x.startswith("<seg"):
-            x = x.replace("</seg>", "")
-            x = re.sub('<seg id="[0-9]*">', "", x)
-            texts.append(x)
-    return texts
+from neurst.utils.flags_core import Flag
 
 
 @register_dataset
@@ -43,6 +30,17 @@ class IWSLT(RawAudioDataset):
     def __init__(self, args):
         super(IWSLT, self).__init__(args)
         self._transc_transla_dict = None
+        self._extraction = args["extraction"]
+
+    @staticmethod
+    def class_or_method_args():
+        this_args = super(IWSLT, IWSLT).class_or_method_args()
+        this_args.append(
+            Flag("extraction", dtype=Flag.TYPE.STRING, default="train",
+                 choices=["dev2010", "offlimit2018", "train", "tst2010", "tst2011",
+                          "tst2012", "tst2013", "tst2014", "tst2015"],
+                 help="The dataset portion to be extracted, i.e. train, tst2010, etc."))
+        return this_args
 
     def load_transcripts(self):
         if self._transc_transla_dict is not None:
@@ -51,40 +49,34 @@ class IWSLT(RawAudioDataset):
         ens = None
         des = None
         segments = None
-        if self._input_tarball.endswith(".zip"):  # the tarball for training
+        if tf.io.gfile.isdir(self._input_tarball):
+            en_file = os.path.join(self._input_tarball, f"parallel/{self._extraction}.en")
+            de_file = os.path.join(self._input_tarball, f"parallel/{self._extraction}.de")
+            yaml_file = os.path.join(self._input_tarball, f"parallel/{self._extraction}.yaml")
+            with tf.io.gfile.GFile(en_file) as fp:
+                ens = [line.strip() for line in fp]
+            with tf.io.gfile.GFile(de_file) as fp:
+                des = [line.strip() for line in fp]
+            with tf.io.gfile.GFile(yaml_file) as fp:
+                segments = yaml.load(fp.read(), Loader=yaml.FullLoader)
+        elif self._input_tarball.endswith(".zip"):  # the tarball for training
             with self.open_tarball("zip") as fp:
                 for n in fp.namelist():
-                    if n.endswith("train.en"):
+                    if n.endswith(f"{self._extraction}.en"):
                         ens = fp.read(n).decode("utf-8").strip().split("\n")
-                    elif n.endswith("train.de"):
+                    elif n.endswith(f"{self._extraction}.de"):
                         des = fp.read(n).decode("utf-8").strip().split("\n")
-                    elif n.endswith("train.yaml"):
+                    elif n.endswith(f"{self._extraction}.yaml"):
                         segments = yaml.load(fp.read(n).decode("utf-8"), Loader=yaml.FullLoader)
                     if segments is not None and ens is not None and des is not None:
                         break
-        elif self._input_tarball.endswith(".tgz") or self._input_tarball.endswith(".tar.gz"):
-            with self.open_tarball("tar") as tar:
-                for tarinfo in tar:
-                    if tarinfo.name.endswith(".en.xml"):
-                        f = tar.extractfile(tarinfo)
-                        ens = _extract_from_xml(f.readlines())
-                        f.close()
-                    elif tarinfo.name.endswith(".de.xml"):
-                        f = tar.extractfile(tarinfo)
-                        des = _extract_from_xml(f.readlines())
-                        f.close()
-                    elif tarinfo.name.endswith(".en-de.yaml"):
-                        f = tar.extractfile(tarinfo)
-                        segments = yaml.load(f.read().decode("utf-8"), Loader=yaml.FullLoader)
-                        f.close()
-                    if segments is not None and ens is not None and des is not None:
-                        break
         else:
-            raise ValueError(f"Unknown tarball type: {self._input_tarball}")
+            raise ValueError(f"Unknown type of input: {self._input_tarball}")
         if ens is None:
             ens = [None] * len(segments)
         if des is None:
             des = [None] * len(segments)
+        assert len(des) == len(ens) == len(segments)
         self._transcripts = []
         self._translations = []
         n = 0
@@ -132,26 +124,22 @@ class IWSLT(RawAudioDataset):
 
         from pydub import AudioSegment
 
-        def file_iterator():
-            if self._input_tarball.endswith(".zip"):  # the tarball for training
+        def file_iterator(wavnames):
+            if tf.io.gfile.isdir(self._input_tarball):
+                for wavname in wavnames:
+                    with tf.io.gfile.GFile(f"{self._input_tarball}/wav/{wavname}", "rb") as f:
+                        audio_segment = AudioSegment.from_file(f, "wav")
+                    yield wavname, audio_segment
+            elif self._input_tarball.endswith(".zip"):  # the tarball for training
                 with self.open_tarball("zip") as fp:
-                    for n in fp.namelist():
-                        if n.endswith(".wav"):
-                            tmp_wavname = f"ram://_tmpwav{time.time()}.wav"
-                            with tf.io.gfile.GFile(tmp_wavname, "wb") as fw:
-                                fw.write(fp.read(n))
-                            with tf.io.gfile.GFile(tmp_wavname, "rb") as f:
-                                audio_segment = AudioSegment.from_file(f, "wav")
-                            yield n.strip().split("/")[-1], audio_segment
-            elif self._input_tarball.endswith(".tgz") or self._input_tarball.endswith(".tar.gz"):
-                with self.open_tarball("tar") as tar:
-                    for tarinfo in tar:
-                        if tarinfo.name.endswith(".wav"):
-                            f = tar.extractfile(tarinfo)
+                    for wavname in wavnames:
+                        n = f"iwslt-corpus/wav/{wavname}"
+                        tmp_wavname = f"ram://_tmpwav{time.time()}.wav"
+                        with tf.io.gfile.GFile(tmp_wavname, "wb") as fw:
+                            fw.write(fp.read(n))
+                        with tf.io.gfile.GFile(tmp_wavname, "rb") as f:
                             audio_segment = AudioSegment.from_file(f, "wav")
-                            yield tarinfo.name.strip().split("/")[-1], audio_segment
-                            f.close()
-
+                        yield wavname, audio_segment
             else:
                 raise ValueError(f"Unknown tarball type: {self._input_tarball}")
 
@@ -160,7 +148,7 @@ class IWSLT(RawAudioDataset):
             hit_end = False
             if self._transc_transla_dict is None:
                 self.load_transcripts()
-            for wavname, audio_segment in file_iterator():
+            for wavname, audio_segment in file_iterator(list(self._transc_transla_dict.keys())):
                 for sample in self._transc_transla_dict[wavname]:
                     n += 1
                     if total_shards > 1:

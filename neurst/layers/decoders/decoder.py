@@ -18,8 +18,8 @@ from abc import ABCMeta, abstractmethod
 
 import six
 
-from neurst.utils.configurable import extract_constructor_params
 from neurst.layers.quantization.quant_layers import QuantLayer
+from neurst.utils.configurable import extract_constructor_params
 
 
 @six.add_metaclass(ABCMeta)
