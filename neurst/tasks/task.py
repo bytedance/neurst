@@ -18,9 +18,9 @@ import six
 import tensorflow as tf
 
 from neurst.data.datasets import Dataset
+from neurst.layers.quantization.quant_layers import QuantLayer
 from neurst.utils.configurable import copy_dict_list
 from neurst.utils.flags_core import COMMON_DATA_ARGS
-from neurst.layers.quantization.quant_layers import QuantLayer
 
 
 @six.add_metaclass(ABCMeta)

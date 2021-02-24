@@ -42,7 +42,8 @@ try:
 except ImportError:
     pass
 
-_languages = ["en", "de", "fr"]
+_languages = ["en", "de", "fr", "es", "it", "nl", "pt",
+              "ro", "ru", "ar", "cs", "fa", "tr", "vi", "zh"]
 
 
 @six.add_metaclass(ABCMeta)

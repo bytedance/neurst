@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from absl import app, logging
-from neurst.layers.quantization import QuantLayer
 
 import neurst.utils.flags_core as flags_core
 from neurst.data.datasets import Dataset, build_dataset
 from neurst.exps import BaseExperiment, build_exp
+from neurst.layers.quantization import QuantLayer
 from neurst.models import BaseModel
 from neurst.tasks import Task, build_task
 from neurst.training import training_utils

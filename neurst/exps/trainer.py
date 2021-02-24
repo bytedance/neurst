@@ -58,8 +58,11 @@ class Trainer(BaseExperiment):
         else:
             self._pretrain_v2 = False
             self._pretrain_model = flatten_string_list(args["pretrain_model"])
-            if self._pretrain_model and self._pretrain_variable_pattern is None:
-                self._pretrain_variable_pattern = [None] * len(self._pretrain_model)
+            if self._pretrain_model:
+                if self._pretrain_variable_pattern is None:
+                    self._pretrain_variable_pattern = [None] * len(self._pretrain_model)
+                elif isinstance(self._pretrain_variable_pattern, str):
+                    self._pretrain_variable_pattern = [self._pretrain_variable_pattern]
             assert ((self._pretrain_model is None and self._pretrain_variable_pattern is None)
                     or len(self._pretrain_model) == len(self._pretrain_variable_pattern)
                     or len(self._pretrain_model) == 1), (

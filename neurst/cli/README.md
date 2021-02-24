@@ -9,6 +9,7 @@ NeurST provides various command line tools.
 * [`view_tfrecord`: Examine a TFRecord file](#examine-a-tfrecord-file)
 * [`inspect_checkpoint`: Inspect variables in a checkpoint](#inspect-variables-in-a-checkpoint)
 * [`convert_checkpoint`: Convert a checkpoint from a well-trained model](#convert-a-checkpoint-from-a-well-trained-model)
+* [`audio_tfrecord_analysis`: Analysis audio TFRecord dataset](#analysis-audio-tfrecord-dataset)
 
 ------
 
@@ -194,3 +195,8 @@ or to convert a fairseq transformer model:
 $ python3 -m neurst.cli.convert_checkpoint --model_name fairseq_transformer --from /path/to/transformer.pt --to /path/to/save
 ```
 
+### Analysis audio TFRecord dataset
+It will print the metadata of the audio dataset, i.e. the number of samples and the duration of all audio segments:
+```bash
+python3 -m neurst.cli.audio_tfrecord_analysis --data_path ... --feature_extractor fbank/float_identity ...
+```

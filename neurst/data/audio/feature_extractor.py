@@ -21,6 +21,17 @@ class FeatureExtractor(object):
     """ Abstract feature extractor for extracting audio features. """
     REGISTRY_NAME = "feature_extractor"
 
+    @property
+    @abstractmethod
+    def feature_dim(self):
+        """ Returns the dimension of the feature. """
+        raise NotImplementedError
+
+    @abstractmethod
+    def seconds(self, feature):
+        """ Returns the time seconds of this sample. """
+        raise NotImplementedError
+
     @abstractmethod
     def __call__(self, signal, rate):
         raise NotImplementedError
