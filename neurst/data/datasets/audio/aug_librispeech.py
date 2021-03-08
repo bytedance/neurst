@@ -105,6 +105,9 @@ class AugLibriSpeech(RawAudioDataset):
                         b = io.BytesIO(binary_data)
                         audio = self.extract_audio_feature(fileobj=b, mode="wav")
                         b.close()
+                        if audio is None:
+                            logging.info("Detected 1 nan/inf audio feature. SKIP...")
+                            continue
                         data_sample = self._pack_example_as_dict(
                             audio=audio, transcript=transcript, translation=translation,
                             src_lang=self.LANGUAGES.EN, trg_lang=self.LANGUAGES.FR)

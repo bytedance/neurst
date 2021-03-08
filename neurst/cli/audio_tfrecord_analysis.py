@@ -108,6 +108,7 @@ def main(dataset, feature_extractor=None):
         if has_translation:
             translation_counter.count(get_element_size(sample["translation"]))
     logging.info("Total %d samples, %.2f hours", audio_counter.total, total_seconds / 3600.)
+    logging.info(f"Max audio size: {audio_counter.max_value}, min audio size: {audio_counter.min_value}")
     logging.info("Audio feature size distribution: ")
     for percent, margin in zip(_DISPLAY_PERCENTS, freq_percent(audio_counter)):
         logging.info(f"  {percent} samples <= {margin}")

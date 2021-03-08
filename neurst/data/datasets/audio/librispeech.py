@@ -142,6 +142,10 @@ class LibriSpeech(RawAudioDataset):
 
             def get_sample(file=None, fileobj=None):
                 audio = self.extract_audio_feature(fileobj=fileobj, file=file, mode="flac")
+                if audio is None:
+                    logging.info("Detected 1 nan/inf audio feature. SKIP...")
+                    return None
+
                 data_sample = self._pack_example_as_dict(audio=audio, transcript=this_trans,
                                                          src_lang=self.LANGUAGES.EN)
                 if map_func is None:
@@ -168,8 +172,10 @@ class LibriSpeech(RawAudioDataset):
                                 continue
                             if n >= range_end:
                                 break
-                        yield get_sample(file=filename)
-
+                        sample = get_sample(file=filename)
+                        if sample is None:
+                            continue
+                        yield sample
             else:
                 with self.open_tarball("tar") as tar:
                     n = 0
@@ -193,6 +199,8 @@ class LibriSpeech(RawAudioDataset):
                         f = tar.extractfile(tarinfo)
                         sample = get_sample(fileobj=f)
                         f.close()
+                        if sample is None:
+                            continue
                         yield sample
 
         return gen

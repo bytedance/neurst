@@ -45,8 +45,8 @@ class Transformer(EncoderDecoderModel):
 
     @staticmethod
     def class_or_method_args():
-        this_args = [x for x in super(Transformer, Transformer).class_or_method_args() if x.name not in [
-            "encoder.class", "decoder.class", "encoder.params", "decoder.params"]]
+        this_args = [x for x in super(Transformer, Transformer).class_or_method_args()
+                     if x.name not in ["encoder", "decoder"]]
         this_args += [
             Flag("encoder.num_layers", dtype=Flag.TYPE.INTEGER, default=None,
                  help="The number of stacking layers of the encoder."),
