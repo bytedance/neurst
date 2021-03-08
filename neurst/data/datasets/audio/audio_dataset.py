@@ -20,6 +20,7 @@ import zipfile
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 
+import numpy
 import six
 import tensorflow as tf
 from absl import logging
@@ -185,9 +186,11 @@ class RawAudioDataset(Dataset):
                 sig, rate = soundfile.read(tmp_wav, dtype="float32")
             else:
                 raise NotImplementedError
-        if self._feature_extractor is None:
-            return sig
-        return self._feature_extractor(sig, rate)
+        if self._feature_extractor is not None:
+            sig = self._feature_extractor(sig, rate)
+        if numpy.any(numpy.isinf(sig)) or numpy.any(numpy.isnan(sig)):
+            return None
+        return sig
 
     @staticmethod
     def _pack_example_as_dict(audio, transcript=None, translation=None,

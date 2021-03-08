@@ -161,9 +161,13 @@ class IWSLT(RawAudioDataset):
                     audio_segment[int(sample["offset"] * 1000):
                                   int((sample["offset"] + sample["duration"]) * 1000) + 1].set_frame_rate(
                         16000).export(tmp_wav_file, format="wav")
+                    audio = self.extract_audio_feature(file=tmp_wav_file, mode="wav")
+                    if audio is None:
+                        logging.info("Detected 1 nan/inf audio feature. SKIP...")
+                        continue
                     data_sample = self._pack_example_as_dict(
-                        audio=self.extract_audio_feature(file=tmp_wav_file, mode="wav"),
-                        transcript=sample["transcript"], translation=sample["translation"],
+                        audio=audio, transcript=sample["transcript"],
+                        translation=sample["translation"],
                         src_lang=self.LANGUAGES.EN, trg_lang=self.LANGUAGES.DE)
                     tf.io.gfile.remove(tmp_wav_file)
                     if map_func is None:

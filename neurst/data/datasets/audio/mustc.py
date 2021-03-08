@@ -214,9 +214,12 @@ class MuSTC(RawAudioDataset):
                                 b.close()
                             start = int(offset * sample_rate)
                             end = int((offset + duration) * sample_rate) + 1
+                            audio_feat = self.extract_audio_feature(sig=ori_audio[start:end], rate=sample_rate)
+                            if audio_feat is None:
+                                logging.info("Detected 1 nan/inf audio feature. SKIP...")
+                                continue
                             data_sample = self._pack_example_as_dict(
-                                audio=self.extract_audio_feature(sig=ori_audio[start:end], rate=sample_rate),
-                                transcript=transcript, translation=transla,
+                                audio=audio_feat, transcript=transcript, translation=transla,
                                 src_lang=self.LANGUAGES.EN, trg_lang=getattr(self.LANGUAGES, self._trg_lang))
                             if map_func is None:
                                 yield data_sample

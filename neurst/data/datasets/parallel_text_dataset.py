@@ -15,13 +15,15 @@ from abc import ABCMeta, abstractmethod
 
 import six
 import tensorflow as tf
+import yaml
 from absl import logging
 
 from neurst.data.datasets import register_dataset
+from neurst.data.datasets.data_sampler import DataSampler, build_data_sampler
 from neurst.data.datasets.dataset import TFRecordDataset
 from neurst.data.datasets.text_gen_dataset import TextGenDataset
 from neurst.utils.compat import DataStatus
-from neurst.utils.flags_core import Flag
+from neurst.utils.flags_core import Flag, ModuleFlag
 
 
 @six.add_metaclass(ABCMeta)
@@ -156,6 +158,113 @@ class ParallelTextDataset(AbstractParallelDataset):
             with tf.io.gfile.GFile(self._trg_file) as fp:
                 self._targets = [line.strip() for line in fp]
         return self._targets
+
+
+@register_dataset("multiple_parallel_text")
+class MultipleParallelTextDataset(AbstractParallelDataset):
+    """ For unbalanced datasets. """
+
+    def __init__(self, args):
+        """ Initializes the dataset. """
+        super(MultipleParallelTextDataset, self).__init__(
+            src_lang=args["src_lang"], trg_lang=args["trg_lang"])
+        self._data_files = args["data_files"]
+        if isinstance(self._data_files, str):
+            self._data_files = yaml.load(args["data_files"], Loader=yaml.FullLoader)
+        assert isinstance(self._data_files, dict)
+        self._data_is_processed = args["data_is_processed"]
+        self._data_sampler = build_data_sampler(args)
+
+    @staticmethod
+    def class_or_method_args():
+        return [
+            Flag("data_files", dtype=Flag.TYPE.STRING,
+                 help="A dict of parallel data files. The key is the dataset name while "
+                      "the value is a dict containing `src_file` and `trg_file`."),
+            Flag("data_is_processed", dtype=Flag.TYPE.BOOLEAN,
+                 help="Whether the text data is already processed."),
+            Flag("src_lang", dtype=Flag.TYPE.STRING, default=None, help="The source language"),
+            Flag("trg_lang", dtype=Flag.TYPE.STRING, default=None, help="The target language"),
+            ModuleFlag(DataSampler.REGISTRY_NAME, default=None,
+                       help="The sampler for unbalanced datasets.")
+        ]
+
+    @property
+    def status(self):
+        if self._data_is_processed:
+            return DataStatus.PROCESSED
+        return DataStatus.RAW
+
+    def build_iterator(self, map_func=None, shard_id=0, total_shards=1):
+        """ Reads data from files and returns the iterator.
+
+        Args:
+            map_func: A function mapping a dataset element to another dataset element.
+            shard_id: Generator yields on the `shard_id`-th shard of the whole dataset.
+            total_shards: The number of total shards.
+        """
+        if total_shards > 1:
+            total_samples = self.num_samples
+            samples_per_part = total_samples // total_shards
+            range_begin = samples_per_part * shard_id
+            if shard_id == total_shards - 1:
+                range_end = total_samples + 1
+                logging.info(f"Iterate on dataset from {range_begin} "
+                             f"to the end (total {total_samples}).")
+            else:
+                range_end = range_begin + samples_per_part
+                logging.info(f"Iterate on dataset from {range_begin} "
+                             f"to {range_end} (total {total_samples}).")
+
+        def get_data(s, t):
+            data = {"feature": " ".join(s.strip().split()),
+                    "label": " ".join(t.strip().split())}
+            if self.src_lang is not None:
+                data["src_lang"] = self.src_lang
+            if self.trg_lang is not None:
+                data["trg_lang"] = self.trg_lang
+            if map_func is not None:
+                data = map_func(data)
+            return data
+
+        def gen():
+            fps = dict()
+            for k, elem in self._data_files.items():
+                fps[k] = (tf.io.gfile.GFile(elem["src_file"]),
+                          tf.io.gfile.GFile(elem["trg_file"]))
+            n = 0
+            if self._data_sampler is None:
+                for _, (fsrc, ftrg) in fps.items():
+                    for s, t in zip(fsrc, ftrg):
+                        n += 1
+                        if total_shards > 1:
+                            if n < range_begin:
+                                continue
+                            if n >= range_end:
+                                break
+                        yield get_data(s, t)
+                    fsrc.close()
+                    ftrg.close()
+            else:
+                while True:
+                    n += 1
+                    choice = self._data_sampler()
+                    s = fps[choice][0].readline()
+                    t = fps[choice][1].readline()
+                    if s == "" or t == "":
+                        fps[choice][0].seek(0)
+                        fps[choice][1].seek(0)
+                        s = fps[choice][0].readline()
+                        t = fps[choice][1].readline()
+                        assert s and t
+                    if total_shards > 1:
+                        if n < range_begin:
+                            continue
+                        if n >= range_end:
+                            break
+                    yield get_data(s, t)
+
+        return gen
 
 
 @register_dataset("parallel_tfrecord")

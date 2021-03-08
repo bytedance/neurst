@@ -22,8 +22,9 @@ from neurst.utils.converters import Converter, register_converter
 
 
 @register_converter
-class FairseqTransformer(Converter):
+class FairseqTransformer2(Converter):
     """ Converts from the fairseq's Transformer model.
+    There are many versions...
     """
 
     @staticmethod
@@ -31,7 +32,7 @@ class FairseqTransformer(Converter):
         import torch
         with tf.io.gfile.GFile(path, "rb") as fp:
             cp = torch.load(fp, map_location=torch.device('cpu'))
-        args = cp["args"].__dict__
+        args = cp["cfg"].__dict__["_content"]["model"]._val.__dict__
         return {
             "model.class": Transformer.__name__,
             "model.params": {
@@ -82,7 +83,7 @@ class FairseqTransformer(Converter):
         import torch
         with tf.io.gfile.GFile(path, "rb") as fp:
             pyvars = torch.load(fp, map_location=torch.device('cpu'))["model"]
-        cfgs: dict = FairseqTransformer.convert_model_config(path)["model.params"]
+        cfgs: dict = FairseqTransformer2.convert_model_config(path)["model.params"]
         pyvar_names = [x for x in pyvars]
         new_var_dict = {}
 
@@ -92,7 +93,6 @@ class FairseqTransformer(Converter):
 
         def reform_emb(emb):
             # vocab: 0-4  --  bos, pad, eos, unk
-            print(emb.shape)
             weight = emb[4:]
             bos = emb[0:1]
             eos = emb[2:3]
@@ -131,15 +131,22 @@ class FairseqTransformer(Converter):
                 cfgs["modality.target.timing"]["max_positions"], cfgs["modality.target.dim"])
             new_var_dict[f"{tf_prefix}/{_trg_name}_posenc_wrapper/{_trg_name}/{_emb_name}/bias"] = numpy.zeros(
                 [trg_emb_table.shape[0], ], dtype=float)
-
         # encoder stack
         for i in range(cfgs["encoder.num_layers"]):
             _name = f"{tf_prefix}/TransformerEncoder/layer_{i}/"
             _pyname = f"encoder.layers.{i}."
             _selfatt_name = _name + "self_attention_prepost_wrapper/self_attention/"
-            new_var_dict[_selfatt_name + "qkv_transform/kernel"] = get_pyvar(
-                _pyname + "self_attn.in_proj_weight").transpose()
-            new_var_dict[_selfatt_name + "qkv_transform/bias"] = get_pyvar(_pyname + "self_attn.in_proj_bias")
+            # new_var_dict[_selfatt_name + "qkv_transform/kernel"] = get_pyvar(
+            #     _pyname + "self_attn.in_proj_weight").transpose()
+            # new_var_dict[_selfatt_name + "qkv_transform/bias"] = get_pyvar(_pyname + "self_attn.in_proj_bias")
+            new_var_dict[_selfatt_name + "qkv_transform/kernel"] = numpy.concatenate([
+                get_pyvar(_pyname + "self_attn.q_proj.weight").transpose(),
+                get_pyvar(_pyname + "self_attn.k_proj.weight").transpose(),
+                get_pyvar(_pyname + "self_attn.v_proj.weight").transpose()], axis=1)
+            new_var_dict[_selfatt_name + "qkv_transform/bias"] = numpy.concatenate([
+                get_pyvar(_pyname + "self_attn.q_proj.bias"),
+                get_pyvar(_pyname + "self_attn.k_proj.bias"),
+                get_pyvar(_pyname + "self_attn.v_proj.bias")], axis=0)
             new_var_dict[_selfatt_name + "output_transform/kernel"] = get_pyvar(
                 _pyname + "self_attn.out_proj.weight").transpose()
             new_var_dict[_selfatt_name + "output_transform/bias"] = get_pyvar(_pyname + "self_attn.out_proj.bias")
@@ -163,9 +170,18 @@ class FairseqTransformer(Converter):
             _name = f"{tf_prefix}/TransformerDecoder/layer_{i}/"
             _pyname = f"decoder.layers.{i}."
             _selfatt_name = _name + "self_attention_prepost_wrapper/self_attention/"
-            new_var_dict[_selfatt_name + "qkv_transform/kernel"] = get_pyvar(
-                _pyname + "self_attn.in_proj_weight").transpose()
-            new_var_dict[_selfatt_name + "qkv_transform/bias"] = get_pyvar(_pyname + "self_attn.in_proj_bias")
+
+            new_var_dict[_selfatt_name + "qkv_transform/kernel"] = numpy.concatenate([
+                get_pyvar(_pyname + "self_attn.q_proj.weight").transpose(),
+                get_pyvar(_pyname + "self_attn.k_proj.weight").transpose(),
+                get_pyvar(_pyname + "self_attn.v_proj.weight").transpose()], axis=1)
+            new_var_dict[_selfatt_name + "qkv_transform/bias"] = numpy.concatenate([
+                get_pyvar(_pyname + "self_attn.q_proj.bias"),
+                get_pyvar(_pyname + "self_attn.k_proj.bias"),
+                get_pyvar(_pyname + "self_attn.v_proj.bias")], axis=0)
+            # new_var_dict[_selfatt_name + "qkv_transform/kernel"] = get_pyvar(
+            #     _pyname + "self_attn.in_proj_weight").transpose()
+            # new_var_dict[_selfatt_name + "qkv_transform/bias"] = get_pyvar(_pyname + "self_attn.in_proj_bias")
             new_var_dict[_selfatt_name + "output_transform/kernel"] = get_pyvar(
                 _pyname + "self_attn.out_proj.weight").transpose()
             new_var_dict[_selfatt_name + "output_transform/bias"] = get_pyvar(_pyname + "self_attn.out_proj.bias")
@@ -175,12 +191,22 @@ class FairseqTransformer(Converter):
                 _pyname + "self_attn_layer_norm.bias")
 
             _encatt_name = _name + "encdec_attention_prepost_wrapper/encdec_attention/"
-            qkv_w = get_pyvar(_pyname + "encoder_attn.in_proj_weight")
-            qkv_b = get_pyvar(_pyname + "encoder_attn.in_proj_bias")
-            new_var_dict[_encatt_name + "kv_transform/kernel"] = qkv_w[cfgs["decoder.hidden_size"]:].transpose()
-            new_var_dict[_encatt_name + "kv_transform/bias"] = qkv_b[cfgs["decoder.hidden_size"]:]
-            new_var_dict[_encatt_name + "q_transform/kernel"] = qkv_w[:cfgs["decoder.hidden_size"]].transpose()
-            new_var_dict[_encatt_name + "q_transform/bias"] = qkv_b[:cfgs["decoder.hidden_size"]]
+            k_w = get_pyvar(_pyname + "encoder_attn.k_proj.weight")
+            k_b = get_pyvar(_pyname + "encoder_attn.k_proj.bias")
+            v_w = get_pyvar(_pyname + "encoder_attn.v_proj.weight")
+            v_b = get_pyvar(_pyname + "encoder_attn.v_proj.bias")
+            # qkv_w = get_pyvar(_pyname + "encoder_attn.in_proj_weight")
+            # qkv_b = get_pyvar(_pyname + "encoder_attn.in_proj_bias")
+            # new_var_dict[_encatt_name + "kv_transform/kernel"] = qkv_w[cfgs["decoder.hidden_size"]:].transpose()
+            # new_var_dict[_encatt_name + "kv_transform/bias"] = qkv_b[cfgs["decoder.hidden_size"]:]
+            # new_var_dict[_encatt_name + "q_transform/kernel"] = qkv_w[:cfgs["decoder.hidden_size"]].transpose()
+            # new_var_dict[_encatt_name + "q_transform/bias"] = qkv_b[:cfgs["decoder.hidden_size"]]
+            new_var_dict[_encatt_name + "kv_transform/kernel"] = numpy.concatenate([
+                k_w.transpose(), v_w.transpose()], axis=1)
+            new_var_dict[_encatt_name + "kv_transform/bias"] = numpy.concatenate([k_b, v_b], axis=0)
+            new_var_dict[_encatt_name + "q_transform/kernel"] = get_pyvar(
+                _pyname + "encoder_attn.q_proj.weight").transpose()
+            new_var_dict[_encatt_name + "q_transform/bias"] = get_pyvar(_pyname + "encoder_attn.q_proj.bias")
             new_var_dict[_encatt_name + "output_transform/kernel"] = get_pyvar(
                 _pyname + "encoder_attn.out_proj.weight").transpose()
             new_var_dict[_encatt_name + "output_transform/bias"] = get_pyvar(_pyname + "encoder_attn.out_proj.bias")
@@ -206,5 +232,6 @@ class FairseqTransformer(Converter):
                               name=name, dtype="float32")
             for name, numpy_var in new_var_dict.items()})
         save_ckpt = os.path.join(save_path, "ckpt")
+        logging.info("Unrecognized py varnames: " + str(pyvar_names))
         logging.info(f"Saving checkpoint to {save_ckpt}")
         ckpt_saver.save(save_ckpt)

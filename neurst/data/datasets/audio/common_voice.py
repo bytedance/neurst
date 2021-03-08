@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import csv
+import os
 from io import StringIO
 
+import tensorflow as tf
 from absl import logging
 
 from neurst.data.datasets import register_dataset
@@ -59,16 +61,24 @@ class CommonVoice(RawAudioDataset):
             raise ValueError("`extraction` for CommonVoice dataset must be "
                              "one of {}".format(", ".join(CommonVoice.EXTRACTION_CHOICES)))
         self._transcripts_dict = None
-        assert self._input_tarball.endswith(".tar")
-        self._language = self._input_tarball.split("/")[-1].split(".")[0].split('-')[0]
+        if self._input_tarball.endswith(".tar"):
+            self._language = self._input_tarball.split("/")[-1].split(".")[0].split('-')[0]
+        elif tf.io.gfile.isdir(self._input_tarball):
+            self._language = args["language"]
+            assert self._language, "language must be provided."
+        else:
+            raise ValueError(f"Unknown type of input: {self._input_tarball}")
 
     @staticmethod
     def class_or_method_args():
         this_args = super(CommonVoice, CommonVoice).class_or_method_args()
-        this_args.extend(
-            [Flag("extraction", dtype=Flag.TYPE.STRING, default=None,
-                  choices=CommonVoice.EXTRACTION_CHOICES,
-                  help="The dataset portion to be extracted, i.e. train, dev, test, other, validated.")])
+        this_args.extend([
+            Flag("extraction", dtype=Flag.TYPE.STRING, default=None,
+                 choices=CommonVoice.EXTRACTION_CHOICES,
+                 help="The dataset portion to be extracted, i.e. train, dev, test, other, validated."),
+            Flag("language", dtype=Flag.TYPE.STRING, default=None,
+                 help="the language portion to be extracted, e.g. en, zh-CN. Must be provided "
+                      "if the input is a directory.")])
         return this_args
 
     def load_transcripts(self):
@@ -79,33 +89,58 @@ class CommonVoice(RawAudioDataset):
             return
         logging.info(f"Loading transcriptions from tarball: {self._input_tarball}")
         n = 0
+        skipped = 0
         self._transcripts_dict = {}
         self._transcripts = []
         csv.register_dialect("tsv", delimiter="\t", quoting=csv.QUOTE_ALL)
 
-        with self.open_tarball("tar") as tar:
-            for tarinfo in tar:
-                if tarinfo.name.endswith(f"{self._extraction}.tsv"):
-                    f = tar.extractfile(tarinfo)
-                    str_io = StringIO(f.read().decode("utf-8"))
-                    f.close()
-                    fp = csv.reader(str_io, "tsv")
-                    for idx, l in enumerate(fp):
-                        if idx == 0:
-                            continue
-                        # common_voice_en_699711.mp3
-                        fname = l[1]
-                        last, last_two = extract_last_two_number(fname)
-                        txt = l[2].strip()
-                        self._transcripts.append(txt)
+        def add(_fname, _txt):
+            if not self._validate(txt):
+                return False
+            last, last_two = extract_last_two_number(_fname)
+            self._transcripts.append(txt)
+            if last not in self._transcripts_dict:
+                self._transcripts_dict[last] = dict()
+            if last_two not in self._transcripts_dict[last]:
+                self._transcripts_dict[last][last_two] = dict()
+            self._transcripts_dict[last][last_two][fname] = txt
+            return True
+
+        if tf.io.gfile.isdir(self._input_tarball):
+            filename = os.path.join(self._input_tarball, f"{self._language}/{self._extraction}.tsv")
+            with tf.io.gfile.GFile(filename) as file:
+                fp = csv.reader(file, "tsv")
+                for idx, l in enumerate(fp):
+                    if idx == 0:
+                        continue
+                    # common_voice_en_699711.mp3
+                    fname = l[1]
+                    txt = l[2].strip()
+                    if add(fname, txt):
                         n += 1
-                        if last not in self._transcripts_dict:
-                            self._transcripts_dict[last] = dict()
-                        if last_two not in self._transcripts_dict[last]:
-                            self._transcripts_dict[last][last_two] = dict()
-                        self._transcripts_dict[last][last_two][fname] = txt
-                    break
-        logging.info("Total %d utterances.", len(self._transcripts))
+                    else:
+                        skipped += 1
+        else:
+            with self.open_tarball("tar") as tar:
+                for tarinfo in tar:
+                    if tarinfo.name.endswith(f"{self._extraction}.tsv"):
+                        f = tar.extractfile(tarinfo)
+                        str_io = StringIO(f.read().decode("utf-8"))
+                        f.close()
+                        fp = csv.reader(str_io, "tsv")
+                        for idx, l in enumerate(fp):
+                            if idx == 0:
+                                continue
+                            # common_voice_en_699711.mp3
+                            fname = l[1]
+                            txt = l[2].strip()
+                            if add(fname, txt):
+                                n += 1
+                            else:
+                                skipped += 1
+                        break
+        logging.info("Total {} utterances, {} skipped.".format(
+            len(self._transcripts), skipped))
 
     def build_iterator(self, map_func=None, shard_id=0, total_shards=1):
         """ Returns the iterator of the dataset.
@@ -131,30 +166,55 @@ class CommonVoice(RawAudioDataset):
                 self.load_transcripts()
 
             n = 0
-            with self.open_tarball("tar") as tar:
-                for tarinfo in tar:
-                    if not tarinfo.isreg():
-                        continue
-                    if not tarinfo.name.endswith(".mp3"):
-                        continue
-
-                    this_trans = get_transcription(tarinfo.name, self._transcripts_dict)
-                    if not this_trans:
-                        continue
-                    n += 1
-                    if total_shards > 1:
-                        if n < range_begin:
+            if tf.io.gfile.isdir(self._input_tarball):
+                for last in self._transcripts_dict:
+                    for last_two in self._transcripts_dict[last]:
+                        for fname, txt in self._transcripts_dict[last][last_two].items():
+                            n += 1
+                            if total_shards > 1:
+                                if n < range_begin:
+                                    continue
+                                if n >= range_end:
+                                    break
+                            audio = self.extract_audio_feature(
+                                file=os.path.join(self._input_tarball, f"{self._language}/clips/{fname}"),
+                                mode="mp3")
+                            if audio is None:
+                                logging.info("Detected 1 nan/inf audio feature. SKIP...")
+                                continue
+                            data_sample = self._pack_example_as_dict(
+                                audio=audio, transcript=txt, src_lang=self._language.split("-")[0])
+                            if map_func is None:
+                                yield data_sample
+                            else:
+                                yield map_func(data_sample)
+            else:
+                with self.open_tarball("tar") as tar:
+                    for tarinfo in tar:
+                        if not tarinfo.isreg():
                             continue
-                        if n >= range_end:
-                            break
-                    f = tar.extractfile(tarinfo)
-                    data_sample = self._pack_example_as_dict(
-                        audio=self.extract_audio_feature(fileobj=f, mode="mp3"),
-                        transcript=this_trans, src_lang=self._language)
-                    f.close()
-                    if map_func is None:
-                        yield data_sample
-                    else:
-                        yield map_func(data_sample)
+                        if not tarinfo.name.endswith(".mp3"):
+                            continue
+                        this_trans = get_transcription(tarinfo.name, self._transcripts_dict)
+                        if not this_trans:
+                            continue
+                        n += 1
+                        if total_shards > 1:
+                            if n < range_begin:
+                                continue
+                            if n >= range_end:
+                                break
+                        f = tar.extractfile(tarinfo)
+                        audio = self.extract_audio_feature(fileobj=f, mode="mp3")
+                        f.close()
+                        if audio is None:
+                            logging.info("Detected 1 nan/inf audio feature. SKIP...")
+                            continue
+                        data_sample = self._pack_example_as_dict(
+                            audio=audio, transcript=this_trans, src_lang=self._language)
+                        if map_func is None:
+                            yield data_sample
+                        else:
+                            yield map_func(data_sample)
 
         return gen
