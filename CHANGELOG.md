@@ -6,17 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- PyTorch version Transformer & SpeechTransformer model.
-- Instruction for training transformer models on WMT14 EN->DE.
-- Audio extraction for CommonVoice/IWSLT.
-- Support weight pruning. 
-- Data sampler and dataset for multilingual machine translation
-- Multilingual Translation task
-- Support int8 quantization for transformer model
+
 
 
 ### Changed
 
+
+### Fixed
+
+
+## [0.1.1] - 28th March, 2021
+### Added
+- PyTorch version Transformer & SpeechTransformer model.
+- Audio extraction for CommonVoice/IWSLT.
+- Data sampler and dataset for multilingual machine translation
+- Mixed training dataset with data sampler.
+- Multilingual Translation task
+- Instruction for 
+    - training transformer models on WMT14 EN->DE
+    - weight pruning 
+    - quantization aware training for transformer model
 
 ### Fixed
 - Compat with TensorFlow v2.4
