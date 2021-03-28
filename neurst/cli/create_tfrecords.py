@@ -96,8 +96,11 @@ def main(processor_id, num_processors,
         feature_dict = {}
         for name, data in example.items():
             feature_dict[name] = _format_tf_feature(data, feature_type_dict[name])
-        recordio_writers[random.randint(0, len(recordio_writers) - 1)].write(
+        write_id = random.randint(0, len(recordio_writers) - 1)
+        recordio_writers[write_id].write(
             tf.train.Example(features=tf.train.Features(feature=feature_dict)).SerializeToString())
+        if i % 1000 == 0:
+            recordio_writers[write_id].flush()
         i += 1
     logging.info(f"Total processed {i} samples.")
     for recordio_writer in recordio_writers:

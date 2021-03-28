@@ -88,8 +88,7 @@ class SpeechToText(Task):
         this_args = super(SpeechToText, SpeechToText).class_or_method_args()
         this_args.extend([
             ModuleFlag("transcript_data_pipeline", DataPipeline.REGISTRY_NAME,
-                       default=TranscriptDataPipeline.__name__,
-                       help="The target side transcript data pipeline."),
+                       default=None, help="The target side transcript data pipeline."),
             Flag("audio_feature_dim", dtype=Flag.TYPE.INTEGER, default=80,
                  help="The dimension of audio features."),
             Flag("audio_feature_channels", dtype=Flag.TYPE.INTEGER, default=1,

@@ -13,7 +13,9 @@
 # limitations under the License.
 import random
 
+import tensorflow as tf
 import yaml
+from absl import logging
 
 from neurst.data.datasets import Dataset, build_dataset, register_dataset
 from neurst.data.datasets.data_sampler import DataSampler, build_data_sampler
@@ -67,6 +69,22 @@ class MixedTrainDataset(Dataset):
     @property
     def status(self):
         return self._status
+
+    def build(self, auto_shard=False, map_func=None, map_output_dtypes=None,
+              shuffle=True):
+        try:
+            weights = None
+            if self._data_sampler is not None:
+                weights = [self._data_sampler.normalized_sample_weights[k]
+                           for k, _ in self._custom_dss.items()]
+            return tf.data.experimental.sample_from_datasets(
+                [v.build(auto_shard, map_func, map_output_dtypes, shuffle)
+                 for _, v in self._custom_dss.items()], weights=weights)
+        except AttributeError:
+            logging.info("Fail to use `tf.data.experimental.sample_from_datasets`. "
+                         "We recommend you to upgrade TensorFlow to >= 2.4.")
+            return super(MixedTrainDataset, self).build(auto_shard, map_func,
+                                                        map_output_dtypes, shuffle)
 
     def build_iterator(self, map_func=None, shard_id=0, total_shards=1):
         """ Reads data from files and returns the iterator.
