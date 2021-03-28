@@ -289,22 +289,24 @@ def load_tfrecords(file_path,
             _features_files.append(_file)
         else:
             _features_files.append(_file + "*")
-    shuffle = (shuffle is True) and (num_shards == 1)
-    # Note that it is quite slow when passing a large list to `list_files`
-    dataset = tf.data.Dataset.list_files(_features_files, shuffle=shuffle)
+    # shuffle = (shuffle is True) and (num_shards == 1)
+    # dataset = tf.data.Dataset.list_files(_features_files, shuffle=shuffle)
+    dataset = tf.data.Dataset.list_files(_features_files, shuffle=False)
     if num_shards > 1:
         logging.info("Shard %d of the whole dataset(total %d workers).", sharding_index, num_shards)
         dataset = dataset.shard(num_shards, sharding_index)
     else:
         # auto sharding
         worker_id, num_workers, strategy = get_distributed_worker_setting()
-        if num_workers > 1 and strategy in ["horovod", "byteps"] and not shuffle and auto_shard:
+        if num_workers > 1 and strategy in ["horovod", "byteps"] and auto_shard:
             logging.info("Shard %d of the whole dataset(total %d workers).", worker_id, num_workers)
             options = tf.data.Options()
             options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.OFF
             dataset = dataset.with_options(options)
             dataset = dataset.shard(num_workers, worker_id)
     logging.info("Loading TF Records from: ")
+    if shuffle:
+        dataset = dataset.shuffle(5000)
     for _f in dataset:
         logging.info(f"   {_f.numpy()}")
     # Read files and interleave results.

@@ -303,6 +303,8 @@ class AudioTFRecordDataset(TFRecordDataset, TextGenDataset):
                                 else tf.io.VarLenFeature(tf.int64)),
             self._transcript_key: (tf.io.VarLenFeature(tf.int64) if self._transcript_is_projected
                                    else tf.io.VarLenFeature(tf.string)),
+            "src_lang": tf.io.VarLenFeature(tf.string),
+            "uuid": tf.io.VarLenFeature(tf.string)
         }
 
     @property
@@ -432,6 +434,9 @@ class AudioTripleTFRecordDataset(TFRecordDataset, TextGenDataset):
                                    else tf.io.VarLenFeature(tf.string)),
             self._translation_key: (tf.io.VarLenFeature(tf.int64) if self._translation_is_projected
                                     else tf.io.VarLenFeature(tf.string)),
+            "src_lang": tf.io.VarLenFeature(tf.string),
+            "trg_lang": tf.io.VarLenFeature(tf.string),
+            "uuid": tf.io.VarLenFeature(tf.string)
         }
 
     @property

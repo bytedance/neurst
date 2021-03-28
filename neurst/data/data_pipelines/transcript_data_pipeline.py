@@ -33,7 +33,7 @@ class TranscriptDataPipeline(TextDataPipeline):
             lowercase: Whether to lowercase the text.
         """
         self._remove_punc = kwargs.get("remove_punctuation", False)
-        self._lc = kwargs.get("lowercase", "True")
+        self._lc = kwargs.get("lowercase", False)
         super(TranscriptDataPipeline, self).__init__(*args, **kwargs)
 
     @staticmethod

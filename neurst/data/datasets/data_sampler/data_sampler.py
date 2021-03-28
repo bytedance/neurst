@@ -32,6 +32,7 @@ class DataSampler(object):
             "Unknown `sample_sizes`={} with type {}".format(args["sample_sizes"], type(args["sample_sizes"])))
         self._sample_ratios = self.get_sample_ratios(args["sample_sizes"])
         total = sum(self._sample_ratios.values())
+        self._normalized_sample_weights = {k: float(v) / total for k, v in self._sample_ratios.items()}
         self._sample_items = []
         self._sample_boundaries = []
         for k, v in self._sample_ratios.items():
@@ -49,6 +50,10 @@ class DataSampler(object):
                  help="A dict. The key is the item name to be sampled, "
                       "while the value is the corresponding proportion.")
         ]
+
+    @property
+    def normalized_sample_weights(self):
+        return self._normalized_sample_weights
 
     @abstractmethod
     def get_sample_ratios(self, sample_sizes) -> dict:
