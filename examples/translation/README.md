@@ -107,8 +107,8 @@ This process will constantly scan the `model_dir`, evaluate each checkpoint and 
 ### Evaluation on testset
 By running with
 ```bash
-python3 -m bytdseq.cli.run_exp \
-    --config_paths wmt14_en_de/pediction_args.yml \
+python3 -m neurst.cli.run_exp \
+    --config_paths wmt14_en_de/prediction_args.yml \
     --model_dir wmt14_en_de/benchmark_base/best_avg
 ```
 BLEU scores will be reported on both dev (newstest2013) and test (newstest2014) set.

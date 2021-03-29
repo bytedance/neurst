@@ -13,9 +13,12 @@
 # limitations under the License.
 import argparse
 import copy
+import importlib
 import json
+import os
 from collections import namedtuple
 
+import tensorflow as tf
 from absl import logging
 
 from neurst.utils.configurable import deep_merge_dict, load_from_config_path, yaml_load_checking
@@ -200,6 +203,30 @@ DEFAULT_CONFIG_FLAG = Flag(name="config_paths", dtype=Flag.TYPE.STRING, multiple
                                 "Setting a key in these files is equivalent to "
                                 "setting the FLAG value with the same name.")
 
+EXTRA_IMPORT_LIB = Flag(name="include", dtype=Flag.TYPE.STRING, multiple=True,
+                        help="The extra python path to be included and imported.")
+
+
+def add_extra_includes():
+    arg_parser = argparse.ArgumentParser()
+    EXTRA_IMPORT_LIB.define(arg_parser)
+    parsed, _ = arg_parser.parse_known_args()
+    include = parsed.include
+    if include is None:
+        return
+    for path in include:
+        for file in os.listdir(path):
+            if not file.startswith('_') and not file.startswith('.') and file.endswith('.py'):
+                module_name = file[:file.find('.py')] if file.endswith('.py') else file
+                src_file = os.path.join(path, file)
+                trg_file = os.path.join(os.path.dirname(__file__), "userdef/" + file)
+                tf.io.gfile.copy(src_file, trg_file, overwrite=True)
+                try:
+                    importlib.import_module("neurst.utils.userdef." + module_name)
+                    logging.info(f"[INFO] import user-defined {src_file}")
+                except (RuntimeError, ImportError, tf.errors.OpError):
+                    logging.info(f"WARNING: fail to import {src_file}")
+
 
 def define_flags(flag_list: list, arg_parser=None, with_config_file=True) -> argparse.ArgumentParser:
     """ Defines the root module name.
@@ -211,6 +238,7 @@ def define_flags(flag_list: list, arg_parser=None, with_config_file=True) -> arg
 
     Returns: The argument parser.
     """
+    add_extra_includes()
     if arg_parser is None:
         arg_parser = argparse.ArgumentParser()
     if with_config_file:
