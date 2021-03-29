@@ -44,11 +44,19 @@ class HuggingFaceTokenizer(Tokenizer):
 
     def _lazy_init(self):
         codes = self._codes
-        try:
-            self._tokenizer = AutoTokenizer.from_pretrained(codes)
-        except Exception as e:
-            logging.info(traceback.format_exc())
-            raise e
+        success = False
+        fail_times = 0
+        while not success:
+            try:
+                self._tokenizer = AutoTokenizer.from_pretrained(codes)
+                success = True
+            except Exception as e:
+                fail_times += 1
+                logging.info("AutoTokenizer.from_pretrained fails for {0} times".format(fail_times))
+                if fail_times >= 5:
+                    logging.info(traceback.format_exc())
+                    raise e
+
         self._built = True
 
     def tokenize(self, text, return_str=False):

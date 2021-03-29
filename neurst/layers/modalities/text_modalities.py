@@ -14,6 +14,7 @@
 import tensorflow as tf
 
 from neurst.layers.quantization.quant_layers import QuantLayer
+from neurst.utils import compat
 from neurst.utils.configurable import extract_constructor_params
 
 
@@ -275,8 +276,8 @@ class BertEmbedding(tf.keras.layers.Layer):
             tokens_type = tf.zeros_like(tokens, dtype=tf.int64)
         flat_token_type_ids = tf.reshape(tokens_type, [-1])
         one_hot_ids = tf.one_hot(flat_token_type_ids, depth=self.token_types)
-        token_type_embeddings = tf.matmul(tf.cast(one_hot_ids, self._token_type_embedding.dtype),
-                                          self._token_type_embedding)
+        token_type_embeddings = tf.matmul(tf.cast(one_hot_ids, compat.CUSTOM_GLOBAL_FLOATX),
+                                          tf.cast(self._token_type_embedding, compat.CUSTOM_GLOBAL_FLOATX))
         token_type_embeddings = tf.reshape(token_type_embeddings,
                                            tf.concat([tf.shape(tokens_type), [self.embedding_dim]], axis=0))
         position_embeddings = tf.expand_dims(tf.slice(self._position_embedding, [0, 0],

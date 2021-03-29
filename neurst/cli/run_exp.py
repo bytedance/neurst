@@ -95,6 +95,7 @@ def run_experiment(args, remaining_argv):
         custom_dataset = build_dataset(args)
         try:
             model = task.build_model(args)
+            training_utils.validate_unique_varname(model.weights)
         except AttributeError:
             model = None
         entry = build_exp(args,

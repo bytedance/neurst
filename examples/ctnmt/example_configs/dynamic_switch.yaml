@@ -1,0 +1,70 @@
+model_dir: /tmp/dynamic_switch
+
+entry.class: trainer
+entry.params:
+  train_steps: 1000000
+  save_checkpoint_steps: 1000
+  summary_steps: 200
+  criterion.class: LabelSmoothedCrossEntropy
+  optimizer.class: adam
+  optimizer.params:
+    epsilon: 1.e-9
+    beta_1: 0.9
+    beta_2: 0.98
+  lr_schedule.class: noam
+  lr_schedule.params:
+    initial_factor: 1.0
+    dmodel: 1024
+    warmup_steps: 4000
+  pretrain_model: /tmp/BERT_LARGE
+  freeze_variables: bert
+
+hparams_set: ctnmt_big
+model.class: CtnmtTransformer
+model.params:
+  bert_mode: dynamic_switch
+
+validator.class: SeqGenerationValidator
+validator.params:
+  eval_dataset: parallel_text
+  eval_dataset.params:
+    src_file: /tmp/data/test.en2de.in
+    trg_file: /tmp/data/test.en2de.out
+  eval_batch_size: 32
+  eval_start_at: 1000
+  eval_steps: 1000
+  eval_criterion.class: label_smoothed_cross_entropy
+  eval_search_method: beam_search
+  eval_search_method.params:
+    beam_size: 8
+    length_penalty: 0.6
+    extra_decode_length: 50
+    maximum_decode_length: 200
+  eval_metric: CompoundSplitBleu
+  eval_top_checkpoints_to_keep: 10
+  eval_auto_average_checkpoints: true
+  eval_estop_patience: 30
+
+dataset.class: ParallelTextDataset
+dataset.params:
+  src_file: /tmp/data/train.en2de.in
+  trg_file: /tmp/data/train.en2de.out
+  data_is_processed: false
+
+task.class: Translation
+task.params:
+  src_data_pipeline.class: BertDataPipeline
+  src_data_pipeline.params:
+    language: de
+    subtokenizer: huggingface
+    subtokenizer_codes: bert-large-cased
+    vocab_path: /tmp/vocab.txt
+  trg_data_pipeline.class: TextDataPipeline
+  trg_data_pipeline.params:
+    subtokenizer: spm
+    subtokenizer_codes: /tmp/spm.model
+    vocab_path: /tmp/spm.vocab
+  batch_size_per_gpu: 8000
+  batch_by_tokens: true
+  max_src_len: 100
+  max_trg_len: 100

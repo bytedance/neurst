@@ -410,3 +410,16 @@ def handle_fp16_and_distributed_optimizer(optimizer, lr_schedule, hvd_backend=No
         return opt
 
     return optimizer
+
+
+def validate_unique_varname(variables):
+    duplicated = set()
+    varname_set = set()
+    for var in variables:
+        varname = var.name
+        if varname in varname_set:
+            duplicated.add(varname)
+        else:
+            varname_set.add(varname)
+    if len(duplicated) > 0:
+        raise ValueError("Found duplicated variable names: \n" + str(list(duplicated)))
