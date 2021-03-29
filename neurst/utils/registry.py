@@ -132,3 +132,17 @@ def setup_registry(registry_name, base_class=None, create_fn=None,
             raise ValueError("Not supported type: {}".format(type(name)))
 
     return build_x, register_x
+
+
+def get_registered_class(cls_, registry_name, backend="tf"):
+    if cls_ is None:
+        return None
+    if isinstance(cls_, str):
+        if cls_.lower() == "none":
+            return None
+        if cls_ not in REGISTRIES[backend][registry_name]:
+            raise ValueError("Not registered class name: {}.".format(cls_))
+        return REGISTRIES[backend][registry_name][cls_]
+    elif callable(cls_):
+        return cls_
+    return None

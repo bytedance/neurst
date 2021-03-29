@@ -205,8 +205,8 @@ class Seq2Seq(Task):
             args = self._args
         else:
             args = deep_merge_dict(self._args, args, local_overwrite=False)
-        src_eos = tf.constant(self._src_data_pipeline.meta["eos_id"], dtype=tf.int64)
-        trg_eos = tf.constant(self._trg_data_pipeline.meta["eos_id"], dtype=tf.int64)
+        src_pad = tf.constant(self._src_data_pipeline.meta["pad_id"], dtype=tf.int64)
+        trg_pad = tf.constant(self._trg_data_pipeline.meta["pad_id"], dtype=tf.int64)
 
         assert isinstance(ds, AbstractParallelDataset), (
             "The dataset for SeqToSeq task must inherit AbstractParallelDataset.")
@@ -222,7 +222,7 @@ class Seq2Seq(Task):
                 dataset_utils.adjust_batch_size(args["batch_size"],
                                                 num_replicas_in_sync=num_replicas_in_sync),
                 padded_shapes={"feature": [None]},
-                padding_values={"feature": src_eos},
+                padding_values={"feature": src_pad},
                 drop_remainder=False)
         elif mode == compat.ModeKeys.EVAL:
             logging.info("Creating evaluation dataset.")
@@ -230,7 +230,7 @@ class Seq2Seq(Task):
                 dataset_utils.adjust_batch_size(args["batch_size"],
                                                 num_replicas_in_sync=num_replicas_in_sync),
                 padded_shapes={"feature": [None], "label": [None]},
-                padding_values={"feature": src_eos, "label": trg_eos},
+                padding_values={"feature": src_pad, "label": trg_pad},
                 drop_remainder=False)
         else:
             logging.info("Creating training dataset.")
@@ -240,7 +240,7 @@ class Seq2Seq(Task):
                 dataset = dataset.cache()
             if args["shuffle_buffer"]:
                 dataset = dataset.shuffle(buffer_size=args["shuffle_buffer"])
-            padding_values = {"feature": src_eos, "label": trg_eos}
+            padding_values = {"feature": src_pad, "label": trg_pad}
             if args["max_src_len"] is None:
                 raise RuntimeError("Must provide `max_src_len` for training.")
             if args["max_trg_len"] is None:

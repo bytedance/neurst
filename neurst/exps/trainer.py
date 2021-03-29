@@ -22,7 +22,7 @@ from neurst.data.dataset_utils import map_data_for_keras
 from neurst.data.datasets.multiple_dataset import MultipleDataset
 from neurst.exps import BaseExperiment, register_exp
 from neurst.models.model_utils import summary_model_variables
-from neurst.optimizers import OPTIMIZER_REGISTRY_NAME, build_optimizer
+from neurst.optimizers import OPTIMIZER_REGISTRY_NAME, build_optimizer, controlling_optimizer
 from neurst.optimizers.schedules import LR_SCHEDULE_REGISTRY_NAME, build_lr_schedule
 from neurst.sparsity.pruning_optimizer import create_pruning_optimizer
 from neurst.sparsity.pruning_schedule import PolynomialDecay, PruningSchedule, build_pruning_schedule
@@ -82,6 +82,8 @@ class Trainer(BaseExperiment):
             else:
                 self._optimizer = build_optimizer(args, clipnorm=self._clip_norm, clipvalue=self._clip_value)
             assert self._optimizer is not None, "optimizer parameters must be provided for training."
+            self._optimizer = controlling_optimizer(self._optimizer, args["optimizer_controller"],
+                                                    args["optimizer_controller_args"])
         self._validator = build_validator(args)
         self._experimental_count_batch_num = args["experimental_count_batch_num"]
         self._freeze_variables = args["freeze_variables"]
@@ -133,6 +135,10 @@ class Trainer(BaseExperiment):
             Flag("nopruning_variable_pattern", dtype=Flag.TYPE.STRING, default=None,
                  help="The regular expression that indicates the variables will NOT be pruned "
                       "(will take effect if `pruning_variable_pattern`=None)."),
+            Flag("optimizer_controller", dtype=Flag.TYPE.STRING, default=None,
+                 help="An optimizer wrapper controlling the specific operations during model training."),
+            Flag("optimizer_controller_args", dtype=Flag.TYPE.STRING, default=None,
+                 help="A dict of parameters for optimizer controller."),
         ]
 
     def _restore_ckpt_or_pretrain(self):
