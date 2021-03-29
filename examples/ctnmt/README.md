@@ -34,8 +34,8 @@ Evaluation metric: token BLEU
 
 ## Training the model 
 
-1. Download our pre-processed BERT models and the corresponding vocabulary lists (will be released soon).
-- here we assume your BERT models are saved at /tmp/BERT_BASE/ and /tmp/BERT_LARGE/, your data is saved at /tmp/data/
+1. Download our pre-processed BERT models and the corresponding vocabulary lists [here](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/ctnmt/ctnmt.zip).
+- we assume your BERT models are saved at /tmp/BERT_BASE/ and /tmp/BERT_LARGE/, your data is saved at /tmp/data/
 
 2. run the command:
 
