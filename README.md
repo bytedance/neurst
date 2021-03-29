@@ -12,19 +12,18 @@ NeurST provides reference implementations of various models, including:
     - [Attention Is All You Need (Vaswani et al., 2017)](https://arxiv.org/pdf/1706.03762.pdf)
     - [Pay Less Attention With Lightweight and Dynamic Convolutions (Wu et al., 2019)](https://arxiv.org/pdf/1901.10430.pdf)
 
-    - CTNMT (Transformer with BERT enhanced encoder) from [Towards making the most of bert in neural machine translation (Yang et al., 2020)](https://arxiv.org/abs/1908.05672), see the examples in [CTNMT](/examples/ctnmt/README.md)
+- comming soon...
 
 ### Recipes and Benchmarks
 NeurST provides several **strong and reproducible benchmarks** for various tasks:
 
-- Text Translation
+- Translation
     - [Transformer models on WMT14 en->de](/examples/translation)
-- Speech-to-Text Translation
+- Speech-to-Text
     - [Augmented Librispeech](/examples/speech_to_text/augmented_librispeech)
     - [MuST-C](/examples/speech_to_text/must-c)
 - [Weight Pruning](/examples/weight_pruning/README.md)
 - [Quantization Aware Training](/examples/quantization/README.md) 
-
 
 ### Additionally
 

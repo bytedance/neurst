@@ -1,12 +1,8 @@
-# Integrating BERT into Transformer MT 
+# CTNMT (Yang et al., 2020)
 
-Can we utilize extremely large monolingual text to improve neural machine translation without the expensive back-translation? 
-Neural machine translation models are trained on parallel bilingual corpus. Even the large ones only include 20 to 40 millions of parallel sentence pairs. 
-In the meanwhile, pretrained language models such as BERT and GPT are trained on usually billions of monolingual sentences. 
-Direct use BERT as the initialization for Transformer encoder could not gain any benefit, due to the catastrophic forgetting problem of BERT knowledge during further training on MT data. 
-This example shows how to run the [CTNMT](https://arxiv.org/abs/1908.05672) (Yang et al. 2020) training method that integrates BERT into a Transformer MT model. 
+In this code repo, we reproduced the three techniques proposed in the CTNMT paper to use BERT to train the NNT model. Feel free to contact [zhuyaoming@bytedance.com](zhuyaoming@bytedance.com) if there is any question.  
 
-The CTNMT method is from the following paper.
+### Citation 
 ```bibtex
 @inproceedings{yang2020towards,
   title={Towards making the most of bert in neural machine translation},
@@ -18,19 +14,6 @@ The CTNMT method is from the following paper.
   year={2020}
 }
 ```
-
-## Results on WMT benchmark
-
-Dataset: WMT 14 English - German
-Evaluation metric: token BLEU
-(notice some paper use a different way to measure the BLEU)
-
-| Model                                   | baseline | + Rate scheduling | Dynamic switch | Asymptotic Distillation | Full CTNMT |
-|-----------------------------------------|----------|-------------------|----------------|-------------------------|-------------|
-| Transformer(hidden=768, enc=12, dec=6)  | 28.3     | 30.0              | 29.9           | 28.7                    |  30.1        |
-| Transformer(hidden=1024, enc=6, dec=6)  | 28.4     | 29.6              | 28.9           | 28.6                    |            |
-| Transformer(hidden=1024, enc=12, dec=6) | 29.4     | 30.5              | 30.5           | 29.0                    |            |
-
 
 ## Training the model 
 
@@ -74,6 +57,4 @@ validator.params:
 
 ```
 
-
-Feel free to contact [zhuyaoming@bytedance.com](zhuyaoming@bytedance.com) if there is any question.  
 
