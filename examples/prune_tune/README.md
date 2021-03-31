@@ -12,18 +12,18 @@ Here is an example to train a general model for En-De Translation, then adapt to
 ## Neurst Installation
 Install from source:
 ```bash
-git clone https://github.com/ohlionel/Prune-Tune.git
-cd Prune-Tune/neurst/
+git clone https://github.com/bytedance/neurst.git
+cd neurst
 pip3 install -r requirements.txt
 ```
-please see installation details in [Neurst](https://github.com/ohlionel/Prune-Tune/tree/main/neurst)
+please see installation details in [Neurst](https://github.com/bytedance/neurst)
 
 ## Data Preprocess
 We use two datasets:
-|   Domain  |  Dataset |
-|  ----  | ----  | 
-| General Domain   | WMT14(En-De) | 
-| Target Domain  | Novel Dataset from [OPUS](https://opus.nlpl.eu/Books.php) |
+|   Domain  |  Dataset | Download|
+|  ----  | ----  | :----:|
+| General Domain   | WMT14(En-De) | Automatic |
+| Target Domain  | Novel/EMEA/IWSLT14 | [Link](https://github.com/ohlionel/Prune-Tune/tree/main/neurst/data)
 
 
 <!-- 
@@ -34,17 +34,17 @@ Target Domain: [Novel Dataset](https://opus.nlpl.eu/Books.php) from OPUS -->
 By runing with
 ```bash
 # Download wmt14(en2de) dataset, learn wordpiece vocabulary, and preprocess data.
-cd neurst
-bash ./scripts/prepare-wmt14en2de-wp.sh 
+bash ./examples/prune_tune/scripts/prepare-wmt14en2de-wp.sh 
 
-# Unzip novel dataset
+
+# Download and unzip novel dataset 
 tar -zxvf data/novel.tar.gz -C data/ 
 
 # Use the wordpiece vocabulary learned above.
 cp data/wmt14_en_de/vocab data/novel/ 
 
 # Preprocess novel data.
-bash ./scripts/prepare-novel-wp.sh 
+bash ./examples/prune_tune/scripts/prepare-novel-wp.sh 
 ```
 we will get the preprocessed training data and raw testsets under directory `data/wmt14_en_de/` and `data/novel`: 
 ```bash
@@ -73,6 +73,7 @@ We can directly use the yaml-style configuration files generated above to train 
 ```bash
 cd neurst
 python3 -m neurst.cli.run_exp \
+    --include examples/prune_tune/src/ \
     --config_paths data/wmt14_en_de/training_args.yml,data/wmt14_en_de/translation_wordpiece.yml,data/wmt14_en_de/validation_args.yml \
     --hparams_set transformer_big \
     --model_dir models/benchmark_big
@@ -82,6 +83,7 @@ You may use `CUDA_VISIBLE_DEVICES` flag to run on sepecific gpu devices.
 We can simply prune a model with Neurst, see [Weight Pruning](https://github.com/ohlionel/Prune-Tune/tree/main/neurst/examples/weight_pruning) for details.
 ```bash
 python3 -m neurst.cli.run_exp \
+    --include examples/prune_tune/src/ \
     --config_paths data/wmt14_en_de/training_args.yml,data/wmt14_en_de/translation_wordpiece.yml,data/wmt14_en_de/validation_args.yml \
     --hparams_set transformer_big \
     --pretrain_model models/benchmark_big/best/ \
@@ -105,6 +107,7 @@ We will get the pruned model `models/sparsity_10` in which 10% of parameters is 
 According to the pruning mask file `sparsity_10/mask.pkl`, we can only update those pruned weight during tuning. 
 ```bash
 python3 -m neurst.cli.run_exp \
+    --include examples/prune_tune/src/ \
     --config_paths data/novel/training_args.yml,data/novel/translation_wordpiece.yml,data/novel/validation_args.yml \
     --hparams_set transformer_big \
     --pretrain_model models/sparsity_10 \
@@ -120,6 +123,7 @@ python3 -m neurst.cli.run_exp \
 Evaluate on target domain with full model:
 ```bash
 python3 -m neurst.cli.run_exp \
+    --include examples/prune_tune/src/ \
     --entry mask_predict \
     --config_paths data/novel/prediction_args.yml \
     --model_dir models/sparsity_10_novel/best
@@ -127,6 +131,7 @@ python3 -m neurst.cli.run_exp \
 Evaluate on general domain with the general sub-network:
 ```bash
 python3 -m neurst.cli.run_exp \
+    --include examples/prune_tune/src/ \
     --entry mask_predict \
     --config_paths data/wmt14_en_de/prediction_args.yml \
     --model_dir models/sparsity_10_novel/best \
