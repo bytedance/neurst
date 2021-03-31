@@ -31,9 +31,7 @@ task.class: Translation
 task.params:
   src_data_pipeline.class: BertDataPipeline
   src_data_pipeline.params:
-    language: de
-    subtokenizer: huggingface
-    subtokenizer_codes: bert-large-cased
+    name: bert-large-cased
     vocab_path: /tmp/vocab.txt
   trg_data_pipeline.class: TextDataPipeline
   trg_data_pipeline.params:
