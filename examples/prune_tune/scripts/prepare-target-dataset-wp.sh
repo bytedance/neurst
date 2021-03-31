@@ -16,9 +16,9 @@ set -e
 
 THIS_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
-pip3 install -e $THIS_DIR/../ --no-deps
+pip3 install -e $THIS_DIR/../../../ --no-deps
 
-DATA_PATH=data/novel
+DATA_PATH=data/$1
 # mkdir -p ${DATA_PATH}
 DATA_PATH="$( cd "$DATA_PATH" && pwd )"
 
@@ -58,7 +58,7 @@ rm -f FAILED
 
 PROCESSORS_IN_PARALLEL=8
 NUM_PROCESSORS=8
-TOTAL_SHARDS=16
+TOTAL_SHARDS=32
 SHARD_PER_PROCESS=$((TOTAL_SHARDS / NUM_PROCESSORS))
 LOOP=$((NUM_PROCESSORS / PROCESSORS_IN_PARALLEL))
 

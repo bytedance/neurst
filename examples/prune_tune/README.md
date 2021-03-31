@@ -19,7 +19,7 @@ pip3 install -r requirements.txt
 please see installation details in [Neurst](https://github.com/bytedance/neurst)
 
 ## Data Preprocess
-We use two datasets:
+Datasets:
 |   Domain  |  Dataset | Download|
 |  ----  | ----  | :----:|
 | General Domain   | WMT14(En-De) | Automatic |
@@ -36,16 +36,18 @@ By runing with
 # Download wmt14(en2de) dataset, learn wordpiece vocabulary, and preprocess data.
 bash ./examples/prune_tune/scripts/prepare-wmt14en2de-wp.sh 
 
+# Download novel.tar.gz to 'data/novel.tar.gz' via link above.
 
-# Download and unzip novel dataset 
+# Unzip novel dataset 
 tar -zxvf data/novel.tar.gz -C data/ 
 
 # Use the wordpiece vocabulary learned above.
 cp data/wmt14_en_de/vocab data/novel/ 
 
 # Preprocess novel data.
-bash ./examples/prune_tune/scripts/prepare-novel-wp.sh 
+bash ./examples/prune_tune/scripts/prepare-target-dataset-wp.sh novel
 ```
+
 we will get the preprocessed training data and raw testsets under directory `data/wmt14_en_de/` and `data/novel`: 
 ```bash
 data/wmt14_en_de/
@@ -74,6 +76,7 @@ We can directly use the yaml-style configuration files generated above to train 
 cd neurst
 python3 -m neurst.cli.run_exp \
     --include examples/prune_tune/src/ \
+    --entry prune_tune_train \
     --config_paths data/wmt14_en_de/training_args.yml,data/wmt14_en_de/translation_wordpiece.yml,data/wmt14_en_de/validation_args.yml \
     --hparams_set transformer_big \
     --model_dir models/benchmark_big
@@ -84,6 +87,7 @@ We can simply prune a model with Neurst, see [Weight Pruning](https://github.com
 ```bash
 python3 -m neurst.cli.run_exp \
     --include examples/prune_tune/src/ \
+    --entry prune_tune_train \
     --config_paths data/wmt14_en_de/training_args.yml,data/wmt14_en_de/translation_wordpiece.yml,data/wmt14_en_de/validation_args.yml \
     --hparams_set transformer_big \
     --pretrain_model models/benchmark_big/best/ \
@@ -108,6 +112,7 @@ According to the pruning mask file `sparsity_10/mask.pkl`, we can only update th
 ```bash
 python3 -m neurst.cli.run_exp \
     --include examples/prune_tune/src/ \
+    --entry prune_tune_train \
     --config_paths data/novel/training_args.yml,data/novel/translation_wordpiece.yml,data/novel/validation_args.yml \
     --hparams_set transformer_big \
     --pretrain_model models/sparsity_10 \
