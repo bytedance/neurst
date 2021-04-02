@@ -21,8 +21,8 @@ import numpy
 import tensorflow as tf
 from absl import logging
 
-from neurst.utils import compat
-from neurst.utils.converters import Converter, build_converter
+from bytedseq.utils import compat
+from bytedseq.utils.converters import Converter, build_converter
 
 
 def remove_checkpoint_by_prefix(dirname, prefix):
@@ -360,7 +360,7 @@ def restore_checkpoint_if_possible_v2(model, path, model_name=None, from_prefix=
 
     Args:
         model: A keras model.
-        path: The path to the neurst checkpoint or the path/key for the converter.
+        path: The path to the bytedseq checkpoint or the path/key for the converter.
         model_name: The converter name for converting checkpoints.
         from_prefix: The name prefix.
         to_prefix: The target name prefix.
@@ -373,7 +373,13 @@ def restore_checkpoint_if_possible_v2(model, path, model_name=None, from_prefix=
 
     converter: Converter = build_converter(model_name)
     if converter is None:
-        latest_ckpt_path = path
+        latest_ckpt_path = tf.train.latest_checkpoint(path)
+        if not latest_ckpt_path:
+            latest_ckpt_path = path
+            try:
+                tf.train.list_variables(latest_ckpt_path)
+            except (tf.errors.NotFoundError, ValueError, tf.errors.DataLossError):
+                return None
     else:
         logging.info(f"Loading {model_name} ({path}).")
         tmp_ckpt = "ram://tmp_ckpt"
