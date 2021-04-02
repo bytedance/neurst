@@ -18,9 +18,11 @@ entry.params:
     initial_factor: 1.0
     dmodel: 1024
     warmup_steps: 4000
-  pretrain_model: /tmp/
-  freeze_variables: bert
-
+  pretrain_model:
+    - path: https://storage.googleapis.com/bert_models/2019_05_30/wwm_cased_L-24_H-1024_A-16.zip
+      model_name: google_bert
+      from_prefix: bert
+      to_prefix: ctnmt/bert
 dataset.class: ParallelTextDataset
 dataset.params:
   src_file: /tmp/data/train.en2de.in
@@ -31,6 +33,7 @@ task.class: Translation
 task.params:
   src_data_pipeline.class: BertDataPipeline
   src_data_pipeline.params:
+    language: de
     name: bert-large-cased
     vocab_path: /tmp/vocab.txt
   trg_data_pipeline.class: TextDataPipeline

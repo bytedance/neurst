@@ -1,5 +1,4 @@
 model_dir: /tmp/rate_schedule
-
 entry.class: trainer
 entry.params:
   train_steps: 100000000
@@ -21,8 +20,11 @@ entry.params:
     initial_factor: 1.0
     dmodel: 1024
     warmup_steps: 4000
-  freeze_variables: bert
-  pretrain_model: /tmp/BERT_LARGE
+  pretrain_model:
+    - path: https://storage.googleapis.com/bert_models/2019_05_30/wwm_cased_L-24_H-1024_A-16.zip
+      model_name: google_bert
+      from_prefix: bert
+      to_prefix: ctnmt/bert
 
 dataset.class: ParallelTextDataset
 dataset.params:
@@ -34,6 +36,7 @@ task.class: Translation
 task.params:
   src_data_pipeline.class: BertDataPipeline
   src_data_pipeline.params:
+    language: de
     name: bert-large-cased
     vocab_path: /tmp/vocab.txt
   trg_data_pipeline.class: TextDataPipeline
@@ -43,15 +46,14 @@ task.params:
     vocab_path: /tmp/spm.vocab
   batch_size_per_gpu: 8000
   batch_by_tokens: true
-  max_src_len: 100
-  max_trg_len: 100
+  max_src_len: 120
+  max_trg_len: 120
 
 hparams_set: ctnmt_big
 model.class: CtnmtTransformer
 # use BERT as encoder if you use rate scheduler only
 model.params:
   bert_mode: bert_as_encoder
-
 validator.class: SeqGenerationValidator
 validator.params:
   eval_dataset: parallel_text
