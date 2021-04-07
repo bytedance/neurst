@@ -198,7 +198,7 @@ class SeqGenerationValidator(CriterionValidator):
                 if len(mixed_dsnames) > 1:
                     _display(on_average, self._avg_gen_recorder.best,
                              f"on average by weights {sample_weights}", tb_name="AVERAGE")
-                    mixed_metric_result = self._gen_metric(mixed_refs, mixed_hypos)
+                    mixed_metric_result = self._gen_metric(mixed_hypos, mixed_refs)
                     self._mixed_gen_recorder.record(step, mixed_metric_result)
                     _display(mixed_metric_result, self._mixed_gen_recorder.best,
                              "mixed of {}".format(",".join(mixed_dsnames)), tb_name="MIXED")

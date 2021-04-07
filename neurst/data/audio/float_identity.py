@@ -31,6 +31,6 @@ class FloatIdentity(FeatureExtractor):
         return 1
 
     def __call__(self, signal, rate):
-        if type(signal[0]) is float:
+        if isinstance(signal[0], (float, numpy.float32, numpy.float64)):
             return numpy.array(signal)
         return numpy.array(signal) / 32768.
