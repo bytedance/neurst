@@ -191,7 +191,7 @@ class SequenceGenerator(BaseExperiment):
                         saving_metrics[name] = metric_result
                 if len(mixed_dsnames) > 1:
                     _display(on_average, f"on average by weights {self._custom_dataset.sample_weights}")
-                    mixed_metric_result = self._metric(mixed_refs, mixed_hypos)
+                    mixed_metric_result = self._metric(mixed_hypos, mixed_refs)
                     _display(mixed_metric_result, "mixed of {}".format(",".join(mixed_dsnames)))
                     saving_metrics["MIXED"] = mixed_metric_result
 

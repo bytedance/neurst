@@ -16,6 +16,7 @@ import copy
 import importlib
 import json
 import os
+import traceback
 from collections import namedtuple
 
 import tensorflow as tf
@@ -215,16 +216,34 @@ def add_extra_includes():
     if include is None:
         return
     for path in include:
+        if not os.path.isdir(path):
+            try:
+                importlib.import_module(path)
+                logging.info(f"[INFO] import user package {path}")
+            except (RuntimeError, ImportError, tf.errors.OpError) as e:
+                logging.info(traceback.format_exc(e))
+                logging.info(f"WARNING: fail to import {path}")
+            continue
         for file in os.listdir(path):
             if not file.startswith('_') and not file.startswith('.') and file.endswith('.py'):
                 module_name = file[:file.find('.py')] if file.endswith('.py') else file
                 src_file = os.path.join(path, file)
+                with tf.io.gfile.GFile(src_file) as fp:
+                    should_skip = True
+                    for line in fp:
+                        if line.strip().startswith("@register"):
+                            should_skip = False
+                            break
+                    if should_skip:
+                        logging.info(f"[INFO] skip {src_file}")
+                        continue
                 trg_file = os.path.join(os.path.dirname(__file__), "userdef/" + file)
                 tf.io.gfile.copy(src_file, trg_file, overwrite=True)
                 try:
                     importlib.import_module("neurst.utils.userdef." + module_name)
                     logging.info(f"[INFO] import user-defined {src_file}")
-                except (RuntimeError, ImportError, tf.errors.OpError):
+                except (RuntimeError, ImportError, tf.errors.OpError) as e:
+                    logging.info(traceback.format_exc(e))
                     logging.info(f"WARNING: fail to import {src_file}")
 
 

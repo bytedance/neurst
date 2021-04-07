@@ -178,16 +178,18 @@ class RawAudioDataset(Dataset):
                 "Only one of `file` and `fileobj` should be provided.")
             mode = mode.lower()
             if mode in ["flac", "wav"]:
-                sig, rate = soundfile.read(file or fileobj, dtype='float32')
+                sig, rate = soundfile.read(file or fileobj, dtype='int16')
             elif mode == "mp3":  # need to re-sample and convert
                 tmp_wav = os.path.join(os.path.dirname(__file__), f"_tmp{time.time()}.wav")
                 mp3 = AudioSegment.from_file(file or fileobj, "mp3")
                 mp3.set_frame_rate(16000).export(tmp_wav, format="wav")
-                sig, rate = soundfile.read(tmp_wav, dtype="float32")
+                sig, rate = soundfile.read(tmp_wav, dtype="int16")
             else:
                 raise NotImplementedError
         if self._feature_extractor is not None:
             sig = self._feature_extractor(sig, rate)
+        else:
+            sig = numpy.array(sig) / 32768.
         if numpy.any(numpy.isinf(sig)) or numpy.any(numpy.isnan(sig)):
             return None
         return sig

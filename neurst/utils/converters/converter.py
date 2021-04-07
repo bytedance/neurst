@@ -52,7 +52,8 @@ class Converter(object):
 
     @classmethod
     def convert(cls, from_path, to_path):
-        if not tf.io.gfile.exists(from_path):
+        if (from_path.startswith("http://") or from_path.startswith("https://")
+            or (not tf.io.gfile.exists(from_path))):
             path = cls.download(from_path)
             if path is None:
                 raise ValueError(f"Fail to find model to download: {from_path}")
