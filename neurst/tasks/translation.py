@@ -77,8 +77,8 @@ class Translation(Seq2Seq):
             dataset = dataset.cache()
         if args["shuffle_buffer"]:
             dataset = dataset.shuffle(buffer_size=args["shuffle_buffer"])
-        padding_values = {"feature": tf.constant(self._src_data_pipeline.meta["eos_id"], dtype=tf.int64),
-                          "label": tf.constant(self._trg_data_pipeline.meta["eos_id"], dtype=tf.int64)}
+        padding_values = {"feature": tf.constant(self._src_data_pipeline.meta["pad_id"], dtype=tf.int64),
+                          "label": tf.constant(self._trg_data_pipeline.meta["pad_id"], dtype=tf.int64)}
         if args["max_src_len"] is None:
             raise RuntimeError("Must provide `max_src_len` for training.")
         if args["max_trg_len"] is None:
