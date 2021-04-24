@@ -373,27 +373,36 @@ def restore_checkpoint_if_possible_v2(model, path, model_name=None, from_prefix=
 
     converter: Converter = build_converter(model_name)
     if converter is None:
-        latest_ckpt_path = path
+        latest_ckpt_path = tf.train.latest_checkpoint(path)
+        if not latest_ckpt_path:
+            latest_ckpt_path = path
+            try:
+                tf.train.list_variables(latest_ckpt_path)
+            except (tf.errors.NotFoundError, ValueError, tf.errors.DataLossError):
+                return None
     else:
         logging.info(f"Loading {model_name} ({path}).")
         tmp_ckpt = "ram://tmp_ckpt"
         converter.convert(path, tmp_ckpt)
         latest_ckpt_path = tf.train.latest_checkpoint(tmp_ckpt)
     if from_prefix is None:
-        from_prefix = checkpoint_scope_name(latest_ckpt_path)
+        from_prefix = [checkpoint_scope_name(latest_ckpt_path)]
     else:
-        from_prefix = from_prefix.strip("/")
-    vars = model.weights
+        from_prefix = [x.strip("/") for x in tf.nest.flatten(from_prefix)]
+    all_vars = model.weights
     if to_prefix is None:
-        to_prefix = vars[0].split("/")[0]
+        to_prefix = [all_vars[0].split("/")[0]]
     else:
-        to_prefix = to_prefix.strip("/")
-    if name_pattern is None:
-        checkpoint = tf.train.Checkpoint(
-            **dict([(x.name.split(":")[0].replace(to_prefix, from_prefix, 1), x) for x in vars]))
-    else:
-        logging.info("Variables only match the {} will be restored.".format(name_pattern))
-        checkpoint = tf.train.Checkpoint(
-            **dict([(x.name.split(":")[0].replace(to_prefix, from_prefix, 1), x) for x in vars
-                    if re.search(name_pattern, x.name) is not None]))
+        to_prefix = [x.strip("/") for x in tf.nest.flatten(to_prefix)]
+    assert len(from_prefix) == len(to_prefix)
+    n2v = {}
+    for var in all_vars:
+        if name_pattern is None or re.search(name_pattern, var.name) is not None:
+            n = var.name.split(":")[0]
+            for _from, _to in zip(from_prefix, to_prefix):
+                if n.startswith(_to):
+                    n = n.replace(_to, _from, 1)
+                    break
+            n2v[n] = var
+    checkpoint = tf.train.Checkpoint(**n2v)
     return restore_custom_checkpoint(checkpoint, latest_ckpt_path, model)
