@@ -18,6 +18,7 @@ from urllib.request import urlretrieve
 
 import numpy
 import tensorflow as tf
+import tempfile
 from absl import logging
 
 
@@ -165,6 +166,12 @@ def download_with_tqdm(url, filename):
     with TqdmUpTo(unit="B", unit_scale=True, unit_divisor=1024,
                   miniters=1, desc=filename) as t:
         urlretrieve(url, filename, reporthook=t.update_to, data=None)
+
+
+def temp_download(url):
+    tmpfile = tempfile.NamedTemporaryFile("w", delete=False)
+    download_with_tqdm(url, tmpfile.name)
+    return tmpfile.name
 
 
 def assert_equal_numpy(tensor_a, tensor_b, epsilon=1e-6):

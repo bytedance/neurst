@@ -1,29 +1,40 @@
-# Prune-Tune
-Official code repository for AAAI2021 paper:
+# Prune-Tune: Finding Sparse Structures for Domain Specific NMT
+This example shows how to run the [Prune-Tune](https://arxiv.org/abs/2012.10586) (Liang et al., 2021) method that first **prunes** the NMT model and then **tunes** partial model parameters to learn domain-specific knowledge. [Here](https://ohlionel.github.io/project/Prune-Tune/) is the brief introduction of the Prune-Tune method.
 
-[Finding Sparse Structures for Domain Specific Neural Machine Translation](https://arxiv.org/abs/2012.10586)
-
-[Here](https://ohlionel.github.io/project/Prune-Tune/) is a brief introduction of Prune-Tune.
-
-This project is based on [Neurst](https://github.com/bytedance/neurst), an open source Neural Speech Translation Toolkit. 
-
-Here is an example to train a general model for En-De Translation, then adapt to a target domain(novel) via Prune-Tune.
-
-## Neurst Installation
-Install from source:
-```bash
-git clone https://github.com/bytedance/neurst.git
-cd neurst
-pip3 install -r requirements.txt
+The Prune-Tune method is from the following paper.
 ```
-please see installation details in [Neurst](https://github.com/bytedance/neurst)
+@inproceedings{jianze2021prunetune,
+  title={Finding Sparse Structures for Domain Specific Neural Machine Translation},
+  author={Jianze Liang, Chengqi Zhao, Mingxuan Wang, Xipeng Qiu, Lei Li},
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
+  year={2021}
+}
+```
+
+## Datasets, results and available models
+In this recipe, we will show how to adapt a NMT model of general domain to various target domains using Prune-Tune.
+
+Datasets:
+- The general domain model is trained on WMT14 en->de dataset.
+- The target domain contains Novel, EMEA and Oral (IWSLT14). The datasets can be downloaded from [HERE](https://github.com/ohlionel/Prune-Tune/tree/main/neurst/data).
+
+We report tokenized BLEU. The baseline model is Transformer big.
+
+|#|Model| Pre-trained Model | Dataset | Approach | Train Steps | newstest2014 BLEU | target domain BLEU | Download Links|
+|----|----|:----:|:----:|:----:|:----:|:----:|:----:|:----:|
+|1| [Baseline](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline.tgz)	|-|	wmt14|	training from scratch|	500000	|28.4|	-|	
+2 | [Baseline_pruned10]()	|#1|	wmt14|	gradual pruning|	10000|	28.5|	-| [sparsity_10.tar.gz](https://drive.google.com/file/d/134linGO9BFO8xRkHhczJgT8KbpYw5TNu/view?usp=sharing) |	
+3	|sparsity_10_iwslt|	#2|	iwslt14	|partial tuning	|10000|	28.49|	31.34	| [sparsity_10_iwslt.tar.gz](https://drive.google.com/file/d/1KgkUqsxEMQnlD-dquGWlnUzHqeGIhkVP/view?usp=sharing) |
+4|	sparsity_10_emea	|#2	|emea	|partial tuning	|10000|	28.49	|30.85| [sparsity_10_emea.tar.gz](https://drive.google.com/file/d/1LbFMGU7sSgiP8qM_-_E-9JGhxsodkN9w/view?usp=sharing) |
+5	|sparsity_10_novel|	#2	|novel|	partial tuning	|10000|	28.49	|24.19|[sparsity_10_novel.tar.gz](https://drive.google.com/file/d/1RUZ1GBA5BYhoKwVpAboBnHWzDQhcevhy/view?usp=sharing) |
 
 ## Data Preprocess
 Datasets:
+
 |   Domain  |  Dataset | Download|
-|  ----  | ----  | :----:|
+|  ----  | ----  | :----: |
 | General Domain   | WMT14(En-De) | Automatic |
-| Target Domain  | Novel/EMEA/IWSLT14 | [Link](https://github.com/ohlionel/Prune-Tune/tree/main/neurst/data)
+| Target Domain  | Novel/EMEA/IWSLT14 | [Link]
 
 
 <!-- 
@@ -143,29 +154,4 @@ python3 -m neurst.cli.run_exp \
     --mask_dir models/sparsity_10/mask.pkl \
     --apply_mask
 ```
-
-## Checkpoints Download
-
-|#|Model| Pre-trained Model | Dataset | Approach | Train Steps | WMT_BLEU | TEST_BLEU | Download Links|
-|----|----|:----:|:----:|:----:|:----:|:----:|:----:|:----:|
-|1|benchmark_big	|-|	wmt14|	training from scratch|	500000	|28.46|	-| [benchmark_big.tar.gz](https://drive.google.com/file/d/1LnlWqRS2b-vlrjm2_qCxj7nSoclJHHeX/view?usp=sharing) |	
-2 | sparsity_10	|#1|	wmt14|	gradual pruning|	10000|	28.49|	-| [sparsity_10.tar.gz](https://drive.google.com/file/d/134linGO9BFO8xRkHhczJgT8KbpYw5TNu/view?usp=sharing) |	
-3	|sparsity_10_iwslt|	#2|	iwslt14	|partial tuning	|10000|	28.49|	31.34	| [sparsity_10_iwslt.tar.gz](https://drive.google.com/file/d/1KgkUqsxEMQnlD-dquGWlnUzHqeGIhkVP/view?usp=sharing) |
-4|	sparsity_10_emea	|#2	|emea	|partial tuning	|10000|	28.49	|30.85| [sparsity_10_emea.tar.gz](https://drive.google.com/file/d/1LbFMGU7sSgiP8qM_-_E-9JGhxsodkN9w/view?usp=sharing) |
-5	|sparsity_10_novel|	#2	|novel|	partial tuning	|10000|	28.49	|24.19|[sparsity_10_novel.tar.gz](https://drive.google.com/file/d/1RUZ1GBA5BYhoKwVpAboBnHWzDQhcevhy/view?usp=sharing) |
-
-## Citation
-Please consider citing our paper in your publications if the project helps your research. BibTeX reference is as follows.
-```
-@inproceedings{jianze2021prunetune,
-  title={Finding Sparse Structures for Domain Specific Neural Machine Translation},
-  author={Jianze Liang, Chengqi Zhao, Mingxuan Wang, Xipeng Qiu, Lei Li},
-  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
-  year={2021}
-}
-```
-
-
-
-
 

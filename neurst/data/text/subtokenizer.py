@@ -6,6 +6,7 @@ import unicodedata
 import six
 import tensorflow as tf
 from absl import logging
+from neurst.utils.misc import temp_download
 
 from neurst.data.text import register_tokenizer
 from neurst.data.text.tokenizer import Tokenizer
@@ -435,6 +436,8 @@ class Subtokenizer(Tokenizer):
         if isinstance(codes, list):
             subtokens = codes
         else:
+            if codes.startswith("http://") or codes.startswith("https://"):
+                codes = temp_download(codes)
             with tf.io.gfile.GFile(codes, mode="r") as f:
                 subtokens = [line for line in f]
         for subtoken in subtokens:

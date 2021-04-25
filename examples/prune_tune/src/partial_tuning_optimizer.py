@@ -25,12 +25,7 @@ def create_partial_tuning_optimizer(optimizer, model, load_mask):
     Args:
         optimizer: The optimizer.
         model: The keras model.
-        pruning_schedule: The sparsity schedule for weight weight_pruning.
-        pruning_variable_pattern: The regular expression that indicates the variables will be pruned.
-        nopruning_variable_pattern: The regular expression that indicates the variables
-            will NOT be pruned (will take effect if `pruning_variable_pattern`=None).
-        keep_prune_property: if True, deduce weight_pruning mask according to the variables, else initialize
-            the mask to ones.
+        load_mask:
     """
 
     class _PartialTuningOptimizer(tf.keras.optimizers.Optimizer):
@@ -41,29 +36,6 @@ def create_partial_tuning_optimizer(optimizer, model, load_mask):
             self._model_weights = []
             for var in model.trainable_weights:
                 self._model_weights.append(var)
-            #     varname = var.name.split(":")[0]
-            #     if pruning_variable_pattern is not None:
-            #         if re.search(pruning_variable_pattern, varname):
-            #             self._prune_weigths.append(var)
-            #         else:
-            #             noprune_weights.append(var)
-            #     elif nopruning_variable_pattern is not None:
-            #         if re.search(nopruning_variable_pattern, varname):
-            #             noprune_weights.append(var)
-            #         else:
-            #             self._prune_weigths.append(var)
-            #     else:
-                    
-            # if len(self._prune_weigths) == 0:
-            #     logging.info("Pruning: all trainable weights will be pruned. ")
-            # else:
-            #     logging.info(f"Pruning: following {len(self._prune_weigths)} weights will be pruned: ")
-            #     for var in self._prune_weigths:
-            #         logging.info(f"  {var.name.split(':')[0]}")
-            #     logging.info("")
-            #     logging.info(f"Pruning: following {len(self._prune_weigths)} weights will NOT be pruned: ")
-            #     for var in noprune_weights:
-            #         logging.info(f"  {var.name.split(':')[0]}")
             self._partial_tuning_vars = self._create_variable_masks()
 
         def _create_variable_masks(self):
@@ -118,30 +90,9 @@ def create_partial_tuning_optimizer(optimizer, model, load_mask):
                             experimental_aggregate_gradients=True):
             results = super(self.__class__, self).apply_gradients(
                 grads_and_vars, name, experimental_aggregate_gradients)
-            # should_update_mask = self._pruning_schedule.should_prune_in_step(self.iterations)
-
-            def _apply_mask():
-                for weight, original_weight, original_mask, tuning_mask in self._partial_tuning_vars:
-                    masked_weight =  original_weight * tf.cast(original_mask, weight.dtype.base_dtype) + weight * tf.cast(tuning_mask, weight.dtype.base_dtype)
-                    weight.assign(masked_weight)
-
-            # def _update_mask():
-            #     sparsity = self._pruning_schedule.sparsity_in_step(self.iterations)
-            #     for weight, mask, threshold in self._prune_vars:
-            #         abs_weight = tf.math.abs(weight)
-            #         k = tf.cast(tf.math.round(tf.cast(tf.size(weight), tf.float32) * (1. - sparsity)), tf.int32)
-            #         # sort the entire array
-            #         values, _ = tf.math.top_k(tf.reshape(abs_weight, [-1]), k=k)
-            #         # grab the (k-1)-th value
-            #         current_threshold = tf.gather(values, k - 1)
-            #         new_mask = tf.cast(tf.math.greater_equal(abs_weight, current_threshold),
-            #                            weight.dtype.base_dtype)
-            #         mask.assign(new_mask)
-            #         threshold.assign(current_threshold)
-            #         weight.assign(weight * tf.cast(new_mask, weight.dtype.base_dtype))
-
-            # tf.cond(should_update_mask, true_fn=_update_mask, false_fn=_apply_mask)
-            _apply_mask()
+            for weight, original_weight, original_mask, tuning_mask in self._partial_tuning_vars:
+                masked_weight =  original_weight * tf.cast(original_mask, weight.dtype.base_dtype) + weight * tf.cast(tuning_mask, weight.dtype.base_dtype)
+                weight.assign(masked_weight)
             return results
 
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),

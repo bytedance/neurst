@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import pickle
 from distutils.version import LooseVersion
 
 import numpy as np
-import pickle
-
 import tensorflow as tf
 from absl import logging
 
+from examples.prune_tune.src.partial_tuning_optimizer import create_partial_tuning_optimizer
 from neurst.criterions import Criterion, build_criterion
 from neurst.data.dataset_utils import map_data_for_keras
 from neurst.data.datasets.multiple_dataset import MultipleDataset
@@ -28,7 +28,6 @@ from neurst.models.model_utils import summary_model_variables
 from neurst.optimizers import OPTIMIZER_REGISTRY_NAME, build_optimizer
 from neurst.optimizers.schedules import LR_SCHEDULE_REGISTRY_NAME, build_lr_schedule
 from neurst.sparsity.pruning_optimizer import create_pruning_optimizer
-from examples.prune_tune.src.partial_tuning_optimizer import create_partial_tuning_optimizer
 from neurst.sparsity.pruning_schedule import PolynomialDecay, PruningSchedule, build_pruning_schedule
 from neurst.training import (CustomCheckpointCallback, LearningRateScheduler, MetricReductionCallback, Validator,
                              build_validator, training_utils)
@@ -68,16 +67,6 @@ class PruneTuneTrainer(BaseExperiment):
                 # self.load_mask = np.load(self.mask_dir, allow_pickle=True)
                 with open(self.mask_dir, 'rb') as f:
                     self.load_mask = pickle.load(f)
-                # i = 0
-                # for weight in self.load_mask:
-                #     if  i <= 1000:
-                #         tf.print(weight.name, output_stream='file://./mask.txt')
-                #         if weight.shape.ndims > 0:
-                #             tf.print(weight[:1], output_stream='file://./mask.txt', summarize=-1, name=weight.name) 
-                #         else:
-                #             tf.print(weight, output_stream='file://./mask.txt', summarize=-1, name=weight.name) 
-                #     else:
-                #         i += 1
             else:
                 self.mask_dir = os.path.join(self.model_dir, "mask.pkl")
                 self.load_mask = None
@@ -319,18 +308,6 @@ class PruneTuneTrainer(BaseExperiment):
                 cnt += 1
             logging.info(f"Total {cnt} batches per EPOCH.")
 
-
-        # i = 0
-        # for weight in keras_model.weights:
-        #     if  i <= 1000:
-        #         tf.print(weight.name, output_stream='file://./before.txt')
-        #         if weight.shape.ndims > 0:
-        #             tf.print(weight[:1], output_stream='file://./before.txt', summarize=-1, name=weight.name) 
-        #         else:
-        #             tf.print(weight, output_stream='file://./before.txt', summarize=-1, name=weight.name) 
-        #     else:
-        #         i += 1
-
         history = keras_model.fit(
             map_data_for_keras(tfds.repeat()),
             initial_epoch=0,
@@ -359,14 +336,3 @@ class PruneTuneTrainer(BaseExperiment):
             saved_mask_dir = os.path.join(self.model_dir, "mask.pkl")
             with open(saved_mask_dir, 'wb') as f:
                 pickle.dump(mask, f)
-
-        # i = 0
-        # for weight in keras_model.weights:
-        #     if i <= 1000:
-        #         tf.print(weight.name, output_stream='file://./after.txt')
-        #         if weight.shape.ndims > 0:
-        #             tf.print(weight[:1], output_stream='file://./after.txt', summarize=-1, name=weight.name)
-        #         else:
-        #             tf.print(weight, output_stream='file://./before.txt', summarize=-1, name=weight.name) 
-        #     else:
-        #         i += 1

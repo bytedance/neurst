@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-import time
 import pickle
+import time
 
 import numpy
 import tensorflow as tf
@@ -47,12 +47,10 @@ class MaskSequenceGenerator(BaseExperiment):
         self._save_metric = args["save_metric"]
         self._metric = self.task.get_eval_metric(args, ds=self.custom_dataset)
         self._search_layer = build_search_layer(args)
-        self._apply_mask = args["apply_mask"]
+        self.load_mask = None
         if args["mask_dir"]:
-                self.mask_dir = args["mask_dir"][0]
-                # self.load_mask = np.load(self.mask_dir, allow_pickle=True)
-                with open(self.mask_dir, 'rb') as f:
-                    self.load_mask = pickle.load(f)
+            with open(args["mask_dir"], 'rb') as f:
+                self.load_mask = pickle.load(f)
 
     @staticmethod
     def class_or_method_args():
@@ -65,10 +63,8 @@ class MaskSequenceGenerator(BaseExperiment):
                       "it should be a dict like {dataset_name0: data_path0, ...}"),
             Flag("save_metric", dtype=Flag.TYPE.STRING, default=None,
                  help="The path to a file that metrics will be saved to, in json format."),
-            Flag("mask_dir", dtype=Flag.TYPE.STRING, default=None, multiple=True,
+            Flag("mask_dir", dtype=Flag.TYPE.STRING, default=None,
                  help="The path to the mask file."),
-            Flag("apply_mask", dtype=Flag.TYPE.BOOLEAN, default=False,
-                 help="Apply mask for generation in general domain. "),
         ]
 
     @staticmethod
@@ -129,22 +125,12 @@ class MaskSequenceGenerator(BaseExperiment):
         return generations
 
     def apply_mask(self, model, masks):
-        tuples = [] 
+        tuples = []
         for (weight, mask) in list(zip(model.trainable_weights, masks)):
             masked_weight = weight * tf.cast(mask, weight.dtype.base_dtype)
-            # for weight, mask, _ in layer.pruning_vars:
-            #     new_mask = tf.constant(0, dtype=tf.float32, shape=mask.shape)
-            #     new_mask = tf.dtypes.cast(new_mask, tf.bool)
-            #     for i in reuse_domains:
-            #         cur_mask = tf.math.equal(mask, tf.constant(i, dtype=tf.float32))
-            #         new_mask = tf.math.logical_or(cur_mask, new_mask)
-            #     new_mask = tf.dtypes.cast(new_mask, mask.dtype)
-            #     masked_weight = tf.cast(tf.math.multiply(tf.cast(weight, tf.float32), tf.cast(new_mask, tf.float32)),
-            #                             weight.dtype)
             tuples.append((weight, masked_weight))
 
         K.batch_set_value(tuples)
-
 
     def run(self):
         """ Sequence generation from an existing model checkpoint.
@@ -157,7 +143,7 @@ class MaskSequenceGenerator(BaseExperiment):
         # Step 3: Build model.
         with training_utils.get_strategy_scope(self.strategy):
             model = self._build_and_restore_model()
-            if self._apply_mask:
+            if self.load_mask is not None:
                 self.apply_mask(model, self.load_mask)
             keras_model = self.build_generation_model(self.task, model, self._search_layer)
             tfds = training_utils.build_datasets(compat.ModeKeys.INFER, self.strategy,
