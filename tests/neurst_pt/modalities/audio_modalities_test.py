@@ -15,7 +15,7 @@ import numpy
 import tensorflow as tf
 import torch
 
-from neurst.layers.modalities.audio_modalities import AudioConvSubsamplingLayer as TFAudioConvSubsamplingLayer
+from neurst.layers.modalities.audio_modalities import AudioConv2dSubsamplingLayer as TFAudioConvSubsamplingLayer
 from neurst.utils.misc import assert_equal_numpy
 from neurst_pt.layers.modalities.audio_modalities import AudioConvSubsamplingLayer
 

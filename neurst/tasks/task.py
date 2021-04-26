@@ -46,11 +46,17 @@ class Task(object):
     def create_inputs(self, mode):
         """ Creates keras input placeholders. """
         dtypes, signatures = self.inputs_signature(mode)
-        inps = dict()
-        for name in dtypes:
-            inps[name] = tf.keras.layers.Input(tuple(signatures[name][1:]),
-                                               dtype=dtypes[name], name=name)
-        return inps
+        if isinstance(dtypes, dict):
+            inps = dict()
+            for name in dtypes:
+                inps[name] = tf.keras.layers.Input(tuple(signatures[name][1:]),
+                                                   dtype=dtypes[name], name=name)
+            return inps
+        else:
+            inps = []
+            for d, s in zip(tf.nest.flatten(dtypes), tf.nest.flatten(signatures)):
+                inps.append(tf.keras.layers.Input(tuple(s[1:]), dtype=d))
+            return tf.nest.pack_sequence_as(dtypes, inps)
 
     @abstractmethod
     def inputs_signature(self, mode) -> Tuple[dict, dict]:

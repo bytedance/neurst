@@ -46,7 +46,7 @@ def gelu(x, non_approximate=False):
 def glu(x):
     """ Gated linear unit. """
     a, b = tf.split(x, axis=-1, num_or_size_splits=2)
-    return a * tf.sigmoid(b)
+    return a * tf.nn.sigmoid(b)
 
 
 def get_activation(activ):
@@ -58,7 +58,7 @@ def get_activation(activ):
         return tf.nn.tanh
     elif activ == "relu":
         return tf.nn.relu
-    elif activ == "gelu":
+    elif activ == "gelu" or activ == "gelu_approx":
         return lambda x: gelu(x, non_approximate=False)
     elif activ == "gelu_nonapprox":
         return lambda x: gelu(x, non_approximate=True)

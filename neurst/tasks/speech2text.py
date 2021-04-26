@@ -198,6 +198,8 @@ class SpeechToText(Task):
 
         def _process_and_truncate_text(text):
             if data_status["transcript"] == compat.DataStatus.RAW:
+                if compat.is_tf_tensor(text):
+                    text = text.numpy()
                 text = self._trg_data_pipeline.process(text, is_processed=False)
             else:
                 assert data_status["transcript"] == compat.DataStatus.PROJECTED

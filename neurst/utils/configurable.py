@@ -76,6 +76,11 @@ def print_params(title, params, with_none=True, indent=0):
         elif isinstance(params, list):
             prefix += "  "
             for item in params:
+                if not isinstance(item, dict):
+                    newprefix = copy.deepcopy(prefix[:-2])
+                    newprefix += "- "
+                    param_list.append(newprefix + str(item))
+                    continue
                 for idx, (key, val) in enumerate(item.items()):
                     if idx == 0:
                         newprefix = copy.deepcopy(prefix[:-2])

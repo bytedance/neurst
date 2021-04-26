@@ -212,7 +212,7 @@ def load_from_tfrecord_and_auto_shard(features_file, shuffle=True,
     options = tf.data.Options()
     options.experimental_deterministic = deterministic
     dataset = dataset.interleave(
-        lambda f: tf.data.TFRecordDataset(f, buffer_size=128 * 1024 * 1024),
+        lambda f: tf.data.TFRecordDataset(f, buffer_size=32 * 1024 * 1024),
         cycle_length=10,
         num_parallel_calls=tf.data.experimental.AUTOTUNE).with_options(options)
     if example_parse_fn is None:

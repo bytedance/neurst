@@ -196,7 +196,7 @@ class RawAudioDataset(Dataset):
 
     @staticmethod
     def _pack_example_as_dict(audio, transcript=None, translation=None,
-                              src_lang=None, trg_lang=None):
+                              src_lang=None, trg_lang=None, **kwargs):
         example = {"audio": audio, "uuid": str(uuid.uuid4())}
         if transcript is not None:
             assert src_lang is not None
@@ -206,6 +206,8 @@ class RawAudioDataset(Dataset):
             assert trg_lang is not None
             example["translation"] = translation
             example["trg_lang"] = trg_lang
+        for k, v in kwargs.items():
+            example[k] = v
         return example
 
     @property

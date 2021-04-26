@@ -17,7 +17,7 @@ import tensorflow as tf
 from neurst.layers.common_layers import PositionEmbeddingWrapper
 from neurst.layers.decoders import build_decoder
 from neurst.layers.encoders import build_encoder
-from neurst.layers.modalities.audio_modalities import AudioConvSubsamplingLayer
+from neurst.layers.modalities.audio_modalities import AudioConv2dSubsamplingLayer
 from neurst.models import register_model
 from neurst.models.encoder_decoder_model import EncoderDecoderModel
 from neurst.utils import compat
@@ -119,7 +119,7 @@ class SpeechTransformer(EncoderDecoderModel):
             share_embedding_and_softmax_weights=model_args["modality.share_embedding_and_softmax_weights"])
 
         # creates source audio modality
-        input_modality = AudioConvSubsamplingLayer(
+        input_modality = AudioConv2dSubsamplingLayer(
             embedding_dim=src_dim,
             kernel_size=model_args["modality.source.kernel_size"],
             strides=model_args["modality.source.strides"],
