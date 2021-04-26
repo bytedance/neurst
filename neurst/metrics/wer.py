@@ -14,6 +14,7 @@
 import numpy as np
 
 from neurst.data.data_pipelines.transcript_data_pipeline import TranscriptDataPipeline
+from neurst.data.text.moses_tokenizer import MosesTokenizer
 from neurst.metrics import register_metric
 from neurst.metrics.metric import Metric
 
@@ -40,7 +41,9 @@ class Wer(Metric):
     def __init__(self, language="en", *args, **kwargs):
         _ = args
         _ = kwargs
+        self._tokenizer = MosesTokenizer(language)
         self._language = language
+
         super(Wer, self).__init__()
 
     def set_groundtruth(self, groundtruth):
@@ -51,7 +54,8 @@ class Wer(Metric):
                 [sent0_ref, sent1_ref, ...]
         """
         self._references = [TranscriptDataPipeline.cleanup_transcript(
-            self._language, x, lowercase=True, remove_punctuation=True) for x in groundtruth]
+            self._language, self._tokenizer.tokenize(x, return_str=True),
+            lowercase=True, remove_punctuation=True) for x in groundtruth]
 
     def greater_or_eq(self, result1, result2):
         return self.get_value(result1) <= self.get_value(result2)
@@ -75,9 +79,11 @@ class Wer(Metric):
             groundtruth = self._references
         else:
             groundtruth = [TranscriptDataPipeline.cleanup_transcript(
-                self._language, x, lowercase=True, remove_punctuation=True) for x in groundtruth]
+                self._language, self._tokenizer.tokenize(x, return_str=True),
+                lowercase=True, remove_punctuation=True) for x in groundtruth]
         hypothesis = [TranscriptDataPipeline.cleanup_transcript(
-            self._language, x, lowercase=True, remove_punctuation=True) for x in hypothesis]
+            self._language, self._tokenizer.tokenize(x, return_str=True),
+            lowercase=True, remove_punctuation=True) for x in hypothesis]
         substitutions = 0
         insertions = 0
         deletions = 0

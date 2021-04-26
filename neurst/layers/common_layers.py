@@ -33,7 +33,8 @@ class PrePostProcessingWrapper(QuantLayer):
     """
 
     def __init__(self, layer, dropout_rate=0.1, epsilon=1e-12,
-                 pre_norm=True, name="layer_prepostprocess"):
+                 pre_norm=True, res_conn_factor=1.,
+                 name="layer_prepostprocess"):
         """ Initializes.
 
         Args:
@@ -42,9 +43,11 @@ class PrePostProcessingWrapper(QuantLayer):
             epsilon: The epsilon of layer norm.
             pre_norm: Applies norm->layer->dropout->residual if True, else
                 layer->dropout->residual->norm
+            res_conn_factor: The factor for residual connection.
             name: The name of this layer.
         """
         super(PrePostProcessingWrapper, self).__init__(name=name)
+        self._res_conn_factor = res_conn_factor
         self._dropout_rate = dropout_rate
         self._epsilon = epsilon
         self._layer = layer
@@ -75,14 +78,14 @@ class PrePostProcessingWrapper(QuantLayer):
             if is_training:
                 y = tf.nn.dropout(y, rate=self._dropout_rate)
             # a
-            return inputs + y
+            return inputs + y * self._res_conn_factor
         else:
             y = self._layer(inputs, *args, **kwargs)
             # d
             if is_training:
                 y = tf.nn.dropout(y, rate=self._dropout_rate)
             # an
-            return self._norm_layer(inputs + y)
+            return self._norm_layer(inputs + y * self._res_conn_factor)
 
 
 class TransformerFFN(QuantLayer):
@@ -431,4 +434,5 @@ class PositionEmbeddingWrapper(QuantLayer):
                                     [0, 0], [tf.shape(emb)[1], -1])
         else:
             raise ValueError("need a Tensor with rank 2 or 3")
-        return emb + tf.expand_dims(position_emb, axis=0)
+
+        return emb + tf.cast(tf.expand_dims(position_emb, axis=0), dtype=emb.dtype)

@@ -44,7 +44,7 @@ def flatten_string_list(arg):
     """
     if arg is None:
         return None
-    return [c.strip() for cs in tf.nest.flatten(arg) for c in cs.split(",")]
+    return [c.strip() for cs in tf.nest.flatten(arg) for c in cs.split(",") if c.strip()]
 
 
 class DummyContextManager(object):

@@ -11,8 +11,8 @@ NeurST provides reference implementations of various models, including:
 - Transformer (self-attention) networks
     - [Attention Is All You Need (Vaswani et al., 2017)](https://arxiv.org/pdf/1706.03762.pdf)
     - [Pay Less Attention With Lightweight and Dynamic Convolutions (Wu et al., 2019)](https://arxiv.org/pdf/1901.10430.pdf)
-
     - CTNMT (Transformer with BERT enhanced encoder) from [Towards making the most of bert in neural machine translation (Yang et al., 2020)](https://arxiv.org/abs/1908.05672), see the examples in [CTNMT](/examples/ctnmt/README.md)
+    - Prune-Tune: [Finding Sparse Structures for Domain Specific NMT](https://arxiv.org/abs/2012.10586)
 
 ### Recipes and Benchmarks
 NeurST provides several **strong and reproducible benchmarks** for various tasks:
