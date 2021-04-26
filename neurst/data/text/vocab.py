@@ -14,8 +14,10 @@
 import copy
 import json
 import random
-from neurst.utils.misc import temp_download
+
 import tensorflow as tf
+
+from neurst.utils.misc import temp_download
 
 
 class PaddingMode(object):

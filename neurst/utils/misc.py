@@ -13,12 +13,12 @@
 # limitations under the License.
 import multiprocessing
 import os
+import tempfile
 from distutils.version import LooseVersion
 from urllib.request import urlretrieve
 
 import numpy
 import tensorflow as tf
-import tempfile
 from absl import logging
 
 
@@ -171,7 +171,11 @@ def download_with_tqdm(url, filename):
 def temp_download(url):
     tmpfile = tempfile.NamedTemporaryFile("w", delete=False)
     download_with_tqdm(url, tmpfile.name)
-    return tmpfile.name
+    inmemory_name = "ram://" + os.path.basename(tmpfile.name)
+    with tf.io.gfile.GFile(inmemory_name, "wb") as fw, tf.io.gfile.GFile(tmpfile.name, "rb") as fp:
+        fw.write(fp.read())
+    os.remove(tmpfile.name)
+    return inmemory_name
 
 
 def assert_equal_numpy(tensor_a, tensor_b, epsilon=1e-6):

@@ -1,5 +1,5 @@
 entry: predict
-batch_size: 64
+batch_size: 32
 search_method: beam_search
 search_method.params:
   beam_size: 4

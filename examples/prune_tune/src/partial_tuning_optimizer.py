@@ -11,12 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import re
-
 import tensorflow as tf
-from absl import logging
-
-# from neurst.sparsity.pruning_schedule import PruningSchedule
 
 
 def create_partial_tuning_optimizer(optimizer, model, load_mask):
@@ -81,7 +76,7 @@ def create_partial_tuning_optimizer(optimizer, model, load_mask):
                         synchronization=tf.VariableSynchronization.ON_READ,
                         aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA) for mask in load_mask
                 ]
-            
+
             return list(zip(self._model_weights, original_weights, original_masks, tuning_masks))
 
         def apply_gradients(self,
@@ -91,7 +86,8 @@ def create_partial_tuning_optimizer(optimizer, model, load_mask):
             results = super(self.__class__, self).apply_gradients(
                 grads_and_vars, name, experimental_aggregate_gradients)
             for weight, original_weight, original_mask, tuning_mask in self._partial_tuning_vars:
-                masked_weight =  original_weight * tf.cast(original_mask, weight.dtype.base_dtype) + weight * tf.cast(tuning_mask, weight.dtype.base_dtype)
+                masked_weight = original_weight * tf.cast(original_mask, weight.dtype.base_dtype) + weight * tf.cast(
+                    tuning_mask, weight.dtype.base_dtype)
                 weight.assign(masked_weight)
             return results
 

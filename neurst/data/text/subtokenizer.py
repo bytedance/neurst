@@ -6,10 +6,10 @@ import unicodedata
 import six
 import tensorflow as tf
 from absl import logging
-from neurst.utils.misc import temp_download
 
 from neurst.data.text import register_tokenizer
 from neurst.data.text.tokenizer import Tokenizer
+from neurst.utils.misc import temp_download
 
 RESERVED_TOKENS = []
 
