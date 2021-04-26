@@ -1,0 +1,8 @@
+entry.class: trainer
+entry.params:
+  train_steps: 200000
+  summary_steps: 200
+  save_checkpoint_steps: 1000
+  criterion.class: label_smoothed_cross_entropy
+  criterion.params:
+    label_smoothing: 0.1
