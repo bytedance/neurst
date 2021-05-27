@@ -318,7 +318,11 @@ def checkpoint_scope_name(checkpoint_path):
 
     Returns: A string or None.
     """
-    var_names = [compat.wrapper_var_name(x[0]) for x in tf.train.list_variables(checkpoint_path)]
+    try:
+        var_names = [compat.wrapper_var_name(x[0]) for x in tf.train.list_variables(checkpoint_path)]
+    except ValueError:
+        var_names = [compat.wrapper_var_name(x[0])
+                     for x in tf.train.list_variables(os.path.dirname(checkpoint_path))]
     prefixs = set()
     for n in var_names:
         n_tokens = n.strip().split("/")
@@ -391,7 +395,7 @@ def restore_checkpoint_if_possible_v2(model, path, model_name=None, from_prefix=
         from_prefix = [x.strip("/") for x in tf.nest.flatten(from_prefix)]
     all_vars = model.weights
     if to_prefix is None:
-        to_prefix = [all_vars[0].split("/")[0]]
+        to_prefix = [all_vars[0].name.split("/")[0]]
     else:
         to_prefix = [x.strip("/") for x in tf.nest.flatten(to_prefix)]
     assert len(from_prefix) == len(to_prefix)

@@ -93,7 +93,7 @@ def get_registered_initial_step():
 def register_distributed_worker_setting(worker_id, num_workers, strategy):
     """ Memorizes the current worker id and total number of workers. """
     logging.info(f"Register distribution strategy: {str(strategy)} "
-                 f"on worker {worker_id} (total {num_workers}).")
+                 f"on worker {worker_id} (total {num_workers}). ")
     _broadcast_global_setting(GlobalKeys.DIST_WORKER_ID, worker_id)
     _broadcast_global_setting(GlobalKeys.DIST_NUM_WORKERS, num_workers)
     _broadcast_global_setting(GlobalKeys.DIST_STRATEGY, strategy)

@@ -20,25 +20,26 @@ from neurst.layers.metric_layers.metric_layer import MetricLayer
 class SequenceTokenMetricLayer(MetricLayer):
     """Custom a layer of metrics for Transformer model."""
 
-    def __init__(self, name_prefix):
+    def __init__(self, name_prefix, key=None):
         super(SequenceTokenMetricLayer, self).__init__()
-        self._name_prefix = name_prefix
+        self._name_prefix = "" if name_prefix is None else (name_prefix + "_")
+        self._key = key or name_prefix
 
     def build(self, input_shape):
         super(SequenceTokenMetricLayer, self).build(input_shape)
-        self.build_metric_reduction(self._name_prefix + "_tokens", METRIC_REDUCTION.SUM)
-        self.build_metric_reduction(self._name_prefix + "_real_tokens", METRIC_REDUCTION.SUM)
+        self.build_metric_reduction(self._name_prefix + "tokens", METRIC_REDUCTION.SUM)
+        self.build_metric_reduction(self._name_prefix + "real_tokens", METRIC_REDUCTION.SUM)
 
     def calculate(self, input, output):
         """ Calculates metric values according to model input and output. """
-        x = input[self._name_prefix]
-        ms = {self._name_prefix + "_tokens": tf.cast(tf.shape(x)[0] * tf.shape(x)[1], tf.float32)}
-        if self._name_prefix + "_padding" in input:
-            x_len = ms[self._name_prefix + "_tokens"] - tf.cast(
-                tf.reduce_sum(input[self._name_prefix + "_padding"]), tf.float32)
+        x = input[self._key]
+        ms = {self._name_prefix + "tokens": tf.cast(tf.shape(x)[0] * tf.shape(x)[1], tf.float32)}
+        if self._name_prefix + "padding" in input:
+            x_len = ms[self._name_prefix + "tokens"] - tf.cast(
+                tf.reduce_sum(input[self._name_prefix + "padding"]), tf.float32)
         else:
-            x_len = tf.reduce_sum(tf.cast(input[self._name_prefix + "_length"], tf.float32))
-        ms[self._name_prefix + "_real_tokens"] = x_len
+            x_len = tf.reduce_sum(tf.cast(input[self._name_prefix + "length"], tf.float32))
+        ms[self._name_prefix + "real_tokens"] = x_len
         return ms
 
 

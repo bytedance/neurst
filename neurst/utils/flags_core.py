@@ -534,6 +534,8 @@ def verbose_flags(flag_list, args, remaining_argv, backend="tf"):
                 if text and len(text) > 0:
                     logging.info("  {}".format(" ".join(text)))
                 text = []
+            if text is None:
+                continue
             text.append(arg)
         if text and len(text) > 0:
             logging.info("  {}".format(" ".join(text)))

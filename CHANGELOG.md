@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - CTNMT (Yang et al., 2020) training
     - Prune-Tune (Liang et al., 2021)
 - dataset for IWSLT offline ST task 
+- language model task and GPT-2 pretraining
 
 
 ### Changed

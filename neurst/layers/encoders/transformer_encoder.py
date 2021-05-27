@@ -14,11 +14,10 @@
 """ Implements transformer encoders as described in https://arxiv.org/abs/1706.03762. """
 import tensorflow as tf
 
-from neurst.layers import build_transformer_component, layer_utils
-from neurst.layers.attentions.multi_head_attention import MultiHeadSelfAttention
-from neurst.layers.common_layers import TransformerFFN
+from neurst.layers import layer_utils
 from neurst.layers.encoders import register_encoder
 from neurst.layers.encoders.encoder import Encoder
+from neurst.layers.transformer_layers import TransformerEncoderLayer
 
 
 @register_encoder
@@ -76,32 +75,22 @@ class TransformerEncoder(Encoder):
     def build(self, input_shape):
         """ Builds the transformer encoder layer. """
         params = self.get_config()
-        for _ in range(params["num_layers"]):
-            self._stacking_layers.append([
-                build_transformer_component({
-                    "base_layer.class": MultiHeadSelfAttention.__name__,
-                    "base_layer.params": dict(
-                        num_heads=params["num_attention_heads"],
-                        num_units=params["hidden_size"],
-                        attention_dropout_rate=params["attention_dropout_rate"],
-                        attention_type=params["attention_type"],
-                        name="self_attention"
-                    )},
-                    dropout_rate=params["layer_postprocess_dropout_rate"],
-                    epsilon=params["layer_postprocess_epsilon"],
-                    pre_norm=(not params["post_normalize"])),
-                build_transformer_component({
-                    "base_layer.class": TransformerFFN.__name__,
-                    "base_layer.params": dict(
-                        filter_size=params["filter_size"],
-                        output_size=params["hidden_size"],
-                        dropout_rate=params["ffn_dropout_rate"],
-                        activation=params["ffn_activation"],
-                        name="ffn")},
-                    dropout_rate=params["layer_postprocess_dropout_rate"],
-                    epsilon=params["layer_postprocess_epsilon"],
-                    pre_norm=(not params["post_normalize"]))
-            ])
+        for idx in range(params["num_layers"]):
+            self._stacking_layers.append(
+                TransformerEncoderLayer(
+                    hidden_size=params["hidden_size"],
+                    num_attention_heads=params["num_attention_heads"],
+                    filter_size=params["filter_size"],
+                    ffn_activation=params["ffn_activation"],
+                    attention_dropout_rate=params["attention_dropout_rate"],
+                    attention_type=params["attention_type"],
+                    ffn_dropout_rate=params["ffn_dropout_rate"],
+                    layer_postprocess_dropout_rate=params["layer_postprocess_dropout_rate"],
+                    layer_postprocess_epsilon=params["layer_postprocess_epsilon"],
+                    post_normalize=params["post_normalize"],
+                    name=f"layer_{idx}"
+                ))
+
         if not params["post_normalize"]:
             self._output_norm_layer = tf.keras.layers.LayerNormalization(
                 epsilon=params["layer_postprocess_epsilon"],
@@ -131,17 +120,8 @@ class TransformerEncoder(Encoder):
             x = tf.nn.dropout(x, rate=self.get_config()[
                 "layer_postprocess_dropout_rate"])
         for idx, layer in enumerate(self._stacking_layers):
-            self_attention_layer = layer[0]
-            ffn_layer = layer[1]
-            with tf.name_scope("layer_{}".format(idx)):
-                # self attention layer
-                x = self_attention_layer(
-                    x,  # x as query
-                    bias=self_attention_bias,
-                    is_training=is_training)
-                # ffn
-                x = ffn_layer(x, is_training=is_training)
-                all_layers.append(x)
+            x = layer(x, self_attention_bias, is_training=is_training)
+            all_layers.append(x)
         if self.get_config()["post_normalize"]:
             if self._return_all_layers:
                 return all_layers
