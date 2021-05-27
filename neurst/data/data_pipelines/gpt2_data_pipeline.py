@@ -50,6 +50,7 @@ class GPT2DataPipeline(DataPipeline, Vocab):
             "vocab_size": self.vocab_size,
             "eos_id": self._eos_id,
             "pad_id": self._eos_id,
+            "bos_id": self._eos_id,
             "padding_mode": PaddingMode.EOS_AS_PADDING,
             "language": self._language
         }

@@ -1,0 +1,41 @@
+model_dir: ./test_models
+
+entry.class: trainer
+entry.params:
+  train_steps: 100
+  save_checkpoint_steps: 50
+  summary_steps: 10
+  criterion.class: label_smoothed_cross_entropy
+  criterion.params:
+    label_smoothing: 0.1
+  optimizer.class: adam
+  optimizer.params:
+    epsilon: 1.e-9
+    beta_1: 0.9
+    beta_2: 0.98
+  lr_schedule.class: noam
+  lr_schedule.params:
+    initial_factor: 1.0
+    dmodel: 8
+    warmup_steps: 4000
+
+dataset.class: mono_text
+dataset.params:
+  data_file: ./tests/examples/train.example.en.tok.bpe.txt
+  data_is_processed: True
+
+
+task.class: lm
+task.params:
+  data_pipeline.class: TextDataPipeline
+  data_pipeline.params:
+    language: en
+    tokenizer: moses
+    subtokenizer: bpe
+    subtokenizer_codes: ./tests/examples/codes.bpe4k.en
+    vocab_path: ./tests/examples/vocab.en
+  batch_size: 500
+  batch_by_tokens: true
+  max_len: 50
+
+hparams_set: gpt2_toy

@@ -255,7 +255,9 @@ class GradAccumKerasModel(tf.keras.Model):
                 self.optimizer.apply_gradients(grads_and_vars)
 
         self.compiled_metrics.update_state(y, y_pred, sample_weight)
-        return {m.name: m.result() for m in self.metrics}
+        ret_msg = {m.name: m.result() for m in self.metrics}
+        ret_msg["this_step_loss"] = loss
+        return ret_msg
 
     def make_train_function(self):
         """Creates a function that executes one step of training.

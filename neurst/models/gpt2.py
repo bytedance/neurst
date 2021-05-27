@@ -54,8 +54,10 @@ class GPT2(BaseModel):
     @staticmethod
     def class_or_method_args():
         return [
-            Flag("max_position_embeddings", dtype=Flag.TYPE.INTEGER, default=512,
-                 help="The maximum numbers of positions."),
+            Flag("share_embedding_and_softmax_weights", dtype=Flag.TYPE.BOOLEAN, default=False,
+                 help="Whether to share the target embedding table and softmax weights."),
+            Flag("timing", dtype=Flag.TYPE.STRING, default=None,
+                 help="The arbitrary parameters for positional encoding."),
             Flag("num_layers", dtype=Flag.TYPE.INTEGER, default=None,
                  help="The number of stacking layers of the decoder."),
             Flag("hidden_size", dtype=Flag.TYPE.INTEGER, default=None,
@@ -90,12 +92,18 @@ class GPT2(BaseModel):
         Returns:
             A GPT2 model.
         """
-        # build source and target modality
-        embedding = PositionEmbeddingWrapper(
-            embedding_layer=WordEmbeddingSharedWeights(
-                embedding_dim=args["hidden_size"], vocab_size=vocab_meta["vocab_size"],
-                share_softmax_weights=True, use_bias=False, name="embeddings"),
-            name="posenc_wrapper", timing="emb", max_positions=args["max_position_embeddings"])
+        embedding = WordEmbeddingSharedWeights(
+            embedding_dim=args["hidden_size"], vocab_size=vocab_meta["vocab_size"],
+            share_softmax_weights=True, use_bias=False, name="embeddings")
+        timing = args["timing"]
+        if timing:
+            if isinstance(timing, str):
+                timing = {"timing": timing}
+            elif not isinstance(timing, dict):
+                raise ValueError("Unknown type of timing params: {}".format(str(timing)))
+            embedding = PositionEmbeddingWrapper(
+                embedding_layer=embedding, name="posenc_wrapper", **timing)
+
         decoder = TransformerDecoder(
             num_layers=args["num_layers"],
             hidden_size=args["hidden_size"],
@@ -107,10 +115,12 @@ class GPT2(BaseModel):
             ffn_dropout_rate=args["ffn_dropout_rate"],
             layer_postprocess_dropout_rate=args["layer_postprocess_dropout_rate"],
             layer_postprocess_epsilon=args["layer_postprocess_epsilon"],
-            with_encoder_decoder_attention=False,
+            no_cross_attn_layer_list=[i for i in range(args["num_layers"])],
             name="decoder")
         model = cls(args, vocab_meta, embedding, decoder, name=name)
-        _ = model({"tokens": tf.convert_to_tensor([[0, 1, 2]], tf.int64)})
+        _ = model({"trg": tf.convert_to_tensor([[0, 1, 2, vocab_meta["pad_id"]]], tf.int64),
+                   "trg_input": tf.convert_to_tensor([[vocab_meta["bos_id"], 1, 2]], tf.int64),
+                   "trg_length": tf.convert_to_tensor([4], tf.int64)})
         return model
 
     def output_logits_layer(self, features):
@@ -119,6 +129,30 @@ class GPT2(BaseModel):
             return self._embedding(features, mode="linear")
         else:
             return self._output_linear_layer(features)
+
+    def get_decoder_output(self, symbols, cache, time=None,
+                           is_training=False, decode_padded_length=None):
+        """ Forward pass of the decoder.
+
+        Args:
+            symbols: Current decoded sequence.
+            cache: A dictionary of values storing the encoder output, encoder-decoder
+                attention bias, and previous decoder attention values.
+            time: Loop index, or None for transformer training.
+            is_training: Whether is under training or not.
+            decode_padded_length: The maximum decoding length when inference, for creating
+                static-shape cache.
+
+        Returns: A Tensor.
+        """
+        inputs = self._embedding(symbols, time=time)
+        if decode_padded_length is None:
+            decoder_output = self._decoder(inputs, cache, is_training=is_training,
+                                           decode_loop_step=None)
+        else:
+            decoder_output = self._decoder(inputs, cache, is_training=is_training,
+                                           decode_loop_step=time)
+        return decoder_output
 
     def get_symbols_to_logits_fn(self, inputs, is_training, is_inference,
                                  decode_padded_length=None):
@@ -134,10 +168,10 @@ class GPT2(BaseModel):
 
         Returns:  A tuple of (decoding_internal_states, decoder_input, symbol_to_logit_fn)
         """
-        tokens = inputs["tokens"]
+        input_tokens = inputs["trg_input"]
         # [batch, length, hidden size]
         decoder_internal_cache = self._decoder.create_decoding_internal_cache(
-            tokens, None, is_inference=is_inference,
+            input_tokens, None, is_inference=is_inference,
             decode_padded_length=decode_padded_length)
 
         def symbols_to_logits_fn(symbols, cache, time=None):
@@ -150,21 +184,16 @@ class GPT2(BaseModel):
 
             Returns: The logits Tensor.
             """
-            inputs = self._embedding(symbols, time=time)
-            if decode_padded_length is None:
-                decoder_output = self._decoder(inputs, cache, is_training=is_training,
-                                               decode_loop_step=None)
-            else:
-                decoder_output = self._decoder(inputs, cache, is_training=is_training,
-                                               decode_loop_step=time)
+            decoder_output = self.get_decoder_output(symbols, cache, time,
+                                                     is_training, decode_padded_length)
             logits = self.output_logits_layer(decoder_output)
             return logits
 
         generation_initializer = {
-            "decoder_input": inputs["tokens"],
+            "decoder_input": inputs["trg_input"],
             "decoder_internal_cache": decoder_internal_cache,
             "eos_id": self._vocab_meta["eos_id"],
-            # "unk_id": self._vocab_meta["unk_id"]
+            "unk_id": self._vocab_meta.get("unk_id", None)
         }
         return symbols_to_logits_fn, generation_initializer
 
@@ -196,7 +225,10 @@ def _gpt2_hparams(num_layers,
         "model.class": GPT2.__name__,
         "model.params": {
             "share_embedding_and_softmax_weights": True,
-            "max_position_embeddings": max_positions,
+            "timing": {
+                "timing": "emb",
+                "max_positions": max_positions,
+            },
             "num_layers": num_layers,
             "hidden_size": hidden_size,
             "num_attention_heads": num_heads,

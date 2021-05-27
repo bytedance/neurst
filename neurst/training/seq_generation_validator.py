@@ -79,6 +79,7 @@ class SeqGenerationValidator(CriterionValidator):
                          "in SeqGenerationValidator for validation process.")
             self._validate_gen = False
             return self
+        self._gen_metric.flag = self.args["eval_metric.class"]
         search_layer = build_search_layer(self.args["eval_search_method.class"],
                                           **self.args["eval_search_method.params"])
         if search_layer is None:

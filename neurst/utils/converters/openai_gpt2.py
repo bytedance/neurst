@@ -23,7 +23,8 @@ from neurst.models.gpt2 import GPT2
 from neurst.utils.converters import Converter, register_converter
 from neurst.utils.misc import download_with_tqdm
 
-_URL_PREFIX = "https://storage.googleapis.com/gpt-2"
+# _URL_PREFIX = "https://storage.googleapis.com/gpt-2"
+_URL_PREFIX = "http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/resources/gpt-2"
 _GPT2_PRETRAIN_MODELS = {
     "117M": _URL_PREFIX + "/models/117M",
     "345M": _URL_PREFIX + "/models/345M",
@@ -65,7 +66,10 @@ class OpenAIGPT2(Converter):
         return {
             "model.class": GPT2.__name__,
             "model.params": {
-                "max_position_embeddings": cfg["n_ctx"],
+                "timing": {
+                    "timing": "emb",
+                    "max_positions": cfg["n_ctx"],
+                },
                 "num_layers": cfg["n_layer"],
                 "hidden_size": cfg["n_embd"],
                 "num_attention_heads": cfg["n_head"]
@@ -89,7 +93,8 @@ class OpenAIGPT2(Converter):
         model_dir = os.path.join(this_dir, f"GPT2_{key}")
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
-        for filename in ['checkpoint', 'encoder.json', 'hparams.json', 'model.ckpt.data-00000-of-00001',
+        for filename in ['checkpoint', 'encoder.json', 'hparams.json',
+                         'model.ckpt.data-00000-of-00001',
                          'model.ckpt.index', 'model.ckpt.meta', 'vocab.bpe']:
             this_url = url + "/" + filename
             save_filename = os.path.join(model_dir, filename)
