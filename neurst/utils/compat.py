@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import re
+import traceback
 from distutils.version import LooseVersion
 
 import tensorflow as tf
@@ -159,3 +160,33 @@ def is_tf_tensor(x):
     if IS_PREV_TF_2_4_0:
         return isinstance(x, tf.Tensor)
     return tf.is_tensor(x)
+
+
+LIGHTSEQ_VERBOSE = False
+
+
+def check_lightseq_enabled():
+    global LIGHTSEQ_VERBOSE
+    try:
+        if (get_distributed_worker_setting()[2] in ["horovod", "byteps"]
+            or len(tf.config.list_physical_devices('GPU')) == 1):
+            import lightseq
+
+            _ = lightseq
+            if not LIGHTSEQ_VERBOSE:
+                logging.info("Using lightseq transformer layers and fused layernorm")
+                LIGHTSEQ_VERBOSE = True
+            return True
+
+        raise NotImplementedError
+    except (ModuleNotFoundError, tf.errors.NotFoundError, ImportError):
+        if not LIGHTSEQ_VERBOSE:
+            logging.info(traceback.format_exc())
+            logging.info("NOTICE: lightseq is not activated - fail to import lightseq")
+            LIGHTSEQ_VERBOSE = True
+    except NotImplementedError:
+        if not LIGHTSEQ_VERBOSE:
+            logging.info("NOTICE: lightseq is not activated - "
+                         "lightseq training ONLY supports horovod or MirroredStrategy with 1 GPU now.")
+            LIGHTSEQ_VERBOSE = True
+    return False
