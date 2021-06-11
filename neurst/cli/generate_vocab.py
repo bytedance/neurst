@@ -84,7 +84,7 @@ FLAG_LIST = [
                     help="Input full vocabulary file."),
     flags_core.Flag("output", dtype=flags_core.Flag.TYPE.STRING, default=None,
                     help="Output final vocabulary file."),
-    flags_core.Flag("extra_slots", dtype=flags_core.Flag.TYPE.INTEGER, default=10,
+    flags_core.Flag("extra_slots", dtype=flags_core.Flag.TYPE.INTEGER, default=0,
                     help="Extra slots in the vocabulary.")
 ]
 

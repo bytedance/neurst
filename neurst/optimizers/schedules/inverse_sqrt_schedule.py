@@ -33,7 +33,7 @@ class InverseSquareRootSchedule(tf.keras.optimizers.schedules.LearningRateSchedu
         self._initial_step = compat.get_registered_initial_step()
         logging.info(f"Initialize InverseSquareRootSchedule from global step={self._initial_step}. ")
         self._initial_step = tf.convert_to_tensor(self._initial_step, dtype=tf.float32)
-        self._lr = tf.cast(args["lr"], tf.float32)
+        self._lr = tf.cast(args["peak_lr"], tf.float32)
         self._init_lr = tf.cast(args["init_lr"], tf.float32)
         self._warmup_steps = tf.cast(args["warmup_steps"], tf.float32)
         self._lr_step = (self._lr - self._init_lr) / self._warmup_steps
@@ -42,7 +42,7 @@ class InverseSquareRootSchedule(tf.keras.optimizers.schedules.LearningRateSchedu
     @staticmethod
     def class_or_method_args():
         return [
-            Flag("lr", dtype=Flag.TYPE.INTEGER, default=5e-4,
+            Flag("peak_lr", dtype=Flag.TYPE.INTEGER, default=5e-4,
                  help="The configured lr."),
             Flag("init_lr", dtype=Flag.TYPE.INTEGER, default=0.,
                  help="The initial lr."),
@@ -70,7 +70,7 @@ class InverseSquareRootSchedule(tf.keras.optimizers.schedules.LearningRateSchedu
     def get_config(self):
         """Get the configuration of the learning rate schedule."""
         return {
-            "lr": float(self._lr.numpy()),
+            "peak_lr": float(self._lr.numpy()),
             "init_lr": float(self._lr.numpy()),
             "warmup_steps": int(self._warmup_steps.numpy()),
         }

@@ -27,7 +27,7 @@ from neurst.models.model_utils import deduce_text_length
 from neurst.tasks import register_task
 from neurst.tasks.task import Task
 from neurst.training.training_utils import (EFFICIENT_MULTIPLIER, GPU_EFFICIENT_LEVEL, maximum_lower_multiple,
-                                              minimal_multiple)
+                                            minimal_multiple)
 from neurst.utils import compat
 from neurst.utils.configurable import deep_merge_dict
 from neurst.utils.flags_core import Flag, ModuleFlag

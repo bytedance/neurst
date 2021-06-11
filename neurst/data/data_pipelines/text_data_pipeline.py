@@ -19,7 +19,7 @@ from neurst.data.text import build_tokenizer
 from neurst.data.text.vocab import PaddingMode, Vocab
 
 
-@register_data_pipeline("simple_text")
+@register_data_pipeline(["simple_text", "TranscriptDataPipeline", "transcript_data_pipeline"])
 class TextDataPipeline(DataPipeline, Vocab):
 
     def __init__(self,
@@ -95,6 +95,7 @@ class TextDataPipeline(DataPipeline, Vocab):
         Returns:
             A list of generated token IDs.
         """
+        input = DataPipeline.text_pre_normalize(self, self._language, input, is_processed=False)
         if not is_processed:
             if self._tokenizer:
                 input = self._tokenizer.tokenize(input)

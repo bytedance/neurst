@@ -73,13 +73,16 @@ class MixedTrainDataset(Dataset):
     def build(self, auto_shard=False, map_func=None, map_output_dtypes=None,
               shuffle=True):
         try:
-            weights = None
-            if self._data_sampler is not None:
+            if self._data_sampler is None:
+                return tf.data.experimental.sample_from_datasets(
+                    [v.build(auto_shard, map_func, map_output_dtypes, shuffle)
+                     for _, v in self._custom_dss.items()])
+            else:
                 weights = [self._data_sampler.normalized_sample_weights[k]
                            for k, _ in self._custom_dss.items()]
-            return tf.data.experimental.sample_from_datasets(
-                [v.build(auto_shard, map_func, map_output_dtypes, shuffle)
-                 for _, v in self._custom_dss.items()], weights=weights)
+                return tf.data.experimental.sample_from_datasets(
+                    [v.build(auto_shard, map_func, map_output_dtypes, shuffle).repeat()
+                     for _, v in self._custom_dss.items()], weights=weights)
         except AttributeError:
             logging.info("Fail to use `tf.data.experimental.sample_from_datasets`. "
                          "We recommend you to upgrade TensorFlow to >= 2.4.")

@@ -2,7 +2,7 @@
 
 
 ### Comparison with counterparts (speech_transformer_s)
-test-COMMON, case-insensitive, detokenized BLEU
+test-COMMON, case-sensitive, detokenized BLEU
 
 |Model|DE|ES|FR|IT|NL|PT|RO|RU|avg.|
 |---|---|---|---|---|---|---|---|---|---|
@@ -31,7 +31,7 @@ test-COMMON
 |fairseq-ST (Wang et al., 2020)| Transformer ASR|18.2|17.7|17.2|17.9|17.6|19.1|18.1|17.7|
 
 
-### MT/ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)
+### MT and ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)
 test-COMMON
 
 |Framework|Model|DE|ES|FR|IT|NL|PT|RO|RU|

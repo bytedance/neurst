@@ -105,11 +105,11 @@ echo "Remove punctuations and lowercase for en side"
 python3 -c """
 import tensorflow as tf
 from neurst.utils.misc import PseudoPool
-from neurst.data.data_pipelines.transcript_data_pipeline import TranscriptDataPipeline
+from neurst.data.data_pipelines.data_pipeline import lowercase_and_remove_punctuations
 
 
 def apply_fn(sent_list):
-    return [TranscriptDataPipeline.cleanup_transcript(
+    return [lowercase_and_remove_punctuations(
         '$TRG_LANGUAGE', line, lowercase=True, remove_punctuation=True) for line in sent_list]
 
 

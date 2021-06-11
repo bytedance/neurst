@@ -13,7 +13,7 @@ The final performance of speech translation on Argumented LibriSpeech is:
 |Transformer ASR |8.8|8.8|
  
 
-- **MT/ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)**
+- **MT and ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)**
 
 |Model|Dev|Test|
 |---|---|---|
@@ -23,7 +23,7 @@ The final performance of speech translation on Argumented LibriSpeech is:
 |Transformer ST + ASR pretrain + SpecAug | 19.3 / 17.8 | 17.8 / 16.3  |
 |Transformer ST ensemble above 2 models | **19.3** / **18.0** | **18.3 / 16.8**  |
 
-- **MT/ST (dmodel=256, case-insensitive, tokenized BLEU/detokenized BLEU)**
+- **MT and ST (dmodel=256, case-insensitive, tokenized BLEU/detokenized BLEU)**
 
 |Model|Dev|Test|
 |---|---|---|

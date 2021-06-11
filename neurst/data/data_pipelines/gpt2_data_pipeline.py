@@ -26,7 +26,8 @@ class GPT2DataPipeline(DataPipeline, Vocab):
     def __init__(self,
                  language="en",
                  tokens=None,
-                 vocab_path=None):
+                 vocab_path=None,
+                 **kwargs):
         """ Initializes the data pipeline from OpenAI released GPT-2.
 
         Args:
@@ -38,7 +39,7 @@ class GPT2DataPipeline(DataPipeline, Vocab):
             path = OpenAIGPT2.download("117M")
             vocab_path = os.path.join(path, "encoder.json")
         Vocab.__init__(self, Vocab.load_tokens(vocab_path, tokens), lowercase=False)
-        DataPipeline.__init__(self, language=language, tokens=self.tokens, vocab_path=None)
+        DataPipeline.__init__(self, language=language, tokens=self.tokens, vocab_path=None, **kwargs)
         self._language = language
         self._tokenizer = HuggingFaceTokenizer(language=language)
         self._tokenizer.init_subtokenizer("gpt2")
@@ -65,6 +66,7 @@ class GPT2DataPipeline(DataPipeline, Vocab):
         Returns:
             A list of generated token IDs.
         """
+        input = DataPipeline.text_pre_normalize(self, self._language, input, is_processed=False)
         if not is_processed:
             input = self._tokenizer.tokenize(input, return_str=False)
         elif isinstance(input, str):
