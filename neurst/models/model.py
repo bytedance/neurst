@@ -21,7 +21,7 @@ import tensorflow as tf
 class BaseModel(tf.keras.Model):
     REGISTRY_NAME = "model"
 
-    def __init__(self, args, name=None):
+    def __init__(self, args: dict, name=None):
         self._args = args
         super(BaseModel, self).__init__(name=name)
 

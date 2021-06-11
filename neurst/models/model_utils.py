@@ -35,8 +35,8 @@ def deduce_text_length(data_tensor, pad_id, padding_mode):
         return tf.reduce_sum(tf.cast(
             tf.not_equal(data_tensor, pad_id), tf.int32), axis=1)
     elif padding_mode == PaddingMode.EOS_AS_PADDING:
-        return tf.reduce_sum(tf.cast(
-            tf.not_equal(data_tensor, pad_id), tf.int32), axis=1) + 1
+        return tf.argmin(tf.cast(
+            tf.not_equal(data_tensor, pad_id), tf.int32), axis=-1) + 1
     else:
         raise NotImplementedError
 

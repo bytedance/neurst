@@ -24,7 +24,7 @@ from neurst.data.text.tokenizer import Tokenizer
 @register_tokenizer("spm")
 class SentencePiece(Tokenizer):
 
-    def __init__(self, language=None, glossaries=None, **kwargs):
+    def __init__(self, language=None, glossaries=None, subtokenizer_codes=None, **kwargs):
         _ = kwargs
         super(SentencePiece, self).__init__(
             language=language, glossaries=glossaries)
@@ -34,7 +34,7 @@ class SentencePiece(Tokenizer):
         except ImportError:
             raise ImportError('Please install SentencePiece with: pip install sentencepiece')
         self._built = False
-        self._codes = None
+        self._codes = subtokenizer_codes
 
     def _lazy_init(self):
         codes = self._codes

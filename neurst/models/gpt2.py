@@ -49,13 +49,15 @@ class GPT2(BaseModel):
         if not self._args["share_embedding_and_softmax_weights"]:
             self._output_linear_layer = tf.keras.layers.Dense(
                 vocab_meta["vocab_size"], activation=None,
-                use_bias=True, name="softmax_linear")
+                use_bias=self._args["softmax_bias"], name="softmax_linear")
 
     @staticmethod
     def class_or_method_args():
         return [
             Flag("share_embedding_and_softmax_weights", dtype=Flag.TYPE.BOOLEAN, default=False,
                  help="Whether to share the target embedding table and softmax weights."),
+            Flag("softmax_bias", dtype=Flag.TYPE.BOOLEAN, default=False,
+                 help="Whether to add a bias tensor to the softmax output."),
             Flag("timing", dtype=Flag.TYPE.STRING, default=None,
                  help="The arbitrary parameters for positional encoding."),
             Flag("num_layers", dtype=Flag.TYPE.INTEGER, default=None,
@@ -94,7 +96,7 @@ class GPT2(BaseModel):
         """
         embedding = WordEmbeddingSharedWeights(
             embedding_dim=args["hidden_size"], vocab_size=vocab_meta["vocab_size"],
-            share_softmax_weights=True, use_bias=False, name="embeddings")
+            share_softmax_weights=True, use_bias=args["softmax_bias"], name="embeddings")
         timing = args["timing"]
         if timing:
             if isinstance(timing, str):

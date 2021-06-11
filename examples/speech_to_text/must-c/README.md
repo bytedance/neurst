@@ -27,7 +27,7 @@ The benchmark models:
 |Transformer ASR |13.6|13|12.9|13.5|13.8|14.4|13.7|13.4|
  
 
-- **MT/ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)**
+- **MT and ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)**
 
 |Model|DE|ES|FR|IT|NL|PT|RO|RU|
 |---|---|---|---|---|---|---|---|---|

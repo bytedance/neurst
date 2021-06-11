@@ -13,7 +13,7 @@
 # limitations under the License.
 import numpy as np
 
-from neurst.data.data_pipelines.transcript_data_pipeline import TranscriptDataPipeline
+from neurst.data.data_pipelines.data_pipeline import lowercase_and_remove_punctuations
 from neurst.data.text.moses_tokenizer import MosesTokenizer
 from neurst.metrics import register_metric
 from neurst.metrics.metric import Metric
@@ -53,7 +53,7 @@ class Wer(Metric):
             groundtruth: A list of references,
                 [sent0_ref, sent1_ref, ...]
         """
-        self._references = [TranscriptDataPipeline.cleanup_transcript(
+        self._references = [lowercase_and_remove_punctuations(
             self._language, self._tokenizer.tokenize(x, return_str=True),
             lowercase=True, remove_punctuation=True) for x in groundtruth]
 
@@ -78,10 +78,10 @@ class Wer(Metric):
         if groundtruth is None:
             groundtruth = self._references
         else:
-            groundtruth = [TranscriptDataPipeline.cleanup_transcript(
+            groundtruth = [lowercase_and_remove_punctuations(
                 self._language, self._tokenizer.tokenize(x, return_str=True),
                 lowercase=True, remove_punctuation=True) for x in groundtruth]
-        hypothesis = [TranscriptDataPipeline.cleanup_transcript(
+        hypothesis = [lowercase_and_remove_punctuations(
             self._language, self._tokenizer.tokenize(x, return_str=True),
             lowercase=True, remove_punctuation=True) for x in hypothesis]
         substitutions = 0

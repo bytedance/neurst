@@ -19,7 +19,7 @@ from absl import logging
 
 from neurst.data import dataset_utils
 from neurst.data.data_pipelines import DataPipeline, build_data_pipeline
-from neurst.data.data_pipelines.transcript_data_pipeline import TranscriptDataPipeline
+from neurst.data.data_pipelines.text_data_pipeline import TextDataPipeline
 from neurst.data.datasets import Dataset
 from neurst.layers.metric_layers.token_metric_layers import (AudioFramesMetricLayer, BatchCountMetricLayer,
                                                              SequenceTokenMetricLayer)
@@ -67,7 +67,7 @@ class SpeechToText(Task):
             args: A dict of model configurations.
         """
         super(SpeechToText, self).__init__(args)
-        trg_data_pipeline_cls = args.get("transcript_data_pipeline.class", TranscriptDataPipeline)
+        trg_data_pipeline_cls = args.get("transcript_data_pipeline.class", TextDataPipeline)
         trg_data_pipeline_params = args.get("transcript_data_pipeline.params", None) or {}
         self._trg_data_pipeline = build_data_pipeline(
             trg_data_pipeline_cls, **trg_data_pipeline_params)
@@ -249,7 +249,7 @@ class SpeechToText(Task):
             args = deep_merge_dict(self._args, args, local_overwrite=False)
         float_zero = tf.constant(0, dtype=tf.float32)
         int_zero = tf.constant(0, dtype=tf.int64)
-        trg_eos = tf.constant(self._trg_data_pipeline.meta["eos_id"], dtype=tf.int64)
+        trg_pad = tf.constant(self._trg_data_pipeline.meta["pad_id"], dtype=tf.int64)
 
         dataset = ds.build(map_func=self.get_data_preprocess_fn(mode, ds.status, args),
                            map_output_dtypes=self.inputs_signature(mode)[0],
@@ -271,7 +271,7 @@ class SpeechToText(Task):
                 dataset_utils.adjust_batch_size(args["batch_size"],
                                                 num_replicas_in_sync=num_replicas_in_sync),
                 padded_shapes={"audio": [None], "audio_length": [], "transcript": [None]},
-                padding_values={"audio": float_zero, "audio_length": int_zero, "transcript": trg_eos},
+                padding_values={"audio": float_zero, "audio_length": int_zero, "transcript": trg_pad},
                 drop_remainder=False)
         else:
             logging.info("Creating training dataset.")
@@ -282,7 +282,7 @@ class SpeechToText(Task):
                 dataset = dataset.cache()
             if args["shuffle_buffer"]:
                 dataset = dataset.shuffle(buffer_size=args["shuffle_buffer"])
-            padding_values = {"audio": float_zero, "audio_length": int_zero, "transcript": trg_eos}
+            padding_values = {"audio": float_zero, "audio_length": int_zero, "transcript": trg_pad}
             if args["max_src_len"] is None:
                 raise RuntimeError("`max_src_len` for SpeechToText task must be provided.")
             if args["max_trg_len"] is None:
@@ -398,11 +398,11 @@ class MultiTaskSpeechTranslation(Task):
     def __init__(self, args):
         """ Initializes with configuration. """
         super(MultiTaskSpeechTranslation, self).__init__(args)
-        transcript_dp_cls = args.get("transcript_data_pipeline.class", TranscriptDataPipeline)
+        transcript_dp_cls = args.get("transcript_data_pipeline.class", TextDataPipeline)
         transcript_dp_params = args.get("transcript_data_pipeline.params", None) or {}
         self._transcript_data_pipeline = build_data_pipeline(
             transcript_dp_cls, **transcript_dp_params)
-        translation_dp_cls = args.get("translation_data_pipeline.class", TranscriptDataPipeline)
+        translation_dp_cls = args.get("translation_data_pipeline.class", TextDataPipeline)
         translation_dp_params = args.get("translation_data_pipeline.params", None) or {}
         self._translation_data_pipeline = build_data_pipeline(
             translation_dp_cls, **translation_dp_params)
@@ -421,10 +421,10 @@ class MultiTaskSpeechTranslation(Task):
         this_args = super(SpeechToText, SpeechToText).class_or_method_args()
         this_args.extend([
             ModuleFlag("transcript_data_pipeline", DataPipeline.REGISTRY_NAME,
-                       default=TranscriptDataPipeline.__name__,
+                       default=TextDataPipeline.__name__,
                        help="The data pipeline for ASR transcription."),
             ModuleFlag("translation_data_pipeline", DataPipeline.REGISTRY_NAME,
-                       default=TranscriptDataPipeline.__name__,
+                       default=TextDataPipeline.__name__,
                        help="The data pipeline for translation."),
         ])
         return this_args

@@ -13,6 +13,7 @@ class BPE(Tokenizer):
                  separator='@@',
                  vocabulary=None,
                  version=(0, 2),
+                 subtokenizer_codes=None,
                  **kwargs):
         _ = kwargs
         super(BPE, self).__init__(language=None, glossaries=glossaries)
@@ -31,6 +32,8 @@ class BPE(Tokenizer):
         else:
             self.vocab = []
         self._built = False
+        if subtokenizer_codes:
+            self.init_subtokenizer(subtokenizer_codes)
 
     def init_subtokenizer(self, codes):
         if isinstance(codes, str):

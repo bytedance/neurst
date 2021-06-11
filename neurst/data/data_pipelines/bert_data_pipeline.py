@@ -27,7 +27,8 @@ class BertDataPipeline(DataPipeline, Vocab):
                  name,
                  language="en",
                  vocab_path=None,
-                 tokens=None):
+                 tokens=None,
+                 **kwargs):
         """ Initializes the data pipeline for text data.
 
         Args:
@@ -41,9 +42,19 @@ class BertDataPipeline(DataPipeline, Vocab):
             if path is None:
                 raise ValueError(f"Unknown BERT model name={name} for downloading.")
             vocab_path = os.path.join(path, "vocab.txt")
+        else:
+            if tokens is not None:
+                vocab_path = None
+            tokens = Vocab.load_tokens(vocab_path, tokens)
+            vocab_path = None
+            # to handle with customized vocabulary
+            for spec_token in ["[UNK]", "[CLS]", "[SEP]", "[MASK]", "[PAD]"]:
+                if spec_token not in tokens:
+                    tokens.insert(0, spec_token)
+            assert tokens[0] == "[PAD]"
         Vocab.__init__(self, Vocab.load_tokens(vocab_path, tokens), lowercase=False)
-        DataPipeline.__init__(self, name=name, language=language,
-                              tokens=self.tokens, vocab_path=None)
+        DataPipeline.__init__(self, name=name, language=language, tokens=self.tokens,
+                              vocab_path=None, **kwargs)
         self._language = language
         self._tokenizer = HuggingFaceTokenizer(language=language)
         self._tokenizer.init_subtokenizer(name)
@@ -63,6 +74,7 @@ class BertDataPipeline(DataPipeline, Vocab):
             "unk_id": self._unk_id,
             "sep_id": self._sep_id,
             "mask_id": self._mask_id,
+            "bos_id": self._cls_id,
             "padding_mode": PaddingMode.DEFAULT
         }
 
@@ -78,6 +90,7 @@ class BertDataPipeline(DataPipeline, Vocab):
         """
 
         def _process(text):
+            text = DataPipeline.text_pre_normalize(self, self._language, text, is_processed=False)
             if not is_processed:
                 text = self._tokenizer.tokenize(text, return_str=False)
             elif isinstance(text, str):

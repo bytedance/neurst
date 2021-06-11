@@ -21,6 +21,7 @@ from absl import logging
 @six.add_metaclass(ABCMeta)
 class Tokenizer(object):
     """ Base class for text tokenizer. """
+    REGISTRY_NAME = "tokenizer"
 
     def __init__(self, language, glossaries=None, **kwargs):
         """ Initializes the tokenizer. """
