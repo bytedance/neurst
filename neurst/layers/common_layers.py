@@ -17,7 +17,15 @@ import tensorflow as tf
 
 from neurst.layers.quantization.quant_dense_layer import QuantDense
 from neurst.layers.quantization.quant_layers import QuantLayer
+from neurst.utils import compat
 from neurst.utils.activations import get_activation
+
+
+def get_fused_layernorm():
+    if compat.check_lightseq_enabled():
+        from lightseq import LSLayerNorm
+        return LSLayerNorm
+    return tf.keras.layers.LayerNormalization
 
 
 class PrePostProcessingWrapper(QuantLayer):
@@ -61,7 +69,7 @@ class PrePostProcessingWrapper(QuantLayer):
 
     def build(self, input_shape):
         """ Creates norm layer. """
-        self._norm_layer = tf.keras.layers.LayerNormalization(
+        self._norm_layer = get_fused_layernorm()(
             epsilon=self._epsilon, dtype="float32", name="ln")
         self.add_activation_quantizer(name="ln", activation="act")
         super(PrePostProcessingWrapper, self).build(input_shape)

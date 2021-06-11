@@ -15,6 +15,7 @@
 import tensorflow as tf
 
 from neurst.layers import layer_utils
+from neurst.layers.common_layers import get_fused_layernorm
 from neurst.layers.encoders import register_encoder
 from neurst.layers.encoders.encoder import Encoder
 from neurst.layers.transformer_layers import TransformerEncoderLayer
@@ -92,7 +93,7 @@ class TransformerEncoder(Encoder):
                 ))
 
         if not params["post_normalize"]:
-            self._output_norm_layer = tf.keras.layers.LayerNormalization(
+            self._output_norm_layer = get_fused_layernorm()(
                 epsilon=params["layer_postprocess_epsilon"],
                 dtype="float32", name="output_ln")
             self.add_activation_quantizer(name="output_ln", activation="act")
