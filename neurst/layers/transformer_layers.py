@@ -61,7 +61,7 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
         self._post_normalize = post_normalize
         self._lightseq_enabled = compat.check_lightseq_enabled()
 
-    def build_tf_components(self):
+    def _build_tf_components(self):
         self._selfatt_layer = PrePostProcessingWrapper(
             layer=MultiHeadSelfAttention(
                 num_heads=self._num_attention_heads,
@@ -85,9 +85,19 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
             epsilon=self._layer_postprocess_epsilon,
             pre_norm=(not self._post_normalize),
             res_conn_factor=1.,
-            name="ffn_prepost_wrapper")
+            name="ffn_prepost_wrapper"
+        )
 
-    def build_lightseq_components(self):
+    def _forward_tf(self, x, x_bias, is_training=True):
+        y = self._selfatt_layer(
+            x,  # x as query
+            bias=x_bias,
+            is_training=is_training)
+        # ffn
+        y = self._ffn_layer(y, is_training=is_training)
+        return y
+
+    def _build_lightseq_components(self):
         from lightseq import LSSelfAttention, LSTransformerFFN
         self._selfatt_layer = LSSelfAttention(
             heads=self._num_attention_heads,
@@ -109,16 +119,7 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
             stochastic_mode=False,
             name="ffn_prepost_wrapper")
 
-    def forward_tf(self, x, x_bias, is_training=True):
-        y = self._selfatt_layer(
-            x,  # x as query
-            bias=x_bias,
-            is_training=is_training)
-        # ffn
-        y = self._ffn_layer(y, is_training=is_training)
-        return y
-
-    def forward_lightseq(self, x, x_bias, is_training=True):
+    def _forward_lightseq(self, x, x_bias, is_training=True):
         y, _ = self._selfatt_layer(
             x,
             inputs_mask=x_bias,
@@ -131,14 +132,14 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         if self._lightseq_enabled:
-            self.build_lightseq_components()
+            self._build_lightseq_components()
         else:
-            self.build_tf_components()
+            self._build_tf_components()
         super(TransformerEncoderLayer, self).build(input_shape)
 
     def call(self, x, x_bias, is_training=True):
-        return (self.forward_lightseq(x, x_bias, is_training=is_training) if self._lightseq_enabled
-                else self.forward_tf(x, x_bias, is_training=is_training))
+        return (self._forward_lightseq(x, x_bias, is_training=is_training) if self._lightseq_enabled
+                else self._forward_tf(x, x_bias, is_training=is_training))
 
 
 class TransformerDecoderLayer(tf.keras.layers.Layer):
@@ -187,7 +188,7 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
         self._with_cross_attention = with_cross_attention
         self._lightseq_enabled = compat.check_lightseq_enabled()
 
-    def create_tf_decoding_internal_cache(self, decode_padded_length=None):
+    def _create_tf_cache(self, decode_padded_length=None):
         num_units_per_head = self._hidden_size // self._num_attention_heads
         return {
             "self_attention": {
@@ -197,18 +198,13 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
                                    dtype=compat.CUSTOM_GLOBAL_FLOATX)},
         }
 
-    def create_lightseq_decoding_internal_cache(self, decode_padded_length=None):
+    def _create_lightseq_cache(self, decode_padded_length=None):
         return {
             "self_attention": tf.zeros([decode_padded_length or 0, self._hidden_size * 2],
                                        dtype=compat.CUSTOM_GLOBAL_FLOATX),
         }
 
-    def create_decoding_internal_cache(self, decode_padded_length=None):
-        if self._lightseq_enabled:
-            return self.create_lightseq_decoding_internal_cache(decode_padded_length)
-        return self.create_tf_decoding_internal_cache(decode_padded_length)
-
-    def build_tf_components(self):
+    def _build_tf_components(self):
         self._selfatt_layer = PrePostProcessingWrapper(
             layer=MultiHeadSelfAttention(
                 num_heads=self._num_attention_heads,
@@ -248,8 +244,8 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
             name="ffn_prepost_wrapper"
         )
 
-    def forward_tf(self, x, x_bias, cache, memory=None, memory_bias=None,
-                   is_training=True, decode_loop_step=None):
+    def _forward_tf(self, x, x_bias, cache, memory=None, memory_bias=None,
+                    is_training=True, decode_loop_step=None):
         selfatt_cache = None if cache is None else cache["self_attention"]
         y = self._selfatt_layer(
             x,  # x as query
@@ -268,7 +264,7 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
         y = self._ffn_layer(y, is_training=is_training)
         return y
 
-    def build_lightseq_components(self):
+    def _build_lightseq_components(self):
         from lightseq import LSCrossAttention, LSSelfAttention, LSTransformerFFN
         self._selfatt_layer = LSSelfAttention(
             heads=self._num_attention_heads,
@@ -298,8 +294,8 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
             stochastic_mode=False,
             name="ffn_prepost_wrapper")
 
-    def forward_lightseq(self, x, x_bias, cache, memory=None, memory_bias=None,
-                         is_training=True, decode_loop_step=None):
+    def _forward_lightseq(self, x, x_bias, cache, memory=None, memory_bias=None,
+                          is_training=True, decode_loop_step=None):
         cached_kv = None if cache is None else cache["self_attention"]
         y, cached_kv = self._selfatt_layer(  # TODO x_bias need to be exposed for user define
             x,  # x as query
@@ -322,18 +318,24 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
         y = self._ffn_layer(y, is_training=is_training)
         return y
 
+    def create_decoding_internal_cache(self, decode_padded_length=None):
+        if self._lightseq_enabled:
+            return self._create_lightseq_cache(decode_padded_length)
+        return self._create_tf_cache(decode_padded_length)
+
     def build(self, input_shape):
         if self._lightseq_enabled:
-            self.build_lightseq_components()
+            self._build_lightseq_components()
         else:
-            self.build_tf_components()
+            self._build_tf_components()
         super(TransformerDecoderLayer, self).build(input_shape)
 
     def call(self, x, x_bias, cache,
              memory=None, memory_bias=None,
              is_training=True, decode_loop_step=None):
-        return (self.forward_lightseq(x, x_bias, cache, memory, memory_bias,
-                                      is_training=is_training,
-                                      decode_loop_step=decode_loop_step) if self._lightseq_enabled
-                else self.forward_tf(x, x_bias, cache, memory, memory_bias,
-                                     is_training=is_training, decode_loop_step=decode_loop_step))
+        return (self._forward_lightseq(x, x_bias, cache, memory, memory_bias,
+                                       is_training=is_training,
+                                       decode_loop_step=decode_loop_step) if self._lightseq_enabled
+                else self._forward_tf(x, x_bias, cache, memory, memory_bias,
+                                      is_training=is_training, decode_loop_step=decode_loop_step))
+
