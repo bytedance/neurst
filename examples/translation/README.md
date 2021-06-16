@@ -73,7 +73,7 @@ We can directly use the yaml-style configuration files generated above to train 
 python3 -m neurst.cli.run_exp \
     --config_paths wmt14_en_de/training_args.yml,wmt14_en_de/translation_bpe.yml,wmt14_en_de/validation_args.yml \
     --hparams_set transformer_base \
-    --model_dir /wmt14_en_de/benchmark_base
+    --model_dir wmt14_en_de/benchmark_base
 ```
 where `/wmt14_en_de/benchmark_base` is the root path for checkpoints. Here we use `--hparams_set transformer_base` to train a transformer model including 6 encoder layers and 6 decoder layers with `dmodel=512`.
 
@@ -90,7 +90,7 @@ To accelerate the training speed, we can simply enable TensorFlow XLA via `--ena
 python3 -m neurst.cli.run_exp \
     --config_paths wmt14_en_de/training_args.yml,wmt14_en_de/translation_bpe.yml \
     --hparams_set transformer_base \
-    --model_dir /wmt14_en_de/benchmark_base \
+    --model_dir wmt14_en_de/benchmark_base \
     --enable_xla
 ```
 
@@ -99,7 +99,7 @@ Then, we start another process with one GPU for validation by
 python3 -m neurst.cli.run_exp \
     --entry validation \
     --config_paths wmt14_en_de/validation_args.yml \
-    --model_dir /wmt14_en_de/benchmark_base
+    --model_dir wmt14_en_de/benchmark_base
 ```
 
 This process will constantly scan the `model_dir`, evaluate each checkpoint and store the checkpoints with best metrics (i.e. BLEU scores) into `{model_dir}/best` directory along with the corresponding averaged version (by default 10 latest checkpoints) into `{model_dir}/best_avg`. 
