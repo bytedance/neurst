@@ -113,7 +113,7 @@ dataset.params:
 task.class: translation
 task.params:
   batch_by_tokens: True
-  batch_size: 32768
+  batch_size: 4096
   max_src_len: 128
   max_trg_len: 128
   src_data_pipeline.class: TextDataPipeline
