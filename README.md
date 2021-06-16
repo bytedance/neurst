@@ -70,7 +70,7 @@ To enable LightSeq for fast training, you need to choose the right python packag
 For example, if your platform is Linux with python 3.7, cuda 11 and tensorflow 2.4, you can install LightSeq using command:
 
 ```
-pip3 install http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/lightseq/tensorflow/lightseq-2.0.1-cp37-cp37m-linux_x86_64.whl
+pip3 install http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/lightseq/tensorflow/lightseq_tf-2.0.1-cp37-cp37m-linux_x86_64.whl
 ```
 
 ## Citation
