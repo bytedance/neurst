@@ -5,6 +5,19 @@ NeurST aims at easily building and training end-to-end speech translation, which
 
 ## Features
 
+### Fast training
+NeurST uses [LightSeq 2.0](https://code.byted.org/lab/lightseq2) for fast training.
+LightSeq 2.0 is an efficient training acceleration library for Transformers implemented in CUDA.
+It enables highly efficient computation of modern NLP models such as BERT, Transformer, etc. Currently, only fused encoder and decoder layers have been integrated, further acceleration models such as loss layer and optimizer is coming.
+In the standard machine translation task, NeurST has a single GPU and eight GPU acceleration ratio of 1.52 and 1.33 respectively with batch size 4096, compared with Tensorflow implementation of Transformers. In the case of batch size 512, the acceleration ratio is 2.09 and 1.56.
+
+Comparison of training speed with different batch sizes are shown below.
+- 8 GPUs
+<img src="docs/images/tf_8gpu.png"  width="50%" aligned="middle">
+
+- 1 GPU
+<img src="docs/images/tf_1gpu.png"  width="50%" aligned="middle">
+
 ### Models
 NeurST provides reference implementations of various models, including:
 
@@ -52,6 +65,13 @@ cd neurst/
 pip3 install -e .
 ```
 If there exists ImportError during running, manually install the required packages at that time.
+
+To enable LightSeq for fast training, you need to choose the right python package locally based on your environment.
+For example, if your platform is Linux with python 3.7, cuda 11 and tensorflow 2.4, you can install LightSeq using command:
+
+```
+pip3 install http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/lightseq/tensorflow/lightseq-2.0.1-cp37-cp37m-linux_x86_64.whl
+```
 
 ## Citation
 ```
