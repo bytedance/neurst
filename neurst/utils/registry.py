@@ -43,7 +43,10 @@ def setup_registry(registry_name, base_class=None, create_fn=None,
                 if isinstance(v, dict):
                     logging.info("    {}:".format(k))
                     for kk, vv in v.items():
-                        logging.info("      {}: {}".format(kk, vv))
+                        if isinstance(vv, list) and len(vv) > 10:
+                            logging.info("      {}: {}".format(kk, vv[:10] + ["......"]))
+                        else:
+                            logging.info("      {}: {}".format(kk, vv))
                 else:
                     logging.info("    {}: {}".format(k, v))
         if len(extra_args) > 0:

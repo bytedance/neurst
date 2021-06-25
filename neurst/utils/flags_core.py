@@ -489,6 +489,27 @@ def extend_define_and_parse(flag_name, args, remaining_argv, backend="tf"):
     return args, remaining_argv
 
 
+def _handle_too_long_verbosity(indent, key, val, default, help_txt):
+    text = indent + key + ": "
+    if isinstance(val, list) and len(val) > 10:
+        text += str(val[:10] + ["....."])
+    elif isinstance(val, dict):
+        new_val = {}
+        for k, v in val.items():
+            if isinstance(v, list) and len(v) > 10:
+                new_val[k] = v[:10] + ["......"]
+            else:
+                new_val[k] = v
+        text += json.dumps(new_val)
+    else:
+        text += f"{val}"
+    text += "     # "
+    if default is not None:
+        text += f"(default: {default}) "
+    text += help_txt
+    logging.info(text)
+
+
 def verbose_flags(flag_list, args, remaining_argv, backend="tf"):
     logging.info("==========================================================================")
     logging.info("Parsed all matched flags: ")
@@ -507,15 +528,15 @@ def verbose_flags(flag_list, args, remaining_argv, backend="tf"):
                     for ff in REGISTRIES[backend][f.module_name][verbose_args[f.cls_key]].class_or_method_args():
                         if isinstance(ff, Flag):
                             if ff.name in verbose_args[f.params_key]:
-                                logging.info(f"   {ff.name}: {verbose_args[f.params_key][ff.name]}"
-                                             f"     # (default: {ff.default}) {ff.help}")
+                                _handle_too_long_verbosity("   ", ff.name, verbose_args[f.params_key][ff.name],
+                                                           ff.default, ff.help)
                         else:
                             if ff.cls_key in verbose_args[f.params_key]:
                                 logging.info(f"   {ff.cls_key}: {verbose_args[f.params_key][ff.cls_key]}")
                             if ff.params_key in verbose_args[f.params_key]:
-                                logging.info(f"   {ff.params_key}: "
-                                             f"{json.dumps(verbose_args[f.params_key][ff.params_key])}"
-                                             f"     # {ff.help}")
+                                _handle_too_long_verbosity("   ", ff.params_key,
+                                                           verbose_args[f.params_key][ff.params_key],
+                                                           None, ff.help)
                 else:
                     logging.info(f" {f.params_key}: {json.dumps(verbose_args[f.params_key])}")
             verbose_args.pop(f.cls_key, None)
