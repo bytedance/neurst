@@ -53,15 +53,12 @@ If there exists ImportError during running, manually install the required packag
 
 ## Citation
 ```
-@inproceedings{zhao2021neurst,
-  author    = {Chengqi Zhao and
-               Mingxuan Wang and
-               Qianqian Dong and
-               Rong Ye and
-               Lei Li},
-  title     = {NeurST: Neural Speech Translation Toolkit},
-  booktitle = {{ACL} (demo)},
-  year      = {2021}
+@InProceedings{zhao2021neurst,
+  author       = {Chengqi Zhao and Mingxuan Wang and Qianqian Dong and Rong Ye and Lei Li},
+  booktitle    = {the 59th Annual Meeting of the Association for Computational Linguistics (ACL): System Demonstrations},
+  title        = {{NeurST}: Neural Speech Translation Toolkit},
+  year         = {2021},
+  month        = aug,
 }
 ```
 
