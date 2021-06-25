@@ -18,6 +18,8 @@ import tensorflow as tf
 import yaml
 from absl import logging
 
+from neurst.utils.misc import temp_download
+
 
 def copy_dict_list(d):
     """ Repeat a python build-in dict. """
@@ -211,6 +213,8 @@ def load_from_config_path(config_paths):
         config_path = config_path.strip()
         if not config_path:
             continue
+        if config_path.startswith("http"):
+            config_path = temp_download(url=config_path)
         if not tf.io.gfile.exists(config_path):
             raise OSError("config file does not exist: {config_path}".format(
                 config_path=config_path))
