@@ -398,13 +398,13 @@ class AudioTripleTFRecordDataset(TFRecordDataset, TextGenDataset):
         elif len(example.features.feature[self._transcript_key].int64_list.value) > 0:
             self._transcript_is_projected = True
         else:
-            raise ValueError
+            self._transcript_is_projected = False
         if len(example.features.feature[self._translation_key].bytes_list.value) > 0:
             self._translation_is_projected = False
         elif len(example.features.feature[self._translation_key].int64_list.value) > 0:
             self._translation_is_projected = True
         else:
-            raise ValueError
+            self._translation_is_projected = False
         if not hasattr(self, "_audio_is_extracted"):
             raise ValueError(f"Fail to read {self._data_path}")
         self._transcripts = None
