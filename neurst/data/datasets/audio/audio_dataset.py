@@ -278,7 +278,7 @@ class AudioTFRecordDataset(TFRecordDataset, TextGenDataset):
         elif len(example.features.feature[self._transcript_key].int64_list.value) > 0:
             self._transcript_is_projected = True
         else:
-            raise ValueError
+            self._transcript_is_projected = False
         if not hasattr(self, "_audio_is_extracted"):
             raise ValueError(f"Fail to read {self._data_path}")
 
