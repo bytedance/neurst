@@ -30,6 +30,10 @@ class TextDataPipeline(DataPipeline, Vocab):
                  subtokenizer_codes=None,
                  glossaries=None,
                  reverse_sequence=False,
+                 bos_id=None,
+                 eos_id=None,
+                 unk_id=None,
+                 pad_id=None,
                  **kwargs):
         """ Initializes the data pipeline for text data.
 
@@ -64,14 +68,16 @@ class TextDataPipeline(DataPipeline, Vocab):
             tokens = Vocab.load_tokens(tokens=vocab_path)
         else:
             tokens = Vocab.load_tokens(vocab_path=vocab_path)
-        unk_token = Vocab.get_unique(tokens, "<UNK>")
-        bos_token = Vocab.get_unique(tokens, "<SEQ_BEG>")
-        eos_token = Vocab.get_unique(tokens, "<SEQ_END>")
+        unk_token = Vocab.get_unique(tokens, "<UNK>") if unk_id is None else tokens[unk_id]
+        bos_token = Vocab.get_unique(tokens, "<SEQ_BEG>") if bos_id is None else tokens[bos_id]
+        eos_token = Vocab.get_unique(tokens, "<SEQ_END>") if eos_id is None else tokens[eos_id]
+        pad_token = eos_token if pad_id is None else tokens[pad_id]
         assert unk_token != bos_token != eos_token
-        Vocab.__init__(self, tokens, [unk_token, bos_token, eos_token], lowercase=False)
+        Vocab.__init__(self, tokens, [unk_token, bos_token, eos_token, pad_token], lowercase=False)
         self._eos_id = Vocab.map_token_to_id(self, eos_token)
         self._bos_id = Vocab.map_token_to_id(self, bos_token)
         self._unk_id = Vocab.map_token_to_id(self, unk_token)
+        self._pad_id = Vocab.map_token_to_id(self, pad_token)
 
     @property
     def meta(self):
@@ -82,7 +88,8 @@ class TextDataPipeline(DataPipeline, Vocab):
             "bos_id": self._bos_id,
             "unk_id": self._unk_id,
             "pad_id": self._eos_id,
-            "padding_mode": PaddingMode.EOS_AS_PADDING
+            "padding_mode": (PaddingMode.EOS_AS_PADDING
+                             if self._eos_id == self._pad_id else PaddingMode.DEFAULT)
         }
 
     def process(self, input, is_processed=False):

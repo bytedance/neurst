@@ -31,7 +31,7 @@ from neurst.data.datasets import Dataset, TFRecordDataset, register_dataset
 from neurst.data.datasets.text_gen_dataset import TextGenDataset
 from neurst.utils.compat import DataStatus
 from neurst.utils.flags_core import Flag, ModuleFlag
-from neurst.utils.misc import to_numpy_or_python_type
+from neurst.utils.misc import temp_download, to_numpy_or_python_type
 
 try:
     import soundfile
@@ -264,6 +264,8 @@ class AudioTFRecordDataset(TFRecordDataset, TextGenDataset):
         super(AudioTFRecordDataset, self).__init__(args)
         self._feature_key = args["feature_key"]
         self._transcript_key = args["transcript_key"]
+        if self._data_path.startswith("http"):
+            self._data_path = temp_download(self._data_path)
         example = take_one_record(self._data_path)
         if len(example.features.feature[self._feature_key].float_list.value) > 0:
             self._audio_is_extracted = True
@@ -276,7 +278,7 @@ class AudioTFRecordDataset(TFRecordDataset, TextGenDataset):
         elif len(example.features.feature[self._transcript_key].int64_list.value) > 0:
             self._transcript_is_projected = True
         else:
-            raise ValueError
+            self._transcript_is_projected = False
         if not hasattr(self, "_audio_is_extracted"):
             raise ValueError(f"Fail to read {self._data_path}")
 
@@ -382,6 +384,8 @@ class AudioTripleTFRecordDataset(TFRecordDataset, TextGenDataset):
         self._feature_key = args["feature_key"]
         self._transcript_key = args["transcript_key"]
         self._translation_key = args["translation_key"]
+        if self._data_path.startswith("http"):
+            self._data_path = temp_download(self._data_path)
         example = take_one_record(self._data_path)
         if len(example.features.feature[self._feature_key].float_list.value) > 0:
             self._audio_is_extracted = True
@@ -394,13 +398,13 @@ class AudioTripleTFRecordDataset(TFRecordDataset, TextGenDataset):
         elif len(example.features.feature[self._transcript_key].int64_list.value) > 0:
             self._transcript_is_projected = True
         else:
-            raise ValueError
+            self._transcript_is_projected = False
         if len(example.features.feature[self._translation_key].bytes_list.value) > 0:
             self._translation_is_projected = False
         elif len(example.features.feature[self._translation_key].int64_list.value) > 0:
             self._translation_is_projected = True
         else:
-            raise ValueError
+            self._translation_is_projected = False
         if not hasattr(self, "_audio_is_extracted"):
             raise ValueError(f"Fail to read {self._data_path}")
         self._transcripts = None
