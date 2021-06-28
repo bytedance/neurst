@@ -19,6 +19,7 @@ from absl import logging
 
 from neurst.data.text import register_tokenizer
 from neurst.data.text.tokenizer import Tokenizer
+from neurst.utils.misc import download_with_tqdm
 
 
 @register_tokenizer("spm")
@@ -42,6 +43,11 @@ class SentencePiece(Tokenizer):
             local_path = os.path.join(os.path.dirname(__file__), "spm{}.model".format(int(time.time())))
             logging.info("Copying spm model: {} to local: {}".format(codes, local_path))
             tf.io.gfile.copy(codes, local_path, overwrite=True)
+            codes = local_path
+        elif codes.startswith("http"):
+            local_path = os.path.join(os.path.dirname(__file__), "spm{}.model".format(int(time.time())))
+            logging.info("Downloading spm model to local: {}".format(local_path))
+            download_with_tqdm(codes, local_path)
             codes = local_path
         status = self._sp.Load(codes)
         assert status, "Fail to load spm model: {}".format(codes)
