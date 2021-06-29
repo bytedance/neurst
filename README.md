@@ -74,6 +74,17 @@ git checkout lightseq
 pip install lightseq-tf2.4.1-cuda11.0.221==2.0.1
 ```
 
+If you train with multiple GPUs, you should use horovod as the distributed strategy, for exmaple
+
+```
+python3 -m neurst.cli.run_exp \
+    --config_paths wmt14_en_de/training_args.yml,wmt14_en_de/translation_bpe.yml \
+    --hparams_set transformer_base \
+    --model_dir wmt14_en_de/benchmark_base \
+    --enable_xla --distribution_strategy horovod
+```
+
+
 ## Citation
 ```
 @misc{zhao2020neurst,
