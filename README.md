@@ -66,12 +66,12 @@ pip3 install -e .
 ```
 If there exists ImportError during running, manually install the required packages at that time.
 
-To enable LightSeq for fast training, you need to choose the right python package locally based on your environment.
-For example, if your platform is Linux with python 3.7, cuda 11 and tensorflow 2.4, you can install LightSeq using command:
+To enable LightSeq for fast training, you need to choose the right pypi package based on tensorflow version and cuda version.
+For example, if your platform is tensorflow 2.4.1 with cuda 11.0, you can install LightSeq using command:
 
 ```
 git checkout lightseq
-pip3 install http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/lightseq/tensorflow/lightseq_tf-2.0.1-cp37-cp37m-linux_x86_64.whl
+pip install lightseq-tf2.4.1-cuda11.0.221==2.0.1
 ```
 
 ## Citation
