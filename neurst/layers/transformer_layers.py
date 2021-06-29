@@ -98,36 +98,25 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
         return y
 
     def _build_lightseq_components(self):
-        from lightseq import LSSelfAttention, LSTransformerFFN
-        self._selfatt_layer = LSSelfAttention(
-            heads=self._num_attention_heads,
-            attn_dropout_ratio=self._attention_dropout_rate,
-            hidden_dropout_ratio=self._layer_postprocess_dropout_rate,
-            epsilon=self._layer_postprocess_epsilon,
-            name="self_attention_prepost_wrapper",
-            pre_or_postLayerNorm=(not self._post_normalize))
-        self._ffn_layer = LSTransformerFFN(
+        from lightseq import LSTransformerEncoderLayer
+        self._encoder_layer = LSTransformerEncoderLayer(
             intermediate_size=self._filter_size,
             hidden_size=self._hidden_size,
             ffn_dropout_ratio=self._ffn_dropout_rate,
-            layer_dropout_ratio=self._layer_postprocess_dropout_rate,
+            attn_dropout_ratio=self._attention_dropout_rate,
+            hidden_dropout_ratio=self._layer_postprocess_dropout_rate,
             epsilon=self._layer_postprocess_epsilon,
             trainable=True,
-            normalize_invertible=False,
-            relu_checkpoint=False,
-            pre_or_postLayerNorm=(not self._post_normalize),
-            stochastic_mode=False,
-            name="ffn_prepost_wrapper")
+            name="encoder_layer",
+            heads=self._num_attention_heads,
+            pre_or_postLayerNorm=(not self._post_normalize)
+        )
 
     def _forward_lightseq(self, x, x_bias, is_training=True):
-        y, _ = self._selfatt_layer(
+        y = self._encoder_layer(
             x,
             inputs_mask=x_bias,
-            cached_kv=tf.zeros([0], dtype=x.dtype),
-            is_training=is_training,
-            is_decoder=False,
-            is_inference=False)
-        y = self._ffn_layer(y, is_training=is_training)
+            is_training=is_training)
         return y
 
     def build(self, input_shape):
@@ -199,9 +188,13 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
         }
 
     def _create_lightseq_cache(self, decode_padded_length=None):
+        num_units_per_head = self._hidden_size // self._num_attention_heads
         return {
-            "self_attention": tf.zeros([decode_padded_length or 0, self._hidden_size * 2],
-                                       dtype=compat.CUSTOM_GLOBAL_FLOATX),
+            "self_attention": {
+                "keys": tf.zeros([self._num_attention_heads, decode_padded_length or 0, num_units_per_head],
+                                  dtype=compat.CUSTOM_GLOBAL_FLOATX),
+                "values": tf.zeros([self._num_attention_heads, decode_padded_length or 0, num_units_per_head],
+                                    dtype=compat.CUSTOM_GLOBAL_FLOATX)},
         }
 
     def _build_tf_components(self):
@@ -265,58 +258,33 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
         return y
 
     def _build_lightseq_components(self):
-        from lightseq import LSCrossAttention, LSSelfAttention, LSTransformerFFN
-        self._selfatt_layer = LSSelfAttention(
-            heads=self._num_attention_heads,
-            attn_dropout_ratio=self._attention_dropout_rate,
-            hidden_dropout_ratio=self._layer_postprocess_dropout_rate,
-            epsilon=self._layer_postprocess_epsilon,
-            name="self_attention_prepost_wrapper",
-            pre_or_postLayerNorm=(not self._post_normalize))
-        if self._with_cross_attention:
-            self._crossatt_layer = LSCrossAttention(
-                heads=self._num_attention_heads,
-                attn_dropout_ratio=self._attention_dropout_rate,
-                hidden_dropout_ratio=self._layer_postprocess_dropout_rate,
-                epsilon=self._layer_postprocess_epsilon,
-                name="encdec_attention_prepost_wrapper",
-                pre_or_postLayerNorm=(not self._post_normalize))
-        self._ffn_layer = LSTransformerFFN(
-            intermediate_size=self._filter_size,
+        from lightseq import LSTransformerDecoderLayer
+        self._decoder_layer = LSTransformerDecoderLayer(
+            num_heads=self._num_attention_heads,
             hidden_size=self._hidden_size,
-            ffn_dropout_ratio=self._ffn_dropout_rate,
-            layer_dropout_ratio=self._layer_postprocess_dropout_rate,
-            epsilon=self._layer_postprocess_epsilon,
-            trainable=True,
-            normalize_invertible=False,
-            relu_checkpoint=False,
+            intermediate_size=self._filter_size,
+            attn_prob_dropout_ratio=self._attention_dropout_rate,
+            activation_dropout_ratio=self._ffn_dropout_rate,
+            hidden_dropout_ratio=self._layer_postprocess_dropout_rate,
             pre_or_postLayerNorm=(not self._post_normalize),
-            stochastic_mode=False,
-            name="ffn_prepost_wrapper")
-
-    def _forward_lightseq(self, x, x_bias, cache, memory=None, memory_bias=None,
+            trainable=True,
+            predict=False,
+            epsilon=1e-8,
+            name="decoder_layer")
+    def _forward_lightseq(self, dec_input, x_bias, cache, enc_output=None, enc_mask=None,
                           is_training=True, decode_loop_step=None):
-        cached_kv = None if cache is None else cache["self_attention"]
-        y, cached_kv = self._selfatt_layer(  # TODO x_bias need to be exposed for user define
-            x,  # x as query
-            inputs_mask=tf.zeros([0], dtype=x.dtype),
-            cached_kv=tf.zeros([0], dtype=x.dtype) if cached_kv is None else cached_kv,
-            is_training=(is_training and cached_kv is None),
-            is_decoder=True,
-            is_inference=(cached_kv is not None))  # set inside
-        if cache is not None:
-            cache["self_attention"] = cached_kv
+        if cache is None:
+            cached_k =  tf.zeros([0], dtype=dec_input.dtype)
+            cached_v =  tf.zeros([0], dtype=dec_input.dtype)
+            (out, cached_k_new, cached_v_new) = self._decoder_layer(dec_input, enc_output, enc_mask, cached_k, cached_v, is_training=True, predict=False)
+        else:
+            cached_k =  cache["self_attention"]["keys"]
+            cached_v =  cache["self_attention"]["values"]
+            (out, cached_k_new, cached_v_new) = self._decoder_layer(dec_input, enc_output, enc_mask, cached_k, cached_v, is_training=False, predict=True)
+            cache["self_attention"]["keys"] = cached_k_new
+            cache["self_attention"]["values"] = cached_v_new
+        return out
 
-        # enc-dec attention layer
-        if self._with_cross_attention:
-            y = self._crossatt_layer(
-                y,  # x as query
-                memory=tf.cast(memory, y.dtype),
-                memory_bias=memory_bias,
-                is_training=is_training)
-        # ffn
-        y = self._ffn_layer(y, is_training=is_training)
-        return y
 
     def create_decoding_internal_cache(self, decode_padded_length=None):
         if self._lightseq_enabled:
