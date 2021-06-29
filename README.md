@@ -9,11 +9,15 @@
 
 The primary motivation of NeurST is to facilitate NLP researchers to get started on end-to-end speech translation (ST) and build advanced neural machine translation (NMT) models. 
 
-**See [here](/examples) for a full list of NeurST examples.** 
+**See [here](/examples) for a full list of NeurST examples. And we present recent progress of end-to-end ST technology at [https://st-benchmark.github.io/](https://st-benchmark.github.io/).** 
 
 > NeurST is based on TensorFlow2 and we are working on the pytorch version.
 
 ## <img src="http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/icon-for-new-9.jpg" width="45">NeurST News
+**June 28, 2021**: Release of models and results for IWSLT 2021 offline ST task.
+
+**June 15, 2021**: Integration of [LightSeq](https://github.com/bytedance/lightseq) for training speedup, see the [experimental branch](https://github.com/bytedance/neurst/tree/lightseq).
+
 **March 28, 2021**: The v0.1.1 release includes the instructions of weight pruning and quantization aware training for transformer models, and several more features. See the [release note](https://github.com/bytedance/neurst/releases/tag/v0.1.1) for more details.
 
 **Dec. 25, 2020**: The v0.1.0 release includes the overall design of the code structure and recipes for training end-to-end ST models. See the [release note](https://github.com/bytedance/neurst/releases/tag/v0.1.0) for more details.
