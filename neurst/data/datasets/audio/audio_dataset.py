@@ -24,6 +24,7 @@ import numpy
 import six
 import tensorflow as tf
 from absl import logging
+from scipy.io import wavfile
 
 from neurst.data.audio import FeatureExtractor, build_feature_extractor
 from neurst.data.dataset_utils import load_tfrecords, take_one_record
@@ -32,16 +33,6 @@ from neurst.data.datasets.text_gen_dataset import TextGenDataset
 from neurst.utils.compat import DataStatus
 from neurst.utils.flags_core import Flag, ModuleFlag
 from neurst.utils.misc import temp_download, to_numpy_or_python_type
-
-try:
-    import soundfile
-except (ImportError, OSError):
-    pass
-
-try:
-    from pydub import AudioSegment
-except ImportError:
-    pass
 
 _languages = ["en", "de", "fr", "es", "it", "nl", "pt",
               "ro", "ru", "ar", "cs", "fa", "tr", "vi", "zh"]
@@ -71,18 +62,11 @@ class RawAudioDataset(Dataset):
         self._translations = None
         self._feature_extractor = build_feature_extractor(args)
         try:
-            import soundfile
-            _ = soundfile
-        except ImportError:
-            raise ImportError("Please install soundfile with: pip3 install soundfile")
-        except OSError:
-            raise OSError("sndfile library not found. Please install with: "
-                          "apt-get install libsndfile1")
-        try:
-            from pydub import AudioSegment
-            _ = AudioSegment
-        except ImportError:
-            raise ImportError("Please install pydub with: pip3 install pydub")
+            import sox
+            self._sox_transformer = sox.Transformer()
+            self._sox_transformer.set_output_format(rate=16000, file_type="wav")
+        except (ImportError, ModuleNotFoundError):
+            self._sox_transformer = None
         excluded_file = args["excluded_file"]
         self._excluded_str = None
         if excluded_file is not None:
@@ -177,18 +161,30 @@ class RawAudioDataset(Dataset):
             assert (file is None) ^ (fileobj is None), (
                 "Only one of `file` and `fileobj` should be provided.")
             mode = mode.lower()
-            if mode in ["flac", "wav"]:
-                sig, rate = soundfile.read(file or fileobj, dtype='int16')
-            elif mode == "mp3":  # need to re-sample and convert
-                tmp_wav = os.path.join(os.path.dirname(__file__), f"_tmp{time.time()}.wav")
-                mp3 = AudioSegment.from_file(file or fileobj, "mp3")
-                mp3.set_frame_rate(16000).export(tmp_wav, format="wav")
-                sig, rate = soundfile.read(tmp_wav, dtype="int16")
+            if mode == "wav":
+                rate, sig = wavfile.read(file or fileobj)
+            elif mode in ["mp3", "flac"]:  # need to re-sample and convert
+                if self._sox_transformer is None:
+                    raise RuntimeError("Please install sox environment: \n"
+                                       "\tapt-get install sox libavcodec-extra\n"
+                                       "\tpip3 install sox")
+                if fileobj is None:
+                    fileobj = tf.io.gfile.GFile(file, "rb")
+                tmp_wav = os.path.join(os.path.dirname(__file__), f"_tmp{time.time()}." + mode)
+                with open(tmp_wav, "wb") as fw:
+                    fw.write(fileobj.read())
+                rate = 16000
+                sig = self._sox_transformer.build_array(input_filepath=tmp_wav)
+                if file is not None:
+                    fileobj.close()
+                tf.io.gfile.remove(tmp_wav)
             else:
                 raise NotImplementedError
+        if sig.dtype not in ["float32", "int16"]:
+            raise NotImplementedError(f"Not supported audio signal type {sig.dtype}.")
         if self._feature_extractor is not None:
             sig = self._feature_extractor(sig, rate)
-        else:
+        elif sig.dtype == "int16":
             sig = numpy.array(sig) / 32768.
         if numpy.any(numpy.isinf(sig)) or numpy.any(numpy.isnan(sig)):
             return None

@@ -49,5 +49,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add support for converting checkpoints from publicly 
 - Beam search decoding and top-k/p sampling.
 - Supports averaging checkpoints, TFRecord generation, model restoring (see [cli/README.md](/neurst/cli/README.md)).
-- Step-by-step recipes for training an end-to-end speech translation model (see [examples/speech_to_text](/examples/speech_to_text)).
+- Step-by-step recipes for training an end-to-end speech translation model (see [examples/speech_to_text](/examples/speech_transformer)).
 

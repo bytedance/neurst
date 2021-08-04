@@ -63,7 +63,7 @@ The BLEU scores of iwslt.tst2020&2021 are from the IWSLT 2021 organizers. Note t
 
 
 ## How to reproduce
-Here we only introduce how to reproduce the hypothesis and BLEU scores above. For more details about the model structure and training datasets, see our [system report](https://arxiv.org/abs/2105.07319), and see [speech-to-text recipe](/examples/speech_to_text) for how to train end-to-end ST models with NeurST.
+Here we only introduce how to reproduce the hypothesis and BLEU scores above. For more details about the model structure and training datasets, see our [system report](https://arxiv.org/abs/2105.07319), and see [speech-to-text recipe](/examples/speech_transformer) for how to train end-to-end ST models with NeurST.
 
 ### MT
 

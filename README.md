@@ -38,8 +38,8 @@ NeurST provides reference implementations of various models and benchmarks. Plea
 - Text Translation
     - [Transformer on WMT14 en->de](/examples/translation)
 - Speech-to-Text Translation
-    - [libri-trans](/examples/speech_to_text/augmented_librispeech)
-    - [MuST-C](/examples/speech_to_text/must-c)
+    - [libri-trans](/examples/speech_transformer/augmented_librispeech)
+    - [MuST-C](/examples/speech_transformer/must-c)
 
 
 ## Requirements and Installation

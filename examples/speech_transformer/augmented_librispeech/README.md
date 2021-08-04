@@ -4,7 +4,7 @@
 
 The final performance of speech translation on Argumented LibriSpeech is: 
 
-> See [RESULTS](/examples/speech_to_text/augmented_librispeech/RESULTS.md) for the comparison with counterparts. 
+> See [RESULTS](/examples/speech_transformer/augmented_librispeech/RESULTS.md) for the comparison with counterparts. 
 
 - **ASR (dmodel=256, WER)** 
 
