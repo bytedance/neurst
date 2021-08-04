@@ -25,6 +25,7 @@ ALTERNATIVE_REQUIRES = [
     "fairseq>=0.10.1",  # for converting models from fairseq
     "tensorflow_addons>=0.11.2",  # for group normalization
     "pydub>=0.24.1",  # for audio processing
+    "sox>=1.4.1",  # for audio processing
 ]
 
 REQUIRES = ["six>=1.11.0,<2.0.0",
@@ -32,7 +33,7 @@ REQUIRES = ["six>=1.11.0,<2.0.0",
             "sacrebleu>=1.4.0",
             "regex>=2019.1.24",
             "sacremoses>=0.0.38",
-            # "tensorflow>=2.3.0", # ONE must manually install tensorflow
+            # "tensorflow>=2.4.0", # ONE must manually install tensorflow
             "tqdm>=0.46",
             ]
 

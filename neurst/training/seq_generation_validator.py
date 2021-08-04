@@ -92,7 +92,7 @@ class SeqGenerationValidator(CriterionValidator):
             self._gen_model = SequenceGenerator.build_generation_model(
                 task, model, search_layer)
             self._gen_tfds = training_utils.build_datasets(
-                compat.ModeKeys.INFER, strategy, self._custom_dataset, task, self._eval_task_args)
+                compat.ModeKeys.INFER, strategy, self._custom_dataset, task, True, self._eval_task_args)
             if isinstance(self._custom_dataset, MultipleDataset):
                 for name in list(self._gen_tfds.keys()):
                     if self._custom_dataset.datasets[name].targets is None:

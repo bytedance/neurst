@@ -128,7 +128,7 @@ class SequenceGenerator(BaseExperiment):
             model = self._build_and_restore_model()
             keras_model = self.build_generation_model(self.task, model, self._search_layer)
             tfds = training_utils.build_datasets(compat.ModeKeys.INFER, self.strategy,
-                                                 self.custom_dataset, self.task)
+                                                 self.custom_dataset, self.task, cache=True)
             keras_model.summary()
             summary_model_variables(keras_model)
 

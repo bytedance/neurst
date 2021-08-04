@@ -158,16 +158,23 @@ def build_datasets(mode,
                    strategy,
                    custom_dataset: Dataset,
                    task,
+                   cache=False,
                    args=None):
     """ Builds datasets and returns datasets. """
     if isinstance(custom_dataset, MultipleDataset):
-        return {
+        ret_ds = {
             name: task.create_and_batch_tfds(
                 d, mode, num_replicas_in_sync=get_num_replicas_in_sync(strategy), args=args)
             for name, d in custom_dataset.datasets.items()
         }
-    return task.create_and_batch_tfds(
-        custom_dataset, mode, num_replicas_in_sync=get_num_replicas_in_sync(strategy), args=args)
+        if cache:
+            ret_ds = {k: v.cache() for k, v in ret_ds.items()}
+    else:
+        ret_ds = task.create_and_batch_tfds(
+            custom_dataset, mode, num_replicas_in_sync=get_num_replicas_in_sync(strategy), args=args)
+        if cache:
+            ret_ds = ret_ds.cache()
+    return ret_ds
 
 
 def maybe_distribution_dataset(strategy, dataset):

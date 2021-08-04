@@ -78,7 +78,7 @@ class CriterionValidator(Validator):
         with training_utils.get_strategy_scope(strategy):
             self._criterion_model = Evaluator.build_evaluation_model(task, model, self._criterion)
             self._eval_tfds = training_utils.build_datasets(
-                compat.ModeKeys.EVAL, strategy, self._custom_dataset, task, self._eval_task_args)
+                compat.ModeKeys.EVAL, strategy, self._custom_dataset, task, True, self._eval_task_args)
         self._criterion_metric = self._criterion.as_metric()
         if isinstance(self._custom_dataset, MultipleDataset):
             self._criterion_recorder = {

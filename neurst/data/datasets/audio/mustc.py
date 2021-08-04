@@ -18,15 +18,11 @@ import re
 import tensorflow as tf
 import yaml
 from absl import logging
+from scipy.io import wavfile
 
 from neurst.data.datasets import register_dataset
 from neurst.data.datasets.audio.audio_dataset import RawAudioDataset
 from neurst.utils.flags_core import Flag
-
-try:
-    import soundfile
-except (ImportError, OSError):
-    pass
 
 
 @register_dataset
@@ -165,9 +161,9 @@ class MuSTC(RawAudioDataset):
                                 break
                         if wavname != former_wavkey:
                             former_wavkey = wavname
-                            ori_audio, sample_rate = soundfile.read(
-                                os.path.join(self._input_tarball, f"data/{self._extraction}/wav/{wavname}"),
-                                dtype='int16')
+                            sample_rate, ori_audio = wavfile.read(
+                                os.path.join(self._input_tarball, f"data/{self._extraction}/wav/{wavname}"))
+
                         start = int(offset * sample_rate)
                         end = int((offset + duration) * sample_rate) + 1
                         data_sample = self._pack_example_as_dict(
@@ -210,7 +206,7 @@ class MuSTC(RawAudioDataset):
                                 f = tar.extractfile(tarinfo)
                                 b = io.BytesIO(f.read())
                                 f.close()
-                                ori_audio, sample_rate = soundfile.read(b, dtype='int16')
+                                sample_rate, ori_audio = wavfile.read(b)
                                 b.close()
                             start = int(offset * sample_rate)
                             end = int((offset + duration) * sample_rate) + 1

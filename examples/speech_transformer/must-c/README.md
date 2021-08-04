@@ -4,7 +4,7 @@
 
 The final performance of speech translation on 8 languages of MuST-C (tst-COMMON) is: 
 
-> See [RESULTS](/examples/speech_to_text/must-c/RESULTS.md) for the comparison with counterparts. 
+> See [RESULTS](/examples/speech_transformer/must-c/RESULTS.md) for the comparison with counterparts. 
 
 The benchmark models:
 
@@ -201,4 +201,4 @@ In addition, configuration files (`*.yml`) are generated for the following train
 
 ## Training and evaluation
 
-The training and evaluation procedures are the same as those of [AugmentedLibrispeech](/examples/speech_to_text/augmented_librispeech/README.md).
+The training and evaluation procedures are the same as those of [AugmentedLibrispeech](/examples/speech_transformer/augmented_librispeech/README.md).

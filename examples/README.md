@@ -7,7 +7,7 @@ The folder contains example (re-)implementations of selected research papers and
 ### 2021
 
 - [ACL demo] Zhao et al. NeurST: Neural Speech Translation Toolkit. [[paper](https://arxiv.org/abs/2012.10018)]
-    - E2E ST benchmark: [libri-trans](/examples/speech_to_text/augmented_librispeech), [must-c](/examples/speech_to_text/must-c)
+    - E2E ST benchmark: [libri-trans](/examples/speech_transformer/augmented_librispeech), [must-c](/examples/speech_transformer/must-c)
 
 
 ## Neural Machine Translation
