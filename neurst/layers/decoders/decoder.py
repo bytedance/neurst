@@ -65,7 +65,8 @@ class Decoder(QuantLayer):
         return self._params
 
     @abstractmethod
-    def call(self, decoder_inputs, cache, is_training=True, decode_loop_step=None):
+    def call(self, decoder_inputs, cache, decode_lagging=None,
+             is_training=True, decode_loop_step=None):
         """ Encodes the inputs.
 
         Args:
@@ -73,6 +74,7 @@ class Decoder(QuantLayer):
                 [batch_size, max_target_length, embedding_dim] or
                 [batch_size, embedding_dim] for one decoding step.
             cache: A dictionary, generated from self.create_decoding_internal_cache.
+            decode_lagging: The lagging for streaming input. Only available for training.
             is_training: A bool, whether in training mode or not.
             decode_loop_step: An integer, step number of the decoding loop. Used only
                 for autoregressive inference with static-shape cache.

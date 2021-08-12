@@ -13,7 +13,6 @@
 # limitations under the License.
 import tensorflow as tf
 from absl import logging
-from bytedseq.utils.misc import to_numpy_or_python_type
 
 from neurst.criterions import register_criterion
 from neurst.criterions.criterion import Criterion
@@ -21,6 +20,7 @@ from neurst.metrics.metric import MetricWrapper
 from neurst.models.model_utils import input_length_to_nonpadding
 from neurst.utils.compat import is_tf_tensor
 from neurst.utils.flags_core import Flag
+from neurst.utils.misc import to_numpy_or_python_type
 
 
 @register_criterion
