@@ -42,9 +42,9 @@ class InverseSquareRootSchedule(tf.keras.optimizers.schedules.LearningRateSchedu
     @staticmethod
     def class_or_method_args():
         return [
-            Flag("peak_lr", dtype=Flag.TYPE.INTEGER, default=5e-4,
+            Flag("peak_lr", dtype=Flag.TYPE.FLOAT, default=5e-4,
                  help="The configured lr."),
-            Flag("init_lr", dtype=Flag.TYPE.INTEGER, default=0.,
+            Flag("init_lr", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The initial lr."),
             Flag("warmup_steps", dtype=Flag.TYPE.INTEGER, default=4000,
                  help="The number of steps required for linear warmup."),

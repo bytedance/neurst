@@ -1,5 +1,4 @@
 import numpy
-import pytest
 import tensorflow as tf
 
 from neurst.layers.attentions.multi_head_attention import MultiHeadAttention, MultiHeadSelfAttention
@@ -106,9 +105,6 @@ def test_multiheadself_attention():
             predefined_weights.append(
                 numpy.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]))
     attention_layer.set_weights(predefined_weights)
-    with pytest.raises(ValueError):
-        attention_layer(query, bias=tf.convert_to_tensor(
-            [[[-0.2276893, 0.11865579]]], dtype=tf.float32), is_training=False)
     output = attention_layer(query, bias=bias, is_training=False)
     assert numpy.sum((output.numpy() - numpy.array(
         [[[0.8281387, -0.55132246, -1.1976832],

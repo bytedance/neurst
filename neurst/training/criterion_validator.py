@@ -52,7 +52,7 @@ class CriterionValidator(Validator):
             ModuleFlag("eval_dataset", Dataset.REGISTRY_NAME, help="The dataset for validation."),
             Flag("eval_batch_size", dtype=Flag.TYPE.INTEGER, default=32,
                  help="The batch size for validation process."),
-            Flag("eval_task_args", dtype=Flag.TYPE.INTEGER, default=None,
+            Flag("eval_task_args", dtype=Flag.TYPE.STRING, default=None,
                  help="Other parameters for building validation dataset.")
         ])
         return this_args

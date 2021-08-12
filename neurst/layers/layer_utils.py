@@ -53,6 +53,31 @@ def lower_triangle_attention_bias(length, dtype=None):
     return bias
 
 
+def waitk_attention_bias(memory_length, waitk_lagging, query_length=None, dtype=None):
+    """ Creates a bias tensor for decoder self attention with lagging.
+
+    Args:
+        memory_length: The length of memory tensor.
+        waitk_lagging: The lagging.
+        query_length: The length of queries or the position of the query.
+
+    Returns: A float Tensor of shape [query_length, memory_length] if `query_length` is None,
+        else a float Tensor of shape [memory_length, ],  with FLOAT_MIN in padding positions
+        and 0 in non-padding positions.
+
+    """
+    with tf.name_scope("decoder_waitk_self_attention_bias"):
+        if query_length is None:
+            return compat.FLOAT_MIN * (1. - tf.sequence_mask(
+                tf.minimum(waitk_lagging, memory_length), maxlen=memory_length,
+                dtype=(dtype or compat.CUSTOM_GLOBAL_FLOATX)))
+        waitk_non_padding = tf.cast(
+            tf.linalg.band_part(tf.ones([query_length, memory_length]), -1,
+                                tf.minimum(waitk_lagging - 1, memory_length)),
+            dtype=(dtype or compat.CUSTOM_GLOBAL_FLOATX))
+        return compat.FLOAT_MIN * (1. - waitk_non_padding)
+
+
 def stack_beam_size(x, beam_size):
     """ Tiles a given tensor by beam_size.
 
