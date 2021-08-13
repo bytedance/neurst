@@ -148,6 +148,8 @@ class MultiHeadAttention(QuantLayer):
                 if bias.get_shape().ndims == 2:
                     bias = tf.expand_dims(
                         tf.expand_dims(bias, axis=1), axis=1)
+                elif bias.get_shape().ndims == 3:
+                    bias = tf.expand_dims(bias, axis=1)
                 elif bias.get_shape().ndims != 4:
                     raise ValueError("bias tensor with {}-dim is not valid".format(
                         bias.get_shape().ndims))
