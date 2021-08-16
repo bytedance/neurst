@@ -6,8 +6,12 @@ The folder contains example (re-)implementations of selected research papers and
 
 ### 2021
 
-- [ACL demo] Zhao et al. NeurST: Neural Speech Translation Toolkit. [[paper](https://arxiv.org/abs/2012.10018)]
+- [ACL demo] Zhao et al. NeurST: Neural Speech Translation Toolkit. [[paper](https://aclanthology.org/2021.acl-demo.7/)]
     - E2E ST benchmark: [libri-trans](/examples/speech_transformer/augmented_librispeech), [must-c](/examples/speech_transformer/must-c)
+
+- [IWLST 2021 System] Zhao et al. The Volctrans Neural Speech Translation System for IWSLT 2021. [[paper](https://aclanthology.org/2021.iwslt-1.6/)]
+    - [Offline ST](/examples/iwslt21/OFFLINE.md) 
+    - [Simultaneous Translation](/examples/iwslt21/SIMUL_TRANS.md)
 
 
 ## Neural Machine Translation
