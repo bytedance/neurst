@@ -98,7 +98,7 @@ class Task(object):
         return [x for x in COMMON_DATA_ARGS]
 
     @abstractmethod
-    def build_model(self, args, name=None):
+    def build_model(self, args, name=None, **kwargs):
         """Build a new model instance."""
         raise NotImplementedError("Task must implement the `build_model` method.")
 

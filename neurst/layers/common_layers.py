@@ -66,6 +66,10 @@ class PrePostProcessingWrapper(QuantLayer):
         self.add_activation_quantizer(name="ln", activation="act")
         super(PrePostProcessingWrapper, self).build(input_shape)
 
+    @property
+    def layer(self):
+        return self._layer
+
     def call(self, inputs, *args, **kwargs):
         is_training = kwargs["is_training"]
         if self._pre_norm:
@@ -385,7 +389,9 @@ class PositionEmbeddingWrapper(QuantLayer):
         channels = x.get_shape().as_list()[-1]
         if x.get_shape().ndims == 3:  # [batch_size, timesteps, dim]
             length = tf.shape(x)[1]
-            position = tf.cast(tf.range(length), dtype=dtype)
+            if time is None:
+                time = 0
+            position = tf.cast(tf.range(time, time + length), dtype=dtype)
         elif x.get_shape().ndims == 2:  # [batch_size, dim]
             length = 1
             position = tf.cast(tf.range(time, time + 1), dtype=dtype)
@@ -430,8 +436,10 @@ class PositionEmbeddingWrapper(QuantLayer):
             position_emb = tf.gather(self.quant(self._position_emb_table, name="weights"),
                                      tf.convert_to_tensor(time, dtype=tf.int32))
         elif x_ndims == 3:
+            if time is None:
+                time = 0
             position_emb = tf.slice(self.quant(self._position_emb_table, name="weights"),
-                                    [0, 0], [tf.shape(emb)[1], -1])
+                                    [time, 0], [tf.shape(emb)[1], -1])
         else:
             raise ValueError("need a Tensor with rank 2 or 3")
 

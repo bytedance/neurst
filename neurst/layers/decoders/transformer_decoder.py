@@ -127,16 +127,17 @@ class TransformerDecoder(Decoder):
         """
         # [batch_size, max_length], FLOAT_MIN for padding, 0.0 for non-padding
         if is_inference:
-            params = self.get_config()
             decoding_states = {}
             batch_size = tf.shape(encoder_outputs)[0]
             # initialize decoder self attention keys/values
-            for lid in range(params["num_layers"]):
+            for lid, layer in enumerate(self._stacking_layers):
                 # Ensure shape invariance for tf.while_loop.
-                decoding_states["layer_{}".format(
-                    lid)] = self._stacking_layers[lid].create_decoding_internal_cache(decode_padded_length)
+                decoding_states[f"layer_{lid}"] = layer.create_decoding_internal_cache(
+                    decode_padded_length)
             decoding_states = tf.nest.map_structure(
                 lambda ts: tile_tensor(ts, batch_size, axis=0), decoding_states)
+            for lid, layer in enumerate(self._stacking_layers):
+                decoding_states[f"layer_{lid}"].update(layer.memorize_memory(encoder_outputs))
         else:
             decoding_states = None
         cache = dict(decoding_states=decoding_states)
@@ -145,7 +146,30 @@ class TransformerDecoder(Decoder):
             cache["memory_bias"] = layer_utils.input_padding_to_bias(encoder_inputs_padding)
         return cache
 
-    def call(self, decoder_inputs, cache, is_training=True, decode_loop_step=None):
+    def update_incremental_cache(self,
+                                 cache,
+                                 encoder_outputs,
+                                 encoder_inputs_padding):
+        if cache is None or len(cache) == 0:
+            cache = self.create_decoding_internal_cache(
+                encoder_outputs=encoder_outputs,
+                encoder_inputs_padding=encoder_inputs_padding,
+                is_inference=True,
+                decode_padded_length=None)
+        elif encoder_inputs_padding is not None:
+            cache["memory"] = tf.concat([cache["memory"], encoder_outputs], axis=1)
+            cache["memory_bias"] = tf.concat([cache["memory_bias"], encoder_inputs_padding], axis=1)
+            for lid, layer in enumerate(self._stacking_layers):
+                for k, v in layer.memorize_memory(encoder_outputs).items():
+                    cache["decoding_states"][f"layer_{lid}"][k] = tf.nest.pack_sequence_as(
+                        structure=v, flat_sequence=tf.nest.map_structure(
+                            lambda x, y: tf.concat([x, y], axis=1),
+                            tf.nest.flatten(cache["decoding_states"][f"layer_{lid}"][k]),
+                            tf.nest.flatten(v)))
+        return cache
+
+    def call(self, decoder_inputs, cache, decode_lagging=None,
+             is_training=True, decode_loop_step=None):
         """ Encodes the inputs.
 
         Args:
@@ -153,6 +177,8 @@ class TransformerDecoder(Decoder):
                 [batch_size, max_target_length, embedding_dim] or
                 [batch_size, embedding_dim] for one decoding step.
             cache: A dictionary, generated from self.create_decoding_internal_cache.
+            decode_lagging: The waitk lagging for streaming input when training.
+                During inference, it is the lagging for current step.
             is_training: A bool, whether in training mode or not.
             decode_loop_step: An integer, step number of the decoding loop. Used only
                 for autoregressive inference with static-shape cache.
@@ -165,7 +191,20 @@ class TransformerDecoder(Decoder):
         ori_ndims = decoder_inputs.get_shape().ndims
         if ori_ndims == 2:
             decoder_inputs = tf.expand_dims(decoder_inputs, axis=1)
-
+        memory_bias = cache.get("memory_bias", None)  # [batch, memory_length]
+        if memory_bias is not None and decode_lagging is not None:
+            if ori_ndims == 3:
+                memory_bias = tf.minimum(tf.expand_dims(memory_bias, axis=1),
+                                         tf.expand_dims(
+                                             layer_utils.waitk_attention_bias(
+                                                 memory_length=tf.shape(memory_bias)[1],
+                                                 query_length=tf.shape(decoder_inputs)[1],
+                                                 waitk_lagging=decode_lagging), axis=0))
+            else:  # ori_ndims == 2
+                memory_bias = tf.minimum(memory_bias,
+                                         tf.expand_dims(layer_utils.waitk_attention_bias(
+                                             memory_length=tf.shape(memory_bias)[1],
+                                             waitk_lagging=decode_lagging), axis=0))
         # decoder self attention has shape [1, 1, max_target_len, max_target_len]
         decoder_self_attention_bias = layer_utils.lower_triangle_attention_bias(
             tf.shape(decoder_inputs)[1])
@@ -178,7 +217,7 @@ class TransformerDecoder(Decoder):
                            else cache["decoding_states"][f"layer_{idx}"])
             x = self._stacking_layers[idx](x, decoder_self_attention_bias, layer_cache,
                                            memory=cache.get("memory", None),
-                                           memory_bias=cache.get("memory_bias", None),
+                                           memory_bias=memory_bias,
                                            is_training=is_training,
                                            decode_loop_step=decode_loop_step)
         outputs = x

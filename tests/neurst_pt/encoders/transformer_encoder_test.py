@@ -91,7 +91,7 @@ def test_transformer_encoder_prenorm():
     pt_encoder._stacking_layers[0][1]._norm_layer.bias.data = torch.FloatTensor(
         tf_encoder._stacking_layers[0]._ffn_layer._norm_layer.beta.numpy())
     assert_equal_numpy(tf_encoder(tf_inp, tf_inppad, is_training=False).numpy(),
-                       pt_encoder(pt_inp, pt_inppad, is_training=False).detach().numpy(), 5e-6)
+                       pt_encoder(pt_inp, pt_inppad, is_training=False).detach().numpy(), 1e-5)
 
 
 def test_transformer_encoder_postnorm():
@@ -166,7 +166,7 @@ def test_transformer_encoder_postnorm():
     pt_encoder._stacking_layers[0][1]._norm_layer.bias.data = torch.FloatTensor(
         tf_encoder._stacking_layers[0]._ffn_layer._norm_layer.beta.numpy())
     assert_equal_numpy(tf_encoder(tf_inp, tf_inppad, is_training=False).numpy(),
-                       pt_encoder(pt_inp, pt_inppad, is_training=False).detach().numpy(), 5e-6)
+                       pt_encoder(pt_inp, pt_inppad, is_training=False).detach().numpy(), 1e-5)
 
 
 if __name__ == "__main__":

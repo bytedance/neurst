@@ -101,10 +101,10 @@ class Seq2Seq(Task):
         signatures["label"] = tf.TensorShape([None, None])
         return dtypes, signatures
 
-    def build_model(self, args, name=None):
+    def build_model(self, args, name=None, **kwargs):
         """ Builds and return a keras model. """
         model = build_model(args, self._src_data_pipeline.meta,
-                            self._trg_data_pipeline.meta, name=name)
+                            self._trg_data_pipeline.meta, name=name, **kwargs)
         return model
 
     def example_to_input(self, batch_of_data: dict, mode) -> dict:

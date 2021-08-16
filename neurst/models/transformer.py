@@ -62,6 +62,8 @@ class Transformer(EncoderDecoderModel):
                  help="The dropout rate of encoder self-attention layer."),
             Flag("encoder.attention_type", dtype=Flag.TYPE.STRING, default="dot_product",
                  help="The type of the attention function of encoder self-attention layer."),
+            Flag("encoder.attention_monotonic", dtype=Flag.TYPE.BOOLEAN, default=None,
+                 help="Whether to apply a triangle mask for the transformer encoder."),
             Flag("encoder.ffn_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate of encoder ffn layer."),
             Flag("encoder.layer_postprocess_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,

@@ -13,14 +13,15 @@
 # limitations under the License.
 import tensorflow as tf
 from absl import logging
-from bytedseq.data.datasets.multiple_dataset import MultipleDataset
-from bytedseq.exps import register_exp
-from bytedseq.exps.evaluator import Evaluator
-from bytedseq.models.model_utils import summary_model_variables
-from bytedseq.training import training_utils
-from bytedseq.utils import compat
-from bytedseq.utils.checkpoints import restore_checkpoint_if_possible
-from bytedseq.utils.flags_core import Flag
+
+from neurst.data.datasets.multiple_dataset import MultipleDataset
+from neurst.exps import register_exp
+from neurst.exps.evaluator import Evaluator
+from neurst.models.model_utils import summary_model_variables
+from neurst.training import training_utils
+from neurst.utils import compat
+from neurst.utils.checkpoints import restore_checkpoint_if_possible
+from neurst.utils.flags_core import Flag
 
 
 @register_exp(["seq_eval"])

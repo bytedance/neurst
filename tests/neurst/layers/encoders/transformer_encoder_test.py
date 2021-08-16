@@ -15,6 +15,7 @@ import numpy
 import tensorflow as tf
 
 from neurst.layers.encoders.transformer_encoder import TransformerEncoder
+from neurst.utils.misc import assert_equal_numpy
 
 
 def test_transformer_encoder():
@@ -110,17 +111,43 @@ def test_transformer_encoder():
                  [0.37111026, -0.31352338, 0.37098122, 0.3895113]],
                 dtype=tf.float32))
 
-    assert numpy.sum((encoder(inputs, input_padding, is_training=False)
-                      - numpy.array([[[-0.2709918, 0.95230484, -1.5212451, 0.83993214],
-                                      [0.7688386, -0.69726187, -1.2441225, 1.1725458],
-                                      [-1.1408244, 0.57164305, -0.76654106, 1.3357224],
-                                      [-1.5286305, 0.23827001, 1.267273, 0.02308742]],
+    assert_equal_numpy(encoder(inputs, input_padding, is_training=False).numpy(),
+                       numpy.array([[[-0.2709918, 0.95230484, -1.5212451, 0.83993214],
+                                     [0.7688386, -0.69726187, -1.2441225, 1.1725458],
+                                     [-1.1408244, 0.57164305, -0.76654106, 1.3357224],
+                                     [-1.5286305, 0.23827001, 1.267273, 0.02308742]],
+                                    [[-1.0156152, 1.4036102, -0.8733843, 0.48538923],
+                                     [-0.60578734, 0.23574206, 1.5095922, -1.1395471],
+                                     [0.53838307, -0.7913252, 1.3617758, -1.1088338],
+                                     [-0.8927619, 1.3975127, -1.001557, 0.49680638]]]))
 
-                                     [[-1.0156152, 1.4036102, -0.8733843, 0.48538923],
-                                      [-0.60578734, 0.23574206, 1.5095922, -1.1395471],
-                                      [0.53838307, -0.7913252, 1.3617758, -1.1088338],
-                                      [-0.8927619, 1.3975127, -1.001557, 0.49680638]]])) ** 2) < 1e-9
+
+def test_incremental_encode():
+    max_time = 5
+    inputs = tf.random.normal([1, max_time, 8])
+    inputs_padding = tf.convert_to_tensor([[0., 0., 0., 0., 0., ]], dtype=tf.float32)
+    encoder = TransformerEncoder(
+        num_layers=2,
+        hidden_size=8,
+        num_attention_heads=2,
+        filter_size=20,
+        attention_monotonic=True,
+    )
+    encoder_outputs = encoder(inputs, inputs_padding, is_training=False)
+
+    incremental_encoder_outputs, _ = encoder.incremental_encode(inputs, {}, time=0)
+    assert_equal_numpy(encoder_outputs.numpy(), incremental_encoder_outputs.numpy(), 1e-5)
+
+    incremental_encoder_outputs0, cache = encoder.incremental_encode(inputs[:, :2], {}, time=0)
+    incremental_encoder_outputs1, cache = encoder.incremental_encode(inputs[:, 2], cache, time=2)
+    incremental_encoder_outputs2, cache = encoder.incremental_encode(inputs[:, 3:], cache, time=3)
+
+    assert_equal_numpy(encoder_outputs.numpy(),
+                       tf.concat([incremental_encoder_outputs0,
+                                  incremental_encoder_outputs1,
+                                  incremental_encoder_outputs2], axis=1), 1e-5)
 
 
 if __name__ == "__main__":
     test_transformer_encoder()
+    test_incremental_encode()

@@ -87,14 +87,25 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
             name="ffn_prepost_wrapper")
         super(TransformerEncoderLayer, self).build(input_shape)
 
-    def call(self, x, x_bias, is_training=True):
+    def call(self, x, x_bias, cache=None, is_training=True):
         y = self._selfatt_layer(
             x,  # x as query
+            cache=None if cache is None else cache["self_attention"],
             bias=x_bias,
             is_training=is_training)
         # ffn
         y = self._ffn_layer(y, is_training=is_training)
         return y
+
+    def create_internal_cache(self):
+        num_units_per_head = self._hidden_size // self._num_attention_heads
+        return {
+            "self_attention": {
+                "keys": tf.zeros([0, self._num_attention_heads, num_units_per_head],
+                                 dtype=compat.CUSTOM_GLOBAL_FLOATX),
+                "values": tf.zeros([0, self._num_attention_heads, num_units_per_head],
+                                   dtype=compat.CUSTOM_GLOBAL_FLOATX)},
+        }
 
 
 class TransformerDecoderLayer(tf.keras.layers.Layer):
@@ -141,6 +152,12 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
         self._layer_postprocess_epsilon = layer_postprocess_epsilon
         self._post_normalize = post_normalize
         self._with_cross_attention = with_cross_attention
+
+    def memorize_memory(self, memory):
+        if not self._with_cross_attention:
+            raise ValueError("No need to call memorize memory without cross attention.")
+        k, v = self._crossatt_layer.layer.compute_kv(memory)
+        return {"memory": {"keys": k, "values": v}}
 
     def create_decoding_internal_cache(self, decode_padded_length=None):
         num_units_per_head = self._hidden_size // self._num_attention_heads
@@ -205,10 +222,12 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
             decode_loop_step=decode_loop_step)
         # enc-dec attention layer
         if self._with_cross_attention:
+            crossatt_cache = None if cache is None else cache["memory"]
             y = self._crossatt_layer(
                 y,  # x as query
                 memory=memory,  # None indicates self-attention
                 memory_bias=memory_bias,
+                cache=crossatt_cache,
                 is_training=is_training)
         # ffn
         y = self._ffn_layer(y, is_training=is_training)
