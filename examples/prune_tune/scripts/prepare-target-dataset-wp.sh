@@ -81,14 +81,14 @@ for loopid in $(seq 1 ${LOOP}); do
             src_data_pipeline.params:
               language: en
               subtokenizer: wordpiece
-              subtokenizer_codes: http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/vocab
-              vocab_path: http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/vocab
+              subtokenizer_codes: http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/vocab
+              vocab_path: http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/vocab
             trg_data_pipeline.class: TextDataPipeline
             trg_data_pipeline.params:
               language: de
               subtokenizer: wordpiece
-              subtokenizer_codes: http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/vocab
-              vocab_path: http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/vocab" \
+              subtokenizer_codes: http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/vocab
+              vocab_path: http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/vocab" \
         --output_template $RECORDS_PATH/train.tfrecords-%5.5d-of-%5.5d || touch FAILED &
         set +x
     done
@@ -125,14 +125,14 @@ task.params:
   src_data_pipeline.params:
     language: en
     subtokenizer: wordpiece
-    subtokenizer_codes: http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/vocab
-    vocab_path: http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/vocab
+    subtokenizer_codes: http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/vocab
+    vocab_path: http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/vocab
   trg_data_pipeline.class: TextDataPipeline
   trg_data_pipeline.params:
     language: de
     subtokenizer: wordpiece
-    subtokenizer_codes: http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/vocab
-    vocab_path: http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/vocab
+    subtokenizer_codes: http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/vocab
+    vocab_path: http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/vocab
 " > $DATA_PATH/translation_wordpiece.yml
 
 echo "

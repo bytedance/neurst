@@ -51,7 +51,7 @@ Evaluation on quantized models is the same as normal models, where the parameter
 
 
 ## View the quantized weight
-Assume we have a quantized checkpoint or download [transformer_big_wp_prenorm_int8quant](#http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_int8quant.tgz). 
+Assume we have a quantized checkpoint or download [transformer_big_wp_prenorm_int8quant](#http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_int8quant.tgz). 
 Pass the model directory to `examples/quantization/example_view_quant_weight.py`, the quantized weight will be displayed:
 ```bash
 python3 examples/quantization/example_view_quant_weight.py big_wp_prenorm_int8quant/

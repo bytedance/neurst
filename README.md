@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/neurst_newlogo.png" height="200">
+  <img src="http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/neurst_newlogo.png" height="200">
 </p>
 
 ![Last Commit](https://img.shields.io/github/last-commit/bytedance/neurst)
@@ -13,7 +13,7 @@ The primary motivation of NeurST is to facilitate NLP researchers to get started
 
 > NeurST is based on TensorFlow2 and we are working on the pytorch version.
 
-## <img src="http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/icon-for-new-9.jpg" width="45">NeurST News
+## <img src="http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/icon-for-new-9.jpg" width="45">NeurST News
 **Aug 16, 2021**: Release of models and results for [IWSLT 2021 offline ST and simultaneous translation task](/examples/iwslt21).
 
 **June 15, 2021**: Integration of [LightSeq](https://github.com/bytedance/lightseq) for training speedup, see the [experimental branch](https://github.com/bytedance/neurst/tree/lightseq).

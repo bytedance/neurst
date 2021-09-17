@@ -24,7 +24,7 @@ from neurst.utils.converters import Converter, register_converter
 from neurst.utils.misc import download_with_tqdm
 
 # _URL_PREFIX = "https://storage.googleapis.com/gpt-2"
-_URL_PREFIX = "http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/resources/gpt-2"
+_URL_PREFIX = "http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/resources/gpt-2"
 _GPT2_PRETRAIN_MODELS = {
     "117M": _URL_PREFIX + "/models/117M",
     "345M": _URL_PREFIX + "/models/345M",

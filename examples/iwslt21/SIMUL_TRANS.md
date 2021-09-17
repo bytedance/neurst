@@ -26,11 +26,11 @@ We report results of our models on [MuST-C V2](https://ict.fbk.eu/must-c/) tst-C
 
 ```bash
 # Download test data
-wget http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/tst-COMMON.en
-wget http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/tst-COMMON.de
+wget http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/tst-COMMON.en
+wget http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/tst-COMMON.de
 
 # Download and untar model
-wget http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/iwslt21_simul_en2de_models.tgz
+wget http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/iwslt21_simul_en2de_models.tgz
 tar -zxvf iwslt21_simul_en2de_models.tgz
 
 # Low Latency
@@ -57,20 +57,20 @@ python3 -m neurst.cli.simuleval_cli --agent simul_trans_text_agent \
 
 |  Latency                 | BLEU  | AL    | AP   | DAL   |
 |:------------------------:|:-----:|:-----:|:----:|:-----:|
-| Low (k=4, force-seg) [[instance]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/instances.log.low) [[scores]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/scores.low)  | 28.78 | 2.86  | 0.69 | 4.22  |
-| Medium (k=10, force-seg) [[instance]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/instances.log.medium) [[scores]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/scores.medium) | 32.88 | 5.80  | 0.83 | 9.05  |
-| High (k=13) [[instance]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/instances.log.high) [[scores]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/scores.high) | 33.21 | 11.03 | 0.93 | 11.40 |
+| Low (k=4, force-seg) [[instance]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/instances.log.low) [[scores]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/scores.low)  | 28.78 | 2.86  | 0.69 | 4.22  |
+| Medium (k=10, force-seg) [[instance]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/instances.log.medium) [[scores]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/scores.medium) | 32.88 | 5.80  | 0.83 | 9.05  |
+| High (k=13) [[instance]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/instances.log.high) [[scores]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2de/scores.high) | 33.21 | 11.03 | 0.93 | 11.40 |
 
 
 ### English-Japanese (en2ja)
 
 ```bash
 # Download test data
-wget http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/dev2021.en
-wget http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/dev2021.en
+wget http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/dev2021.en
+wget http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/dev2021.en
 
 # Download and untar model
-wget http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/iwslt21_simul_en2ja_models.tgz
+wget http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/iwslt21_simul_en2ja_models.tgz
 tar -zxvf iwslt21_simul_en2ja_models.tgz
 
 # Low Latency
@@ -95,9 +95,9 @@ python3 -m neurst.cli.simuleval_cli --agent simul_trans_text_agent \
 
 |  Latency                 | BLEU  | AL    | AP   | DAL   |
 |:------------------------:|:-----:|:-----:|:----:|:-----:|
-| Low (k=13, force-seg) [[instance]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/instances.log.low) [[scores]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/scores.low)  | 15.80 | 6.34  | 0.89 | 11.14  |
-| Medium (k=13, force-seg) [[instance]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/instances.log.low) [[scores]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/scores.low) | 15.80 | 6.34  | 0.89 | 11.14  |
-| High (k=13) [[instance]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/instances.log.high) [[scores]](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/scores.high) | 15.84 | 11.19 | 0.97 | 11.81 |
+| Low (k=13, force-seg) [[instance]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/instances.log.low) [[scores]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/scores.low)  | 15.80 | 6.34  | 0.89 | 11.14  |
+| Medium (k=13, force-seg) [[instance]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/instances.log.low) [[scores]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/scores.low) | 15.80 | 6.34  | 0.89 | 11.14  |
+| High (k=13) [[instance]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/instances.log.high) [[scores]](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/iwslt21/simul/en2ja/scores.high) | 15.84 | 11.19 | 0.97 | 11.81 |
 
 
 ## Official Blind Test (2021)
