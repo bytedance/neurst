@@ -22,16 +22,16 @@ We report tokenized BLEU. The baseline model is Transformer big.
 
 |#|Model| Pre-trained Model | Dataset | Approach | Train Steps | newstest2014 BLEU | target domain BLEU | 
 |----|----|:----:|:----:|:----:|:----:|:----:|:----:|
-|1| [Baseline](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline.tgz)	|-|	wmt14|	training from scratch|	500000	|28.4|	-|	
-2 | [Baseline_pruned10](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10.tgz)	|#1|	wmt14|	gradual pruning|	10000|	28.5|	-|  |	
-3	|[IWSLTspec_tune10](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10iwslt.tgz)|	#2|	iwslt14	|partial tuning	|10000|	28.5|	31.4	|
-4|	[EMEAspec_tune10](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10emea.tgz)	|#2	|emea	|partial tuning	|10000|	28.5	|30.9| 
-5	|[NOVELspec_tune10](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10novel.tgz)|	#2	|novel|	partial tuning	|10000|	28.5	|24.2|
+|1| [Baseline](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline.tgz)	|-|	wmt14|	training from scratch|	500000	|28.4|	-|	
+2 | [Baseline_pruned10](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10.tgz)	|#1|	wmt14|	gradual pruning|	10000|	28.5|	-|  |	
+3	|[IWSLTspec_tune10](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10iwslt.tgz)|	#2|	iwslt14	|partial tuning	|10000|	28.5|	31.4	|
+4|	[EMEAspec_tune10](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10emea.tgz)	|#2	|emea	|partial tuning	|10000|	28.5	|30.9| 
+5	|[NOVELspec_tune10](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10novel.tgz)|	#2	|novel|	partial tuning	|10000|	28.5	|24.2|
 
 ## Run the Prune-Tune method
 
 ### Train the general domain model and prune
-Following the [Weight Pruning](/examples/weight_pruning/README.md), assume we have a well-trained transformer big model on WMT14 en->de dataset with 10% parameters pruned [[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10.tgz)] and the vocabulary is built using word piece.
+Following the [Weight Pruning](/examples/weight_pruning/README.md), assume we have a well-trained transformer big model on WMT14 en->de dataset with 10% parameters pruned [[LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/prune_tune/transformer_big_baseline_pruned10.tgz)] and the vocabulary is built using word piece.
 
 Note that, we should add three extra options when pruning:
 ```bash

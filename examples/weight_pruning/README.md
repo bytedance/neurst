@@ -47,7 +47,7 @@ Same as the translation recipe, the averaged checkpoint with best BLEU on devset
 
 ### Performance
 
-We use the pre-norm transformer-big model based on word piece ([LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm.tgz)) from [translation/README.md](/examples/translation/README.md) and test the sparsity from 0.1~0.5.
+We use the pre-norm transformer-big model based on word piece ([LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm.tgz)) from [translation/README.md](/examples/translation/README.md) and test the sparsity from 0.1~0.5.
 
 The performance is listed below:
 
@@ -55,21 +55,21 @@ The performance is listed below:
 
 | sparsity | dev(newstest2013) | test(newstest2014) |
 |----------|-------------------|--------------------|
-|   [0.0](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm.tgz)    | 26.6              | 28.2               |
-|   [0.1](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune1.tgz)    | 26.6              | 28.1               |
-|   [0.2](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune2.tgz)    | 26.6              | 28.2               |
-|   [0.3](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune3.tgz)    | 26.6              | 28.0               |
-|   [0.4](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune4.tgz)    | 26.6              | 27.9               |
-|   [0.5](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune5.tgz)    | 26.5              | 27.7               |
+|   [0.0](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm.tgz)    | 26.6              | 28.2               |
+|   [0.1](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune1.tgz)    | 26.6              | 28.1               |
+|   [0.2](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune2.tgz)    | 26.6              | 28.2               |
+|   [0.3](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune3.tgz)    | 26.6              | 28.0               |
+|   [0.4](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune4.tgz)    | 26.6              | 27.9               |
+|   [0.5](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune5.tgz)    | 26.5              | 27.7               |
 
 
 **Deokenized BLEU (sacreBLEU)**
 
 | sparsity | dev(newstest2013) | test(newstest2014) |
 |----------|-------------------|--------------------|
-|   [0.0](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm.tgz)    | 26.4              | 27.5               |
-|   [0.1](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune1.tgz)    | 26.4              | 27.4               |
-|   [0.2](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune2.tgz)    | 26.4              | 27.5               |
-|   [0.3](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune3.tgz)    | 26.4              | 27.3               |
-|   [0.4](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune4.tgz)    | 26.4              | 27.3               |
-|   [0.5](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune5.tgz)    | 26.3              | 27.1               |
+|   [0.0](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm.tgz)    | 26.4              | 27.5               |
+|   [0.1](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune1.tgz)    | 26.4              | 27.4               |
+|   [0.2](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune2.tgz)    | 26.4              | 27.5               |
+|   [0.3](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune3.tgz)    | 26.4              | 27.3               |
+|   [0.4](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune4.tgz)    | 26.4              | 27.3               |
+|   [0.5](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm_prune5.tgz)    | 26.3              | 27.1               |
