@@ -304,7 +304,7 @@ def sequence_beam_search(symbols_to_logits_fn,
     """
     decoder_input_ids = generation_initializer["decoder_input"]
     decoding_cache = generation_initializer["decoder_internal_cache"]
-    encoder_inputs_maxlen = generation_initializer["encoder_inputs_maxlen"]
+    encoder_inputs_maxlen = generation_initializer.get("encoder_inputs_maxlen", None)
     eos_id = generation_initializer["eos_id"]
     unk_id = None if enable_unk else generation_initializer.get("unk_id", None)
     if dtype is None:
@@ -363,9 +363,12 @@ def sequence_beam_search(symbols_to_logits_fn,
             _StateKeys.DECODING_LENGTH: tf.TensorShape([None]),
             _StateKeys.PREDICTED_IDS: tf.TensorShape([None, None]),
         }
-    maximum_search_steps = tf.minimum(
-        encoder_inputs_maxlen + extra_decode_length,
-        maximum_decode_length)
+    if encoder_inputs_maxlen is None:
+        maximum_search_steps = maximum_decode_length
+    else:
+        maximum_search_steps = tf.minimum(
+            encoder_inputs_maxlen + extra_decode_length,
+            maximum_decode_length)
     maximum_search_steps = tf.maximum(maximum_search_steps, minimum_decode_length)
 
     def search_step(state):

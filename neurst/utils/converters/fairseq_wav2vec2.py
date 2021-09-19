@@ -21,7 +21,8 @@ from neurst.models.wav2vec2 import Wav2Vec2
 from neurst.utils.converters import Converter, register_converter
 from neurst.utils.misc import download_with_tqdm
 
-_URL_PREFIX = "https://dl.fbaipublicfiles.com/fairseq/wav2vec/"
+# _URL_PREFIX = "https://dl.fbaipublicfiles.com/fairseq/wav2vec/"
+_URL_PREFIX = "http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/resources/fairseq_wav2vec2/"
 _W2V_PRETRAIN_MODELS = {
     "wav2vec2_base": _URL_PREFIX + "wav2vec_small.pt",
     "wav2vec2_large": _URL_PREFIX + "libri960_big.pt",

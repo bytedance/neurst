@@ -1,0 +1,9 @@
+validator.class: CriterionValidator
+validator.params:
+  eval_dataset.class: mono_text
+  eval_dataset.params:
+    data_file: ./tests/examples/dev.example.en.txt
+  eval_start_at: 0
+  eval_steps: 50
+  eval_criterion.class: label_smoothed_cross_entropy
+  eval_batch_size: 32

@@ -70,7 +70,7 @@ class Evaluator(BaseExperiment):
 
         with training_utils.get_strategy_scope(self.strategy):
             tfds = training_utils.build_datasets(compat.ModeKeys.EVAL, self.strategy,
-                                                 self.custom_dataset, self.task)
+                                                 self.custom_dataset, self.task, cache=True)
             keras_model = self.build_evaluation_model(self.task, self.model, self._criterion)
             keras_model.summary()
             summary_model_variables(keras_model)

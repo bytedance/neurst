@@ -198,5 +198,5 @@ $ python3 -m neurst.cli.convert_checkpoint --model_name fairseq_transformer --fr
 ### Analysis audio TFRecord dataset
 It will print the metadata of the audio dataset, i.e. the number of samples and the duration of all audio segments:
 ```bash
-python3 -m neurst.cli.audio_tfrecord_analysis --data_path ... --feature_extractor fbank/float_identity ...
+python3 -m neurst.cli.analysis.audio_tfrecord_analysis --data_path ... --feature_extractor fbank/float_identity ...
 ```

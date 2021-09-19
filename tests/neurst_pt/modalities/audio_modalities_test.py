@@ -15,7 +15,7 @@ import numpy
 import tensorflow as tf
 import torch
 
-from neurst.layers.modalities.audio_modalities import AudioConvSubsamplingLayer as TFAudioConvSubsamplingLayer
+from neurst.layers.modalities.audio_modalities import AudioConv2dSubsamplingLayer as TFAudioConvSubsamplingLayer
 from neurst.utils.misc import assert_equal_numpy
 from neurst_pt.layers.modalities.audio_modalities import AudioConvSubsamplingLayer
 
@@ -30,15 +30,15 @@ def test_subsampler():
     _ = tf_layer(tf_inp)
     _ = pt_layer(pt_inp)
     pt_layer._conv_layer1.weight.data = torch.FloatTensor(
-        tf_layer._conv_layer1.kernel.numpy().transpose((3, 2, 0, 1)))
-    pt_layer._conv_layer1.bias.data = torch.FloatTensor(tf_layer._conv_layer1.bias.numpy())
+        tf_layer._conv_layers[0].kernel.numpy().transpose((3, 2, 0, 1)))
+    pt_layer._conv_layer1.bias.data = torch.FloatTensor(tf_layer._conv_layers[0].bias.numpy())
     pt_layer._conv_layer2.weight.data = torch.FloatTensor(
-        tf_layer._conv_layer2.kernel.numpy().transpose((3, 2, 0, 1)))
-    pt_layer._conv_layer2.bias.data = torch.FloatTensor(tf_layer._conv_layer2.bias.numpy())
-    pt_layer._norm_layer1.weight.data = torch.FloatTensor(tf_layer._norm_layer1.gamma.numpy())
-    pt_layer._norm_layer1.bias.data = torch.FloatTensor(tf_layer._norm_layer1.beta.numpy())
-    pt_layer._norm_layer2.weight.data = torch.FloatTensor(tf_layer._norm_layer2.gamma.numpy())
-    pt_layer._norm_layer2.bias.data = torch.FloatTensor(tf_layer._norm_layer2.beta.numpy())
+        tf_layer._conv_layers[1].kernel.numpy().transpose((3, 2, 0, 1)))
+    pt_layer._conv_layer2.bias.data = torch.FloatTensor(tf_layer._conv_layers[1].bias.numpy())
+    pt_layer._norm_layer1.weight.data = torch.FloatTensor(tf_layer._norm_layers[0].gamma.numpy())
+    pt_layer._norm_layer1.bias.data = torch.FloatTensor(tf_layer._norm_layers[0].beta.numpy())
+    pt_layer._norm_layer2.weight.data = torch.FloatTensor(tf_layer._norm_layers[1].gamma.numpy())
+    pt_layer._norm_layer2.bias.data = torch.FloatTensor(tf_layer._norm_layers[1].beta.numpy())
     pt_layer._dense_layer.weight.data = torch.FloatTensor(tf_layer._dense_layer.kernel.numpy().transpose())
     pt_layer._dense_layer.bias.data = torch.FloatTensor(tf_layer._dense_layer.bias.numpy())
     assert_equal_numpy(pt_layer(pt_inp).detach().numpy(), tf_layer(tf_inp).numpy(), 5e-5)
@@ -49,11 +49,11 @@ def test_subsampler():
     _ = tf_layer(tf_inp)
     _ = pt_layer(pt_inp)
     pt_layer._conv_layer1.weight.data = torch.FloatTensor(
-        tf_layer._conv_layer1.kernel.numpy().transpose((3, 2, 0, 1)))
-    pt_layer._conv_layer1.bias.data = torch.FloatTensor(tf_layer._conv_layer1.bias.numpy())
+        tf_layer._conv_layers[0].kernel.numpy().transpose((3, 2, 0, 1)))
+    pt_layer._conv_layer1.bias.data = torch.FloatTensor(tf_layer._conv_layers[0].bias.numpy())
     pt_layer._conv_layer2.weight.data = torch.FloatTensor(
-        tf_layer._conv_layer2.kernel.numpy().transpose((3, 2, 0, 1)))
-    pt_layer._conv_layer2.bias.data = torch.FloatTensor(tf_layer._conv_layer2.bias.numpy())
+        tf_layer._conv_layers[1].kernel.numpy().transpose((3, 2, 0, 1)))
+    pt_layer._conv_layer2.bias.data = torch.FloatTensor(tf_layer._conv_layers[1].bias.numpy())
     pt_layer._dense_layer.weight.data = torch.FloatTensor(tf_layer._dense_layer.kernel.numpy().transpose())
     pt_layer._dense_layer.bias.data = torch.FloatTensor(tf_layer._dense_layer.bias.numpy())
     assert_equal_numpy(pt_layer(pt_inp).detach().numpy(), tf_layer(tf_inp).numpy(), 1e-6)

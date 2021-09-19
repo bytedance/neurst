@@ -101,10 +101,10 @@ class Seq2Seq(Task):
         signatures["label"] = tf.TensorShape([None, None])
         return dtypes, signatures
 
-    def build_model(self, args, name=None):
+    def build_model(self, args, name=None, **kwargs):
         """ Builds and return a keras model. """
         model = build_model(args, self._src_data_pipeline.meta,
-                            self._trg_data_pipeline.meta, name=name)
+                            self._trg_data_pipeline.meta, name=name, **kwargs)
         return model
 
     def example_to_input(self, batch_of_data: dict, mode) -> dict:
@@ -218,7 +218,7 @@ class Seq2Seq(Task):
 
         if mode == compat.ModeKeys.INFER:
             logging.info("Creating test dataset.")
-            return dataset.cache().padded_batch(
+            return dataset.padded_batch(
                 dataset_utils.adjust_batch_size(args["batch_size"],
                                                 num_replicas_in_sync=num_replicas_in_sync),
                 padded_shapes={"feature": [None]},
@@ -226,7 +226,7 @@ class Seq2Seq(Task):
                 drop_remainder=False)
         elif mode == compat.ModeKeys.EVAL:
             logging.info("Creating evaluation dataset.")
-            return dataset.cache().padded_batch(
+            return dataset.padded_batch(
                 dataset_utils.adjust_batch_size(args["batch_size"],
                                                 num_replicas_in_sync=num_replicas_in_sync),
                 padded_shapes={"feature": [None], "label": [None]},

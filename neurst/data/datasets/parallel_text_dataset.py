@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+import time
 from abc import ABCMeta, abstractmethod
 
 import six
@@ -18,12 +20,14 @@ import tensorflow as tf
 import yaml
 from absl import logging
 
+from neurst.data.dataset_utils import glob_tfrecords
 from neurst.data.datasets import register_dataset
 from neurst.data.datasets.data_sampler import DataSampler, build_data_sampler
 from neurst.data.datasets.dataset import TFRecordDataset
 from neurst.data.datasets.text_gen_dataset import TextGenDataset
 from neurst.utils.compat import DataStatus
 from neurst.utils.flags_core import Flag, ModuleFlag
+from neurst.utils.misc import temp_download
 
 
 @six.add_metaclass(ABCMeta)
@@ -73,9 +77,15 @@ class ParallelTextDataset(AbstractParallelDataset):
     def __init__(self, args):
         """ Initializes the dataset. """
         super(ParallelTextDataset, self).__init__(src_lang=args["src_lang"], trg_lang=args["trg_lang"])
-        self._src_file = args["src_file"]
+        if args["src_file"] and args["src_file"].startswith("http"):
+            self._src_file = temp_download(args["src_file"])
+        else:
+            self._src_file = args["src_file"]
         assert self._src_file, "`src_file` must be provided for ParallelTextDataset."
-        self._trg_file = args["trg_file"]
+        if args["trg_file"] and args["trg_file"].startswith("http"):
+            self._trg_file = temp_download(args["trg_file"])
+        else:
+            self._trg_file = args["trg_file"]
         self._data_is_processed = args["data_is_processed"]
 
     @staticmethod
@@ -278,3 +288,16 @@ class ParallelTFRecordDataset(TFRecordDataset, AbstractParallelDataset):
     def fields(self):
         return {"feature": tf.io.VarLenFeature(tf.int64),
                 "label": tf.io.VarLenFeature(tf.int64)}
+
+
+@register_dataset
+class InMemoryParallelTFRecordDataset(ParallelTFRecordDataset):
+
+    def __init__(self, args):
+        new_data_path = f"ram://parallel_text_tfrecord{time.time()}/"
+        record_files = glob_tfrecords(args["data_path"])
+        total_size = len(record_files)
+        for idx, f in enumerate(record_files):
+            tf.io.gfile.copy(f, os.path.join(new_data_path, "train-%5.5d-of%5.5d" % (idx, total_size)))
+        args["data_path"] = new_data_path
+        super(InMemoryParallelTFRecordDataset, self).__init__(args)

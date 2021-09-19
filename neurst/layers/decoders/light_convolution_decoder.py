@@ -172,7 +172,8 @@ class LightConvolutionDecoder(Decoder):
                      memory_bias=enc_dec_attention_bias)
         return cache
 
-    def call(self, decoder_inputs, cache, is_training=True, decode_loop_step=None):
+    def call(self, decoder_inputs, cache, decode_lagging=None,
+             is_training=True, decode_loop_step=None):
         """ Encodes the inputs.
 
         Args:
@@ -180,6 +181,7 @@ class LightConvolutionDecoder(Decoder):
                 [batch_size, max_target_length, embedding_dim] or
                 [batch_size, embedding_dim] for one decoding step.
             cache: A dictionary, generated from self.create_decoding_internal_cache.
+            decode_lagging: The lagging for streaming input. Only available for training.
             is_training: A bool, whether in training mode or not.
             decode_loop_step: An integer, step number of the decoding loop. Used only
                 for autoregressive inference with static-shape cache.
@@ -192,7 +194,20 @@ class LightConvolutionDecoder(Decoder):
         ori_ndims = decoder_inputs.get_shape().ndims
         if ori_ndims == 2:
             decoder_inputs = tf.expand_dims(decoder_inputs, axis=1)
-
+        memory_bias = cache["memory_bias"]
+        if decode_lagging is not None:
+            if ori_ndims == 3:
+                memory_bias = tf.minimum(tf.expand_dims(memory_bias, axis=1),
+                                         tf.expand_dims(
+                                             layer_utils.waitk_attention_bias(
+                                                 memory_length=tf.shape(cache["memory"])[1],
+                                                 query_length=tf.shape(decoder_inputs)[1],
+                                                 waitk_lagging=decode_lagging), axis=0))
+            else:  # ori_ndims == 2
+                memory_bias = tf.minimum(memory_bias,
+                                         tf.expand_dims(layer_utils.waitk_attention_bias(
+                                             memory_length=tf.shape(cache["memory"])[1],
+                                             waitk_lagging=decode_lagging), axis=0))
         x = decoder_inputs
         if is_training:
             x = tf.nn.dropout(
@@ -215,7 +230,7 @@ class LightConvolutionDecoder(Decoder):
                 x = encdecatt_layer(
                     x,  # x as query
                     memory=cache["memory"],  # None indicates self-attention
-                    memory_bias=cache["memory_bias"],
+                    memory_bias=memory_bias,
                     is_training=is_training)
                 # ffn
                 x = ffn_layer(x, is_training=is_training)

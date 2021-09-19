@@ -19,7 +19,7 @@ from neurst.utils.activations import gelu
 from neurst.utils.configurable import extract_constructor_params
 
 
-class AudioConvSubsamplingLayer(tf.keras.layers.Layer):
+class AudioConv2dSubsamplingLayer(tf.keras.layers.Layer):
     """ Subsampling for audio features. """
 
     def __init__(self,
@@ -28,6 +28,7 @@ class AudioConvSubsamplingLayer(tf.keras.layers.Layer):
                  kernel_size=3,
                  strides=2,
                  layer_norm=True,
+                 num_layers=2,
                  name=None):
         """ Initializes the layer for subsample the audio feature.
 
@@ -37,16 +38,19 @@ class AudioConvSubsamplingLayer(tf.keras.layers.Layer):
             kernel_size: The kernel size of the convolution layer.
             strides: The stride size of the convolution layer.
             layer_norm: Whether to apply layer normalization.
-            verbose: A boolean, whether to logging the parameters.
+            num_layers: The number of conv layers.
             name: The name of the layer.
         """
         self._params = extract_constructor_params(locals(), verbose=True)
-        super(AudioConvSubsamplingLayer, self).__init__(name=name)
+        super(AudioConv2dSubsamplingLayer, self).__init__(name=name)
         self._embedding_dim = embedding_dim
         self._channels = channels
         self._kernel_size = kernel_size
         self._layer_norm = layer_norm
         self._strides = strides
+        self._num_layers = num_layers
+        self._conv_layers = []
+        self._norm_layers = []
 
     @property
     def embedding_dim(self):
@@ -57,31 +61,25 @@ class AudioConvSubsamplingLayer(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         """ Builds the layer."""
-        self._conv_layer1 = tf.keras.layers.Conv2D(
-            filters=self._channels,
-            kernel_size=(self._kernel_size, self._kernel_size),
-            strides=(self._strides, self._strides),
-            padding="VALID",
-            activation=None,
-            name="conv1")
-        self._conv_layer2 = tf.keras.layers.Conv2D(
-            filters=self._channels,
-            kernel_size=(self._kernel_size, self._kernel_size),
-            strides=(self._strides, self._strides),
-            padding="VALID",
-            activation=None,
-            name="conv2")
-        if self._layer_norm:
-            self._norm_layer1 = tf.keras.layers.LayerNormalization(
-                epsilon=1e-6, dtype="float32", name="ln1")
-            self._norm_layer2 = tf.keras.layers.LayerNormalization(
-                epsilon=1e-6, dtype="float32", name="ln2")
+        for i in range(1, self._num_layers + 1):
+            self._conv_layers.append(tf.keras.layers.Conv2D(
+                filters=self._channels,
+                kernel_size=(self._kernel_size, self._kernel_size),
+                strides=(self._strides, self._strides),
+                padding="VALID",
+                activation=None,
+                name=f"conv{i}"))
+            if self._layer_norm:
+                self._norm_layers.append(tf.keras.layers.LayerNormalization(
+                    epsilon=1e-6, dtype="float32", name=f"ln{i}"))
+            else:
+                self._norm_layers.append(None)
         self._dense_layer = tf.keras.layers.Dense(
             self._embedding_dim,
             activation=None,
             use_bias=True,
             name="output_dense")
-        super(AudioConvSubsamplingLayer, self).build(input_shape)
+        super(AudioConv2dSubsamplingLayer, self).build(input_shape)
 
     def call(self, inputs, **kwargs):
         """ Gets token embeddings or computes logits.
@@ -97,18 +95,17 @@ class AudioConvSubsamplingLayer(tf.keras.layers.Layer):
         assert inputs.get_shape().ndims == 4
         manual_padding = [[0, 0], [self._kernel_size // 2, self._kernel_size // 2],
                           [self._kernel_size // 2, self._kernel_size // 2], [0, 0]]
-        conv1 = self._conv_layer1(tf.pad(inputs, manual_padding))
-        if self._layer_norm:
-            conv1 = self._norm_layer1(conv1)
-        conv1 = tf.nn.relu(conv1)
-        conv2 = self._conv_layer2(tf.pad(conv1, manual_padding))
-        if self._layer_norm:
-            conv2 = self._norm_layer2(conv2)
-        conv2 = tf.nn.relu(conv2)
-        new_feature_dim = ((audio_feature_dim + self._strides - 1)
-                           // self._strides + self._strides - 1) // self._strides * self._channels
-        conv2_reshape = tf.reshape(conv2, tf.concat([tf.shape(conv2)[:2], [new_feature_dim]], axis=0))
-        output = self._dense_layer(conv2_reshape)
+        conv_out = inputs
+        new_feature_dim = audio_feature_dim
+        for conv_layer, norm_layer in zip(self._conv_layers, self._norm_layers):
+            conv_layer_output = conv_layer(tf.pad(conv_out, manual_padding))
+            if norm_layer is not None:
+                conv_layer_output = norm_layer(conv_layer_output)
+            conv_out = tf.nn.relu(conv_layer_output)
+            new_feature_dim = (new_feature_dim + self._strides - 1) // self._strides
+        new_feature_dim *= self._channels
+        conv_reshape = tf.reshape(conv_out, tf.concat([tf.shape(conv_out)[:2], [new_feature_dim]], axis=0))
+        output = self._dense_layer(conv_reshape)
         return output
 
 
@@ -357,7 +354,7 @@ class PositionalConv(tf.keras.layers.Layer):
         Args:
             inputs: A tensor with shape [batch, time, channels]
             inputs_padding: A tensor with the same shape as `inputs`, where 1. denotes the padding.
-
+            is_training: Whether is under training.
         Returns:
 
         """

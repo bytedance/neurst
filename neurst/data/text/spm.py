@@ -19,12 +19,13 @@ from absl import logging
 
 from neurst.data.text import register_tokenizer
 from neurst.data.text.tokenizer import Tokenizer
+from neurst.utils.misc import download_with_tqdm
 
 
 @register_tokenizer("spm")
 class SentencePiece(Tokenizer):
 
-    def __init__(self, language=None, glossaries=None, **kwargs):
+    def __init__(self, language=None, glossaries=None, subtokenizer_codes=None, **kwargs):
         _ = kwargs
         super(SentencePiece, self).__init__(
             language=language, glossaries=glossaries)
@@ -34,17 +35,27 @@ class SentencePiece(Tokenizer):
         except ImportError:
             raise ImportError('Please install SentencePiece with: pip install sentencepiece')
         self._built = False
-        self._codes = None
+        self._codes = subtokenizer_codes
 
     def _lazy_init(self):
         codes = self._codes
+        from_local = False
         if codes.startswith("hdfs://"):
-            local_path = os.path.join(os.path.dirname(__file__), "spm{}.model".format(int(time.time())))
+            local_path = os.path.join(os.path.dirname(__file__), "spm{}.model".format(time.time()))
             logging.info("Copying spm model: {} to local: {}".format(codes, local_path))
             tf.io.gfile.copy(codes, local_path, overwrite=True)
             codes = local_path
+            from_local = True
+        elif codes.startswith("http"):
+            local_path = os.path.join(os.path.dirname(__file__), "spm{}.model".format(time.time()))
+            logging.info("Downloading spm model to local: {}".format(local_path))
+            download_with_tqdm(codes, local_path)
+            codes = local_path
+            from_local = True
         status = self._sp.Load(codes)
         assert status, "Fail to load spm model: {}".format(codes)
+        if from_local:
+            tf.io.gfile.remove(codes)
         self._built = True
 
     def init_subtokenizer(self, codes):

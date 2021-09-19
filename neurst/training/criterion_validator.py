@@ -52,7 +52,7 @@ class CriterionValidator(Validator):
             ModuleFlag("eval_dataset", Dataset.REGISTRY_NAME, help="The dataset for validation."),
             Flag("eval_batch_size", dtype=Flag.TYPE.INTEGER, default=32,
                  help="The batch size for validation process."),
-            Flag("eval_task_args", dtype=Flag.TYPE.INTEGER, default=None,
+            Flag("eval_task_args", dtype=Flag.TYPE.STRING, default=None,
                  help="Other parameters for building validation dataset.")
         ])
         return this_args
@@ -78,7 +78,7 @@ class CriterionValidator(Validator):
         with training_utils.get_strategy_scope(strategy):
             self._criterion_model = Evaluator.build_evaluation_model(task, model, self._criterion)
             self._eval_tfds = training_utils.build_datasets(
-                compat.ModeKeys.EVAL, strategy, self._custom_dataset, task, self._eval_task_args)
+                compat.ModeKeys.EVAL, strategy, self._custom_dataset, task, True, self._eval_task_args)
         self._criterion_metric = self._criterion.as_metric()
         if isinstance(self._custom_dataset, MultipleDataset):
             self._criterion_recorder = {

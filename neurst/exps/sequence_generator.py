@@ -128,7 +128,7 @@ class SequenceGenerator(BaseExperiment):
             model = self._build_and_restore_model()
             keras_model = self.build_generation_model(self.task, model, self._search_layer)
             tfds = training_utils.build_datasets(compat.ModeKeys.INFER, self.strategy,
-                                                 self.custom_dataset, self.task)
+                                                 self.custom_dataset, self.task, cache=True)
             keras_model.summary()
             summary_model_variables(keras_model)
 
@@ -191,7 +191,7 @@ class SequenceGenerator(BaseExperiment):
                         saving_metrics[name] = metric_result
                 if len(mixed_dsnames) > 1:
                     _display(on_average, f"on average by weights {self._custom_dataset.sample_weights}")
-                    mixed_metric_result = self._metric(mixed_refs, mixed_hypos)
+                    mixed_metric_result = self._metric(mixed_hypos, mixed_refs)
                     _display(mixed_metric_result, "mixed of {}".format(",".join(mixed_dsnames)))
                     saving_metrics["MIXED"] = mixed_metric_result
 

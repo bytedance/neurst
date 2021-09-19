@@ -13,6 +13,7 @@
 # limitations under the License.
 import multiprocessing
 import os
+import tempfile
 from distutils.version import LooseVersion
 from urllib.request import urlretrieve
 
@@ -43,7 +44,7 @@ def flatten_string_list(arg):
     """
     if arg is None:
         return None
-    return [c.strip() for cs in tf.nest.flatten(arg) for c in cs.split(",")]
+    return [c.strip() for cs in tf.nest.flatten(arg) for c in cs.split(",") if c.strip()]
 
 
 class DummyContextManager(object):
@@ -165,6 +166,16 @@ def download_with_tqdm(url, filename):
     with TqdmUpTo(unit="B", unit_scale=True, unit_divisor=1024,
                   miniters=1, desc=filename) as t:
         urlretrieve(url, filename, reporthook=t.update_to, data=None)
+
+
+def temp_download(url):
+    tmpfile = tempfile.NamedTemporaryFile("w", delete=False)
+    download_with_tqdm(url, tmpfile.name)
+    inmemory_name = "ram://" + os.path.basename(tmpfile.name)
+    with tf.io.gfile.GFile(inmemory_name, "wb") as fw, tf.io.gfile.GFile(tmpfile.name, "rb") as fp:
+        fw.write(fp.read())
+    os.remove(tmpfile.name)
+    return inmemory_name
 
 
 def assert_equal_numpy(tensor_a, tensor_b, epsilon=1e-6):

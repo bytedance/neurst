@@ -144,10 +144,10 @@ class Trainer(BaseExperiment):
     def _restore_ckpt_or_pretrain(self):
         """ restoring checkpoint from model_dir or pretrain_model dir. """
         stat = restore_checkpoint_if_possible(self.model, self.model_dir)
-        continue_training = False
+        continue_training_from = None
         if stat:
             logging.info(f"Successfully restoring checkpoint from model_dir={self.model_dir}")
-            continue_training = True
+            continue_training_from = self.model_dir
         else:
             logging.info(f"No checkpoint restored from model_dir={self.model_dir}")
             if self._pretrain_model:
@@ -163,9 +163,11 @@ class Trainer(BaseExperiment):
                         logging.info("NOTE THAT, one must first check the variable names in this checkpoint, "
                                      "otherwise no variables will be restored.")
                         restore_checkpoint_if_possible(self.model, pt, var_name_pattern=pt_varname)
+                        if len(self._pretrain_model) == 1 and pt_varname is None:
+                            continue_training_from = pt
 
-        if self._initial_global_step is None and continue_training:
-            _step = compat.hack_global_step(self.model_dir)
+        if self._initial_global_step is None and continue_training_from:
+            _step = compat.hack_global_step(continue_training_from)
             if _step:
                 compat.register_initial_step(_step or 0)  # must do this before creating optimizer and training
                 logging.info(f"Restored initial global step={_step}")

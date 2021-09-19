@@ -1,44 +1,46 @@
-# NeurST: Neural Speech Translation Toolkit
-NeurST aims at easily building and training end-to-end speech translation, which has the careful design for extensibility and scalability. We believe this design can make it easier for NLP researchers to get started. In addition, NeurST allows researchers to train custom models for translation, summarization and so on.
+<p align="center">
+  <img src="http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/neurst_newlogo.png" height="200">
+</p>
+
+![Last Commit](https://img.shields.io/github/last-commit/bytedance/neurst)
+[![License](https://img.shields.io/badge/License-Apache%202.0-brightgreen.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python-Version](https://img.shields.io/badge/Python-3.6%7C3.7%7C3.8-brightgreen)](https://github.com/bytedance/neurst)
+[![Contributors](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](to_be_add)
+
+The primary motivation of NeurST is to facilitate NLP researchers to get started on end-to-end speech translation (ST) and build advanced neural machine translation (NMT) models. 
+
+**See [here](/examples) for a full list of NeurST examples. And we present recent progress of end-to-end ST technology at [https://st-benchmark.github.io/](https://st-benchmark.github.io/).** 
 
 > NeurST is based on TensorFlow2 and we are working on the pytorch version.
 
-## Features
+## <img src="http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/icon-for-new-9.jpg" width="45">NeurST News
+**Aug 16, 2021**: Release of models and results for [IWSLT 2021 offline ST and simultaneous translation task](/examples/iwslt21).
 
-### Models
-NeurST provides reference implementations of various models, including:
+**June 15, 2021**: Integration of [LightSeq](https://github.com/bytedance/lightseq) for training speedup, see the [experimental branch](https://github.com/bytedance/neurst/tree/lightseq).
 
-- Transformer (self-attention) networks
-    - [Attention Is All You Need (Vaswani et al., 2017)](https://arxiv.org/pdf/1706.03762.pdf)
-    - [Pay Less Attention With Lightweight and Dynamic Convolutions (Wu et al., 2019)](https://arxiv.org/pdf/1901.10430.pdf)
+**March 28, 2021**: The v0.1.1 release includes the instructions of weight pruning and quantization aware training for transformer models, and several more features. See the [release note](https://github.com/bytedance/neurst/releases/tag/v0.1.1) for more details.
 
-    - CTNMT (Transformer with BERT enhanced encoder) from [Towards making the most of bert in neural machine translation (Yang et al., 2020)](https://arxiv.org/abs/1908.05672), see the examples in [CTNMT](/examples/ctnmt/README.md)
+**Dec. 25, 2020**: The v0.1.0 release includes the overall design of the code structure and recipes for training end-to-end ST models. See the [release note](https://github.com/bytedance/neurst/releases/tag/v0.1.0) for more details.
 
-### Recipes and Benchmarks
-NeurST provides several **strong and reproducible benchmarks** for various tasks:
+
+## Highlights
+
+- **Production ready**: The model trained by NeurST can be directly exported as TF savedmodel format and use TensorFlow-serving. There is no gap between the research model and production model. Additionally, one can use [LightSeq](https://github.com/bytedance/lightseq) for NeurST model serving with a much lower latency.
+- **Light weight**: NeurST is designed specifically for end-to-end ST and NMT models, with clean and simple code. It has no dependency on Kaldi, which simplifies installation and usage.
+- **Extensibility and scalability**: NeurST has the careful design for extensibility and scalability. It allows users to customize `Model`, `Task`, `Dataset` etc. and combine each other.
+- **High computation efficiency**: NeurST has high computation efficiency and can be further optimized by enabling mixed-precision and XLA. Fast distributed training using [`Byteps`](https://github.com/bytedance/byteps) / [`Horovod`](https://github.com/horovod/horovod) is also supported for large-scale scenarios.
+- **Reliable and reproducible benchmarks**: NeurST reports strong baselines with well-designed hyper-parameters on several benchmark datasets (MT&ST). It provides a series of recipes to reproduce them. 
+
+
+## Pretrained Models & Performance Benchmarks
+NeurST provides reference implementations of various models and benchmarks. Please see [examples](/examples) for model links and NeurST benchmark on different datasets.
 
 - Text Translation
-    - [Transformer models on WMT14 en->de](/examples/translation)
+    - [Transformer on WMT14 en->de](/examples/translation)
 - Speech-to-Text Translation
-    - [Augmented Librispeech](/examples/speech_to_text/augmented_librispeech)
-    - [MuST-C](/examples/speech_to_text/must-c)
-- [Weight Pruning](/examples/weight_pruning/README.md)
-- [Quantization Aware Training](/examples/quantization/README.md) 
+    - [libri-trans](/examples/speech_transformer/augmented_librispeech)
+    - [MuST-C](/examples/speech_transformer/must-c)
 
-
-### Additionally
-
-- multi-GPU (distributed) training on one machine or across multiple machines
-    - `MirroredStrategy` / `MultiWorkerMirroredStrategy`
-    - [`Byteps`](https://github.com/bytedance/byteps) / [`Horovod`](https://github.com/horovod/horovod)
-- mixed precision training (trains faster with less GPU memory)
-- multiple search algorithms implemented:
-    - beam search
-    - sampling (unconstrained, top-k and top-p)
-- large mini-batch training even on a single GPU via delayed updates (gradient accumulation)
-- TensorFlow savedmodel for TensorFlow-serving
-- TensorFlow XLA support for speeding up training
-- extensible: easily register new datasets, models, criterions, tasks, optimizers and learning rate schedulers
 
 ## Requirements and Installation
 
@@ -55,12 +57,12 @@ If there exists ImportError during running, manually install the required packag
 
 ## Citation
 ```
-@misc{zhao2020neurst,
-      title={NeurST: Neural Speech Translation Toolkit}, 
-      author={Chengqi Zhao and Mingxuan Wang and Lei Li},
-      year={2020},
-      eprint={2012.10018},
-      archivePrefix={arXiv},
+@InProceedings{zhao2021neurst,
+  author       = {Chengqi Zhao and Mingxuan Wang and Qianqian Dong and Rong Ye and Lei Li},
+  booktitle    = {the 59th Annual Meeting of the Association for Computational Linguistics (ACL): System Demonstrations},
+  title        = {{NeurST}: Neural Speech Translation Toolkit},
+  year         = {2021},
+  month        = aug,
 }
 ```
 
@@ -69,3 +71,6 @@ Any questions or suggestions, please feel free to contact us: [zhaochengqi.d@byt
 
 ## Acknowledgement
 We thank Bairen Yi, Zherui Liu, Yulu Jia, Yibo Zhu, Jiaze Chen, Jiangtao Feng, Zewei Sun for their kind help. 
+
+
+

@@ -33,7 +33,8 @@ class PrePostProcessingWrapper(QuantLayer):
     """
 
     def __init__(self, layer, dropout_rate=0.1, epsilon=1e-12,
-                 pre_norm=True, name="layer_prepostprocess"):
+                 pre_norm=True, res_conn_factor=1.,
+                 name="layer_prepostprocess"):
         """ Initializes.
 
         Args:
@@ -42,9 +43,11 @@ class PrePostProcessingWrapper(QuantLayer):
             epsilon: The epsilon of layer norm.
             pre_norm: Applies norm->layer->dropout->residual if True, else
                 layer->dropout->residual->norm
+            res_conn_factor: The factor for residual connection.
             name: The name of this layer.
         """
         super(PrePostProcessingWrapper, self).__init__(name=name)
+        self._res_conn_factor = res_conn_factor
         self._dropout_rate = dropout_rate
         self._epsilon = epsilon
         self._layer = layer
@@ -63,6 +66,10 @@ class PrePostProcessingWrapper(QuantLayer):
         self.add_activation_quantizer(name="ln", activation="act")
         super(PrePostProcessingWrapper, self).build(input_shape)
 
+    @property
+    def layer(self):
+        return self._layer
+
     def call(self, inputs, *args, **kwargs):
         is_training = kwargs["is_training"]
         if self._pre_norm:
@@ -75,14 +82,14 @@ class PrePostProcessingWrapper(QuantLayer):
             if is_training:
                 y = tf.nn.dropout(y, rate=self._dropout_rate)
             # a
-            return inputs + y
+            return inputs + y * self._res_conn_factor
         else:
             y = self._layer(inputs, *args, **kwargs)
             # d
             if is_training:
                 y = tf.nn.dropout(y, rate=self._dropout_rate)
             # an
-            return self._norm_layer(inputs + y)
+            return self._norm_layer(inputs + y * self._res_conn_factor)
 
 
 class TransformerFFN(QuantLayer):
@@ -382,7 +389,9 @@ class PositionEmbeddingWrapper(QuantLayer):
         channels = x.get_shape().as_list()[-1]
         if x.get_shape().ndims == 3:  # [batch_size, timesteps, dim]
             length = tf.shape(x)[1]
-            position = tf.cast(tf.range(length), dtype=dtype)
+            if time is None:
+                time = 0
+            position = tf.cast(tf.range(time, time + length), dtype=dtype)
         elif x.get_shape().ndims == 2:  # [batch_size, dim]
             length = 1
             position = tf.cast(tf.range(time, time + 1), dtype=dtype)
@@ -427,8 +436,11 @@ class PositionEmbeddingWrapper(QuantLayer):
             position_emb = tf.gather(self.quant(self._position_emb_table, name="weights"),
                                      tf.convert_to_tensor(time, dtype=tf.int32))
         elif x_ndims == 3:
+            if time is None:
+                time = 0
             position_emb = tf.slice(self.quant(self._position_emb_table, name="weights"),
-                                    [0, 0], [tf.shape(emb)[1], -1])
+                                    [time, 0], [tf.shape(emb)[1], -1])
         else:
             raise ValueError("need a Tensor with rank 2 or 3")
-        return emb + tf.expand_dims(position_emb, axis=0)
+
+        return emb + tf.cast(tf.expand_dims(position_emb, axis=0), dtype=emb.dtype)

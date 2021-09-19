@@ -27,7 +27,7 @@ except ImportError:
 @register_tokenizer("huggingface")
 class HuggingFaceTokenizer(Tokenizer):
 
-    def __init__(self, language, glossaries=None, **kwargs):
+    def __init__(self, language, glossaries=None, subtokenizer_codes=None, **kwargs):
         super(HuggingFaceTokenizer, self).__init__(
             language=language, glossaries=glossaries, **kwargs)
         try:
@@ -36,7 +36,7 @@ class HuggingFaceTokenizer(Tokenizer):
         except ImportError:
             raise ImportError('Please install transformers with: pip3 install transformers')
         self._built = False
-        self._codes = None
+        self._codes = subtokenizer_codes
 
     def init_subtokenizer(self, codes):
         """ Lazily initializes huggingface tokenizer. """

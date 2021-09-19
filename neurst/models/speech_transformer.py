@@ -17,12 +17,11 @@ import tensorflow as tf
 from neurst.layers.common_layers import PositionEmbeddingWrapper
 from neurst.layers.decoders import build_decoder
 from neurst.layers.encoders import build_encoder
-from neurst.layers.modalities.audio_modalities import AudioConvSubsamplingLayer
+from neurst.layers.modalities.audio_modalities import AudioConv2dSubsamplingLayer
 from neurst.models import register_model
 from neurst.models.encoder_decoder_model import EncoderDecoderModel
 from neurst.utils import compat
 from neurst.utils.flags_core import Flag
-from neurst.utils.hparams_sets import register_hparams_set
 
 
 @register_model
@@ -76,6 +75,8 @@ class SpeechTransformer(EncoderDecoderModel):
                  help="The type of the attention function of encoder self-attention layer."),
             Flag("encoder.ffn_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate of encoder ffn layer."),
+            Flag("encoder.post_normalize", dtype=Flag.TYPE.BOOLEAN, default=False,
+                 help="Whether to apply layer norm after each encoder block."),
             Flag("encoder.layer_postprocess_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate for each layer's post process in encoder."),
             Flag("encoder.layer_postprocess_epsilon", dtype=Flag.TYPE.FLOAT, default=1e-6,
@@ -96,6 +97,8 @@ class SpeechTransformer(EncoderDecoderModel):
                  help="The type of the attention function of decoder self-attention and encoder-decoder attention."),
             Flag("decoder.ffn_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate of decoder ffn layer."),
+            Flag("decoder.post_normalize", dtype=Flag.TYPE.BOOLEAN, default=False,
+                 help="Whether to apply layer norm after each decoder block."),
             Flag("decoder.layer_postprocess_dropout_rate", dtype=Flag.TYPE.FLOAT, default=0.,
                  help="The dropout rate for each layer's post process in decoder."),
             Flag("decoder.layer_postprocess_epsilon", dtype=Flag.TYPE.FLOAT, default=1e-6,
@@ -119,7 +122,7 @@ class SpeechTransformer(EncoderDecoderModel):
             share_embedding_and_softmax_weights=model_args["modality.share_embedding_and_softmax_weights"])
 
         # creates source audio modality
-        input_modality = AudioConvSubsamplingLayer(
+        input_modality = AudioConv2dSubsamplingLayer(
             embedding_dim=src_dim,
             kernel_size=model_args["modality.source.kernel_size"],
             strides=model_args["modality.source.strides"],
@@ -266,13 +269,3 @@ class SpeechTransformer(EncoderDecoderModel):
                 "decay_steps": 50000,
             },
         }
-
-
-@register_hparams_set("speech_transformer_toy")
-def speech_transformer_toy():
-    return SpeechTransformer.build_model_args_by_name("speech_transformer_toy")
-
-
-@register_hparams_set("speech_transformer_base")
-def speech_transformer_base():
-    return SpeechTransformer.build_model_args_by_name("speech_transformer_base")

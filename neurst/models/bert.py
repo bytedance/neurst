@@ -201,4 +201,4 @@ def bert_toy():
         filter_size=16,
         dropout_rate=0.1,
         num_heads=2,
-        max_positions=32)
+        max_positions=512)

@@ -35,9 +35,9 @@ Evaluation metric: token BLEU
 ## Training the model 
 
 1. Download our pre-processed BERT models and the corresponding vocabulary lists.
-+ [BERT_LARGE](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/ctnmt/BERT_LARGE.zip)
-+ [BERT_BASE](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/ctnmt/BERT_BASE.zip)
-+ [vocabulary lists](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/ctnmt/vocab.zip)
++ [BERT_LARGE](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/ctnmt/BERT_LARGE.zip)
++ [BERT_BASE](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/ctnmt/BERT_BASE.zip)
++ [vocabulary lists](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/ctnmt/vocab.zip)
 
      we assume your BERT models are saved at /tmp/BERT_BASE/ and /tmp/BERT_LARGE/, your data is saved at /tmp/data/
 

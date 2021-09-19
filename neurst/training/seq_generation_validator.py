@@ -79,6 +79,7 @@ class SeqGenerationValidator(CriterionValidator):
                          "in SeqGenerationValidator for validation process.")
             self._validate_gen = False
             return self
+        self._gen_metric.flag = self.args["eval_metric.class"]
         search_layer = build_search_layer(self.args["eval_search_method.class"],
                                           **self.args["eval_search_method.params"])
         if search_layer is None:
@@ -91,7 +92,7 @@ class SeqGenerationValidator(CriterionValidator):
             self._gen_model = SequenceGenerator.build_generation_model(
                 task, model, search_layer)
             self._gen_tfds = training_utils.build_datasets(
-                compat.ModeKeys.INFER, strategy, self._custom_dataset, task, self._eval_task_args)
+                compat.ModeKeys.INFER, strategy, self._custom_dataset, task, True, self._eval_task_args)
             if isinstance(self._custom_dataset, MultipleDataset):
                 for name in list(self._gen_tfds.keys()):
                     if self._custom_dataset.datasets[name].targets is None:
@@ -198,7 +199,7 @@ class SeqGenerationValidator(CriterionValidator):
                 if len(mixed_dsnames) > 1:
                     _display(on_average, self._avg_gen_recorder.best,
                              f"on average by weights {sample_weights}", tb_name="AVERAGE")
-                    mixed_metric_result = self._gen_metric(mixed_refs, mixed_hypos)
+                    mixed_metric_result = self._gen_metric(mixed_hypos, mixed_refs)
                     self._mixed_gen_recorder.record(step, mixed_metric_result)
                     _display(mixed_metric_result, self._mixed_gen_recorder.best,
                              "mixed of {}".format(",".join(mixed_dsnames)), tb_name="MIXED")

@@ -18,6 +18,7 @@ def build_transformer_component(layer_args,
                                 dropout_rate,
                                 pre_norm=True,
                                 epsilon=1e-6,
+                                res_conn_factor=1.,
                                 name_postfix=None):
     base_layer = build_base_layer(layer_args)
     return PrePostProcessingWrapper(
@@ -25,4 +26,5 @@ def build_transformer_component(layer_args,
         dropout_rate=dropout_rate,
         epsilon=epsilon,
         pre_norm=pre_norm,
+        res_conn_factor=res_conn_factor,
         name=base_layer.name + (name_postfix or "_prepost_wrapper"))

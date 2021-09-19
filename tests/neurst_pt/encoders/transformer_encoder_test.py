@@ -67,31 +67,31 @@ def test_transformer_encoder_prenorm():
     pt_encoder._output_norm_layer.weight.data = torch.FloatTensor(tf_encoder._output_norm_layer.gamma.numpy())
     pt_encoder._output_norm_layer.bias.data = torch.FloatTensor(tf_encoder._output_norm_layer.beta.numpy())
     pt_encoder._stacking_layers[0][0]._layer._qkv_transform_layer._kernel.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._layer._qkv_transform_layer._kernel.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._layer._qkv_transform_layer._kernel.numpy())
     pt_encoder._stacking_layers[0][0]._layer._qkv_transform_layer._bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._layer._qkv_transform_layer._bias.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._layer._qkv_transform_layer._bias.numpy())
     pt_encoder._stacking_layers[0][0]._layer._output_transform_layer._kernel.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._layer._output_transform_layer._kernel.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._layer._output_transform_layer._kernel.numpy())
     pt_encoder._stacking_layers[0][0]._layer._output_transform_layer._bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._layer._output_transform_layer._bias.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._layer._output_transform_layer._bias.numpy())
     pt_encoder._stacking_layers[0][1]._layer._dense1.weight.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._layer._conv1.kernel.numpy().transpose([1, 0]))
+        tf_encoder._stacking_layers[0]._ffn_layer._layer._conv1.kernel.numpy().transpose([1, 0]))
     pt_encoder._stacking_layers[0][1]._layer._dense1.bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._layer._conv1.bias.numpy())
+        tf_encoder._stacking_layers[0]._ffn_layer._layer._conv1.bias.numpy())
     pt_encoder._stacking_layers[0][1]._layer._dense2.weight.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._layer._conv2.kernel.numpy().transpose([1, 0]))
+        tf_encoder._stacking_layers[0]._ffn_layer._layer._conv2.kernel.numpy().transpose([1, 0]))
     pt_encoder._stacking_layers[0][1]._layer._dense2.bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._layer._conv2.bias.numpy())
+        tf_encoder._stacking_layers[0]._ffn_layer._layer._conv2.bias.numpy())
     pt_encoder._stacking_layers[0][0]._norm_layer.weight.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._norm_layer.gamma.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._norm_layer.gamma.numpy())
     pt_encoder._stacking_layers[0][0]._norm_layer.bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._norm_layer.beta.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._norm_layer.beta.numpy())
     pt_encoder._stacking_layers[0][1]._norm_layer.weight.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._norm_layer.gamma.numpy())
+        tf_encoder._stacking_layers[0]._ffn_layer._norm_layer.gamma.numpy())
     pt_encoder._stacking_layers[0][1]._norm_layer.bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._norm_layer.beta.numpy())
+        tf_encoder._stacking_layers[0]._ffn_layer._norm_layer.beta.numpy())
     assert_equal_numpy(tf_encoder(tf_inp, tf_inppad, is_training=False).numpy(),
-                       pt_encoder(pt_inp, pt_inppad, is_training=False).detach().numpy(), 5e-6)
+                       pt_encoder(pt_inp, pt_inppad, is_training=False).detach().numpy(), 1e-5)
 
 
 def test_transformer_encoder_postnorm():
@@ -142,31 +142,31 @@ def test_transformer_encoder_postnorm():
     _ = tf_encoder(tf_inp, tf_inppad, is_training=False)
     _ = pt_encoder(pt_inp, pt_inppad, is_training=False)
     pt_encoder._stacking_layers[0][0]._layer._qkv_transform_layer._kernel.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._layer._qkv_transform_layer._kernel.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._layer._qkv_transform_layer._kernel.numpy())
     pt_encoder._stacking_layers[0][0]._layer._qkv_transform_layer._bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._layer._qkv_transform_layer._bias.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._layer._qkv_transform_layer._bias.numpy())
     pt_encoder._stacking_layers[0][0]._layer._output_transform_layer._kernel.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._layer._output_transform_layer._kernel.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._layer._output_transform_layer._kernel.numpy())
     pt_encoder._stacking_layers[0][0]._layer._output_transform_layer._bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._layer._output_transform_layer._bias.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._layer._output_transform_layer._bias.numpy())
     pt_encoder._stacking_layers[0][1]._layer._dense1.weight.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._layer._conv1.kernel.numpy().transpose([1, 0]))
+        tf_encoder._stacking_layers[0]._ffn_layer._layer._conv1.kernel.numpy().transpose([1, 0]))
     pt_encoder._stacking_layers[0][1]._layer._dense1.bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._layer._conv1.bias.numpy())
+        tf_encoder._stacking_layers[0]._ffn_layer._layer._conv1.bias.numpy())
     pt_encoder._stacking_layers[0][1]._layer._dense2.weight.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._layer._conv2.kernel.numpy().transpose([1, 0]))
+        tf_encoder._stacking_layers[0]._ffn_layer._layer._conv2.kernel.numpy().transpose([1, 0]))
     pt_encoder._stacking_layers[0][1]._layer._dense2.bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._layer._conv2.bias.numpy())
+        tf_encoder._stacking_layers[0]._ffn_layer._layer._conv2.bias.numpy())
     pt_encoder._stacking_layers[0][0]._norm_layer.weight.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._norm_layer.gamma.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._norm_layer.gamma.numpy())
     pt_encoder._stacking_layers[0][0]._norm_layer.bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][0]._norm_layer.beta.numpy())
+        tf_encoder._stacking_layers[0]._selfatt_layer._norm_layer.beta.numpy())
     pt_encoder._stacking_layers[0][1]._norm_layer.weight.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._norm_layer.gamma.numpy())
+        tf_encoder._stacking_layers[0]._ffn_layer._norm_layer.gamma.numpy())
     pt_encoder._stacking_layers[0][1]._norm_layer.bias.data = torch.FloatTensor(
-        tf_encoder._stacking_layers[0][1]._norm_layer.beta.numpy())
+        tf_encoder._stacking_layers[0]._ffn_layer._norm_layer.beta.numpy())
     assert_equal_numpy(tf_encoder(tf_inp, tf_inppad, is_training=False).numpy(),
-                       pt_encoder(pt_inp, pt_inppad, is_training=False).detach().numpy(), 5e-6)
+                       pt_encoder(pt_inp, pt_inppad, is_training=False).detach().numpy(), 1e-5)
 
 
 if __name__ == "__main__":

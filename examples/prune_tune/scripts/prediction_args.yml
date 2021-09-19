@@ -1,0 +1,22 @@
+entry: predict
+batch_size: 32
+search_method: beam_search
+search_method.params:
+  beam_size: 4
+  length_penalty: 0.6
+  maximum_decode_length: 160
+metric: bleu
+
+dataset.class: MultipleDataset
+dataset.params:
+  multiple_datasets:
+    dev:
+      dataset.class: ParallelTextDataset
+      dataset.params:
+        src_file: DEV_SRC
+        trg_file: DEV_TRG
+    test:
+      dataset.class: ParallelTextDataset
+      dataset.params:
+        src_file: TEST_SRC
+        trg_file: TEST_TRG

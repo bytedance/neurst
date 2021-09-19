@@ -14,11 +14,10 @@
 """ Implements transformer encoders as described in https://arxiv.org/abs/1706.03762. """
 import tensorflow as tf
 
-from neurst.layers import build_transformer_component, layer_utils
-from neurst.layers.attentions.multi_head_attention import MultiHeadSelfAttention
-from neurst.layers.common_layers import TransformerFFN
+from neurst.layers import layer_utils
 from neurst.layers.encoders import register_encoder
 from neurst.layers.encoders.encoder import Encoder
+from neurst.layers.transformer_layers import TransformerEncoderLayer
 
 
 @register_encoder
@@ -34,6 +33,7 @@ class TransformerEncoder(Encoder):
                  ffn_activation="relu",
                  attention_dropout_rate=0.,
                  attention_type="dot_product",
+                 attention_monotonic=False,
                  ffn_dropout_rate=0.,
                  layer_postprocess_dropout_rate=0.,
                  layer_postprocess_epsilon=1e-6,
@@ -51,6 +51,7 @@ class TransformerEncoder(Encoder):
             ffn_dropout_rate: The dropout rate for ffn layer.
             attention_dropout_rate: The dropout rate for ffn layer.
             attention_type: The self attention type.
+            attention_monotonic: Whether to apply a triangle mask.
             layer_postprocess_dropout_rate: The dropout rate for each layer post process.
             layer_postprocess_epsilon: The epsilon for layer norm.
             post_normalize: Whether to apply layernorm after each block.
@@ -64,6 +65,7 @@ class TransformerEncoder(Encoder):
             ffn_dropout_rate=ffn_dropout_rate,
             attention_type=attention_type,
             attention_dropout_rate=attention_dropout_rate,
+            attention_monotonic=attention_monotonic,
             layer_postprocess_dropout_rate=layer_postprocess_dropout_rate,
             layer_postprocess_epsilon=layer_postprocess_epsilon,
             post_normalize=post_normalize,
@@ -76,32 +78,22 @@ class TransformerEncoder(Encoder):
     def build(self, input_shape):
         """ Builds the transformer encoder layer. """
         params = self.get_config()
-        for _ in range(params["num_layers"]):
-            self._stacking_layers.append([
-                build_transformer_component({
-                    "base_layer.class": MultiHeadSelfAttention.__name__,
-                    "base_layer.params": dict(
-                        num_heads=params["num_attention_heads"],
-                        num_units=params["hidden_size"],
-                        attention_dropout_rate=params["attention_dropout_rate"],
-                        attention_type=params["attention_type"],
-                        name="self_attention"
-                    )},
-                    dropout_rate=params["layer_postprocess_dropout_rate"],
-                    epsilon=params["layer_postprocess_epsilon"],
-                    pre_norm=(not params["post_normalize"])),
-                build_transformer_component({
-                    "base_layer.class": TransformerFFN.__name__,
-                    "base_layer.params": dict(
-                        filter_size=params["filter_size"],
-                        output_size=params["hidden_size"],
-                        dropout_rate=params["ffn_dropout_rate"],
-                        activation=params["ffn_activation"],
-                        name="ffn")},
-                    dropout_rate=params["layer_postprocess_dropout_rate"],
-                    epsilon=params["layer_postprocess_epsilon"],
-                    pre_norm=(not params["post_normalize"]))
-            ])
+        for idx in range(params["num_layers"]):
+            self._stacking_layers.append(
+                TransformerEncoderLayer(
+                    hidden_size=params["hidden_size"],
+                    num_attention_heads=params["num_attention_heads"],
+                    filter_size=params["filter_size"],
+                    ffn_activation=params["ffn_activation"],
+                    attention_dropout_rate=params["attention_dropout_rate"],
+                    attention_type=params["attention_type"],
+                    ffn_dropout_rate=params["ffn_dropout_rate"],
+                    layer_postprocess_dropout_rate=params["layer_postprocess_dropout_rate"],
+                    layer_postprocess_epsilon=params["layer_postprocess_epsilon"],
+                    post_normalize=params["post_normalize"],
+                    name=f"layer_{idx}"
+                ))
+
         if not params["post_normalize"]:
             self._output_norm_layer = tf.keras.layers.LayerNormalization(
                 epsilon=params["layer_postprocess_epsilon"],
@@ -126,25 +118,58 @@ class TransformerEncoder(Encoder):
         # [batch_size, max_length], FLOAT_MIN for padding, 0.0 for non-padding
         all_layers = []
         self_attention_bias = layer_utils.input_padding_to_bias(inputs_padding)
+        if self.get_config()["attention_monotonic"]:
+            self_attention_bias = tf.minimum(tf.expand_dims(tf.expand_dims(self_attention_bias, axis=1), axis=1),
+                                             layer_utils.lower_triangle_attention_bias(tf.shape(inputs)[1]))
         x = inputs
         if is_training:
             x = tf.nn.dropout(x, rate=self.get_config()[
                 "layer_postprocess_dropout_rate"])
         for idx, layer in enumerate(self._stacking_layers):
-            self_attention_layer = layer[0]
-            ffn_layer = layer[1]
-            with tf.name_scope("layer_{}".format(idx)):
-                # self attention layer
-                x = self_attention_layer(
-                    x,  # x as query
-                    bias=self_attention_bias,
-                    is_training=is_training)
-                # ffn
-                x = ffn_layer(x, is_training=is_training)
-                all_layers.append(x)
+            x = layer(x, self_attention_bias, is_training=is_training)
+            all_layers.append(x)
         if self.get_config()["post_normalize"]:
             if self._return_all_layers:
                 return all_layers
             return x
         outputs = self.quant(self._output_norm_layer(x), name="output_ln")
         return outputs
+
+    def incremental_encode(self, inputs, cache, time=None):
+        """ Encoding function for streaming input.
+
+        Args:
+            inputs: The embedded input at time t, a float tensor with shape [batch, embedding_dim]
+                or [batch, length, embedding_dim]
+            cache: A dict containing cached tensors.
+            time: The start time of the inputs
+
+        Returns: The incremented encoder output with shape [batch, t+1, dim],
+            and the updated cache dict.
+        """
+        params = self.get_config()
+        assert params["attention_monotonic"], (
+            "function `incremental_encode` only available when attention_monotonic=True")
+        if cache is None:
+            cache = {}
+        if cache is not None and len(cache) == 0:
+            batch_size = tf.shape(inputs)[0]
+            for lid in range(params["num_layers"]):
+                cache[f"layer_{lid}"] = self._stacking_layers[lid].create_internal_cache()
+            cache = tf.nest.map_structure(
+                lambda ts: layer_utils.tile_tensor(ts, batch_size, axis=0), cache)
+        if inputs.get_shape().ndims == 2:
+            x = tf.expand_dims(inputs, axis=1)
+            x_bias = None
+        else:
+            x = inputs
+            if time is None:
+                time = 0
+            x_bias = layer_utils.lower_triangle_attention_bias(time + tf.shape(x)[1])[:, :, -tf.shape(x)[1]:]
+        for idx, layer in enumerate(self._stacking_layers):
+            layer_cache = None if cache is None else cache[f"layer_{idx}"]
+            x = layer(x, x_bias, layer_cache, is_training=False)
+        outputs = x
+        if not params["post_normalize"]:
+            outputs = self.quant(self._output_norm_layer(x), name="output_ln")
+        return outputs, cache

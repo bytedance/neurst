@@ -4,7 +4,7 @@ import os
 from neurst.data.text.tokenizer import Tokenizer
 from neurst.utils.registry import setup_registry
 
-build_tokenizer, register_tokenizer = setup_registry("tokenizer", base_class=Tokenizer)
+build_tokenizer, register_tokenizer = setup_registry(Tokenizer.REGISTRY_NAME, base_class=Tokenizer)
 
 models_dir = os.path.dirname(__file__)
 for file in os.listdir(models_dir):

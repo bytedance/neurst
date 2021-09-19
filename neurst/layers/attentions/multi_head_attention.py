@@ -89,6 +89,17 @@ class MultiHeadAttention(QuantLayer):
         self.add_activation_quantizer(name="softmax", activation="softmax")
         self.built = True
 
+    def compute_kv(self, memory):
+        """ Computes linear transformations of keys and values.
+
+        Args:
+            memory: A tensor with shape [batch_size, length_m, memory_depth].
+
+        Returns: A tuple `(key_transformed, memory_transformed)`.
+
+        """
+        return self._kv_transform_layer(memory)
+
     def compute_qkv(self, query, memory, cache, decode_loop_step=None):
         """ Computes linear transformations of query, keys and values.
 
@@ -101,11 +112,13 @@ class MultiHeadAttention(QuantLayer):
 
         Returns: A tuple `(query_transformed, key_transformed, memory_transformed)`.
         """
-        _ = cache
         _ = decode_loop_step
         # [batch_size, length_q/k/v, num_heads, num_units_per_head]
         q = self._q_transform_layer(query)
-        k, v = self._kv_transform_layer(memory)
+        if cache is not None:
+            k, v = cache["keys"], cache["values"]
+        else:
+            k, v = self.compute_kv(memory)
         return q, k, v
 
     def att_fn(self, q, k, bias):
@@ -135,6 +148,8 @@ class MultiHeadAttention(QuantLayer):
                 if bias.get_shape().ndims == 2:
                     bias = tf.expand_dims(
                         tf.expand_dims(bias, axis=1), axis=1)
+                elif bias.get_shape().ndims == 3:
+                    bias = tf.expand_dims(bias, axis=1)
                 elif bias.get_shape().ndims != 4:
                     raise ValueError("bias tensor with {}-dim is not valid".format(
                         bias.get_shape().ndims))
@@ -253,14 +268,13 @@ class MultiHeadSelfAttention(MultiHeadAttention):
         """
         _ = memory
         q, k, v = self._qkv_transform_layer(query)
-        if cache is not None:
-            # for self-attention in transformer decoder when mode=INFER
-            if decode_loop_step is None:
+        if cache is not None:  # for self-attention in transformer decoder when mode=INFER
+            if decode_loop_step is None:  # for dynamic shape
                 k = tf.concat([cache["keys"], k], axis=1)
                 v = tf.concat([cache["values"], v], axis=1)
                 cache["keys"] = k
                 cache["values"] = v
-            else:  # for dynamic shape
+            else:  # for static shape
 
                 def _insert_curr(_cache, _new_val):
                     size = _cache.get_shape().as_list()[1]

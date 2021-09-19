@@ -14,11 +14,10 @@
 """ Implements transformer decoder in TF2 as described in https://arxiv.org/abs/1706.03762. """
 import tensorflow as tf
 
-from neurst.layers import build_transformer_component, layer_utils
-from neurst.layers.attentions.multi_head_attention import MultiHeadAttention, MultiHeadSelfAttention
-from neurst.layers.common_layers import TransformerFFN
+from neurst.layers import layer_utils
 from neurst.layers.decoders import Decoder, register_decoder
-from neurst.utils import compat
+from neurst.layers.layer_utils import tile_tensor
+from neurst.layers.transformer_layers import TransformerDecoderLayer
 
 
 @register_decoder
@@ -37,7 +36,7 @@ class TransformerDecoder(Decoder):
                  ffn_dropout_rate=0.,
                  layer_postprocess_dropout_rate=0.,
                  layer_postprocess_epsilon=1e-6,
-                 with_encoder_decoder_attention=True,
+                 no_cross_attn_layer_list=None,
                  post_normalize=False,
                  name=None):
         """ Initializes the parameters of the transformer decoder.
@@ -58,6 +57,8 @@ class TransformerDecoder(Decoder):
                 layer post process.
             layer_postprocess_epsilon: The epsilon for layer norm.
             post_normalize: Whether to apply layernorm after each block.
+            no_cross_attn_layer_list: A list of layer indexes (start from 0),
+                which do not include cross attention.
             name: The name of this decoder.
         """
         super(TransformerDecoder, self).__init__(
@@ -69,52 +70,31 @@ class TransformerDecoder(Decoder):
             attention_dropout_rate=attention_dropout_rate,
             layer_postprocess_dropout_rate=layer_postprocess_dropout_rate,
             layer_postprocess_epsilon=layer_postprocess_epsilon,
-            with_encoder_decoder_attention=with_encoder_decoder_attention,
+            no_cross_attn_layer_list=(no_cross_attn_layer_list or []),
             post_normalize=post_normalize,
             name=name or self.__class__.__name__)
         self._stacking_layers = []
-        self._with_encoder_decoder_attention = with_encoder_decoder_attention
 
     def build(self, input_shape):
         """ Builds the transformer decoder layer. """
         params = self.get_config()
-        for _ in range(params["num_layers"]):
-            self._stacking_layers.append([
-                build_transformer_component({
-                    "base_layer.class": MultiHeadSelfAttention.__name__,
-                    "base_layer.params": dict(
-                        num_heads=params["num_attention_heads"],
-                        num_units=params["hidden_size"],
-                        attention_dropout_rate=params["attention_dropout_rate"],
-                        attention_type=params["attention_type"],
-                        name="self_attention"
-                    )},
-                    dropout_rate=params["layer_postprocess_dropout_rate"],
-                    epsilon=params["layer_postprocess_epsilon"],
-                    pre_norm=(not params["post_normalize"])),
-                (build_transformer_component({
-                    "base_layer.class": MultiHeadAttention.__name__,
-                    "base_layer.params": dict(
-                        num_heads=params["num_attention_heads"],
-                        num_units=params["hidden_size"],
-                        attention_dropout_rate=params["attention_dropout_rate"],
-                        attention_type=params["attention_type"],
-                        name="encdec_attention")},
-                    dropout_rate=params["layer_postprocess_dropout_rate"],
-                    epsilon=params["layer_postprocess_epsilon"],
-                    pre_norm=(not params["post_normalize"]))
-                 if self._with_encoder_decoder_attention else None),
-                build_transformer_component({
-                    "base_layer.class": TransformerFFN.__name__,
-                    "base_layer.params": dict(
-                        filter_size=params["filter_size"],
-                        output_size=params["hidden_size"],
-                        dropout_rate=params["ffn_dropout_rate"],
-                        activation=params["ffn_activation"],
-                        name="ffn")},
-                    dropout_rate=params["layer_postprocess_dropout_rate"],
-                    epsilon=params["layer_postprocess_epsilon"],
-                    pre_norm=(not params["post_normalize"]))])
+        for idx in range(params["num_layers"]):
+            self._stacking_layers.append(
+                TransformerDecoderLayer(
+                    hidden_size=params["hidden_size"],
+                    num_attention_heads=params["num_attention_heads"],
+                    filter_size=params["filter_size"],
+                    ffn_activation=params["ffn_activation"],
+                    attention_dropout_rate=params["attention_dropout_rate"],
+                    attention_type=params["attention_type"],
+                    ffn_dropout_rate=params["ffn_dropout_rate"],
+                    layer_postprocess_dropout_rate=params["layer_postprocess_dropout_rate"],
+                    layer_postprocess_epsilon=params["layer_postprocess_epsilon"],
+                    post_normalize=params["post_normalize"],
+                    with_cross_attention=(idx not in params["no_cross_attn_layer_list"]),
+                    name=f"layer_{idx}"
+                ))
+
         if not params["post_normalize"]:
             self._output_norm_layer = tf.keras.layers.LayerNormalization(
                 epsilon=params["layer_postprocess_epsilon"],
@@ -147,31 +127,49 @@ class TransformerDecoder(Decoder):
         """
         # [batch_size, max_length], FLOAT_MIN for padding, 0.0 for non-padding
         if is_inference:
-            params = self.get_config()
             decoding_states = {}
             batch_size = tf.shape(encoder_outputs)[0]
-            num_heads = params["num_attention_heads"]
-            num_units_per_head = params["hidden_size"] // num_heads
             # initialize decoder self attention keys/values
-            for lid in range(params["num_layers"]):
+            for lid, layer in enumerate(self._stacking_layers):
                 # Ensure shape invariance for tf.while_loop.
-                decoding_states["layer_{}".format(lid)] = {
-                    "self_attention": {
-                        "keys": tf.zeros([batch_size, decode_padded_length or 0, num_heads, num_units_per_head],
-                                         dtype=compat.CUSTOM_GLOBAL_FLOATX),
-                        "values": tf.zeros([batch_size, decode_padded_length or 0, num_heads, num_units_per_head],
-                                           dtype=compat.CUSTOM_GLOBAL_FLOATX)},
-                }
+                decoding_states[f"layer_{lid}"] = layer.create_decoding_internal_cache(
+                    decode_padded_length)
+            decoding_states = tf.nest.map_structure(
+                lambda ts: tile_tensor(ts, batch_size, axis=0), decoding_states)
+            for lid, layer in enumerate(self._stacking_layers):
+                decoding_states[f"layer_{lid}"].update(layer.memorize_memory(encoder_outputs))
         else:
             decoding_states = None
         cache = dict(decoding_states=decoding_states)
-        if self._with_encoder_decoder_attention:
+        if encoder_inputs_padding is not None:
             cache["memory"] = encoder_outputs
-            cache["memory_bias"] = layer_utils.input_padding_to_bias(
-                encoder_inputs_padding)
+            cache["memory_bias"] = layer_utils.input_padding_to_bias(encoder_inputs_padding)
         return cache
 
-    def call(self, decoder_inputs, cache, is_training=True, decode_loop_step=None):
+    def update_incremental_cache(self,
+                                 cache,
+                                 encoder_outputs,
+                                 encoder_inputs_padding):
+        if cache is None or len(cache) == 0:
+            cache = self.create_decoding_internal_cache(
+                encoder_outputs=encoder_outputs,
+                encoder_inputs_padding=encoder_inputs_padding,
+                is_inference=True,
+                decode_padded_length=None)
+        elif encoder_inputs_padding is not None:
+            cache["memory"] = tf.concat([cache["memory"], encoder_outputs], axis=1)
+            cache["memory_bias"] = tf.concat([cache["memory_bias"], encoder_inputs_padding], axis=1)
+            for lid, layer in enumerate(self._stacking_layers):
+                for k, v in layer.memorize_memory(encoder_outputs).items():
+                    cache["decoding_states"][f"layer_{lid}"][k] = tf.nest.pack_sequence_as(
+                        structure=v, flat_sequence=tf.nest.map_structure(
+                            lambda x, y: tf.concat([x, y], axis=1),
+                            tf.nest.flatten(cache["decoding_states"][f"layer_{lid}"][k]),
+                            tf.nest.flatten(v)))
+        return cache
+
+    def call(self, decoder_inputs, cache, decode_lagging=None,
+             is_training=True, decode_loop_step=None):
         """ Encodes the inputs.
 
         Args:
@@ -179,6 +177,8 @@ class TransformerDecoder(Decoder):
                 [batch_size, max_target_length, embedding_dim] or
                 [batch_size, embedding_dim] for one decoding step.
             cache: A dictionary, generated from self.create_decoding_internal_cache.
+            decode_lagging: The waitk lagging for streaming input when training.
+                During inference, it is the lagging for current step.
             is_training: A bool, whether in training mode or not.
             decode_loop_step: An integer, step number of the decoding loop. Used only
                 for autoregressive inference with static-shape cache.
@@ -191,7 +191,20 @@ class TransformerDecoder(Decoder):
         ori_ndims = decoder_inputs.get_shape().ndims
         if ori_ndims == 2:
             decoder_inputs = tf.expand_dims(decoder_inputs, axis=1)
-
+        memory_bias = cache.get("memory_bias", None)  # [batch, memory_length]
+        if memory_bias is not None and decode_lagging is not None:
+            if ori_ndims == 3:
+                memory_bias = tf.minimum(tf.expand_dims(memory_bias, axis=1),
+                                         tf.expand_dims(
+                                             layer_utils.waitk_attention_bias(
+                                                 memory_length=tf.shape(memory_bias)[1],
+                                                 query_length=tf.shape(decoder_inputs)[1],
+                                                 waitk_lagging=decode_lagging), axis=0))
+            else:  # ori_ndims == 2
+                memory_bias = tf.minimum(memory_bias,
+                                         tf.expand_dims(layer_utils.waitk_attention_bias(
+                                             memory_length=tf.shape(memory_bias)[1],
+                                             waitk_lagging=decode_lagging), axis=0))
         # decoder self attention has shape [1, 1, max_target_len, max_target_len]
         decoder_self_attention_bias = layer_utils.lower_triangle_attention_bias(
             tf.shape(decoder_inputs)[1])
@@ -200,29 +213,13 @@ class TransformerDecoder(Decoder):
             x = tf.nn.dropout(
                 decoder_inputs, rate=self.get_config()["layer_postprocess_dropout_rate"])
         for idx, layer in enumerate(self._stacking_layers):
-            selfatt_layer = layer[0]
-            encdecatt_layer = layer[1]
-            ffn_layer = layer[2]
-            layer_name = "layer_{}".format(idx)
-            layer_cache = None if cache["decoding_states"] is None else cache["decoding_states"][layer_name]
-            selfatt_cache = None if layer_cache is None else layer_cache["self_attention"]
-            with tf.name_scope(layer_name):
-                # self attention layer
-                x = selfatt_layer(
-                    x,  # x as query
-                    bias=decoder_self_attention_bias,
-                    cache=selfatt_cache,
-                    is_training=is_training,
-                    decode_loop_step=decode_loop_step)
-                # enc-dec attention layer
-                if encdecatt_layer is not None:
-                    x = encdecatt_layer(
-                        x,  # x as query
-                        memory=cache["memory"],  # None indicates self-attention
-                        memory_bias=cache["memory_bias"],
-                        is_training=is_training)
-                # ffn
-                x = ffn_layer(x, is_training=is_training)
+            layer_cache = (None if cache["decoding_states"] is None
+                           else cache["decoding_states"][f"layer_{idx}"])
+            x = self._stacking_layers[idx](x, decoder_self_attention_bias, layer_cache,
+                                           memory=cache.get("memory", None),
+                                           memory_bias=memory_bias,
+                                           is_training=is_training,
+                                           decode_loop_step=decode_loop_step)
         outputs = x
         if not self.get_config()["post_normalize"]:
             outputs = self.quant(self._output_norm_layer(x), name="output_ln")

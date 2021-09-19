@@ -87,6 +87,7 @@ class MultilingualTextDataPipeline(DataPipeline, Vocab):
         Returns:
             A list of generated token IDs.
         """
+        input = DataPipeline.text_pre_normalize(self, "en", input, is_processed=False)
         if not is_processed:
             input = self._tokenizer.tokenize(input, return_str=False)
         if isinstance(input, str):

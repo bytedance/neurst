@@ -37,7 +37,7 @@ test, case-insensitive
 |Espnet (Inaguma et al., 2020)| Transformer ASR + ctc | 6.5 | 6.4 | multi-task training with ctc loss | 
 
 
-### MT/ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)
+### MT and ST (dmodel=256, case-sensitive, tokenized BLEU/detokenized BLEU)
 
 |Framework|Model|Dev|Test|
 |---|---|---|---|
@@ -47,7 +47,7 @@ test, case-insensitive
 |NeurST|end2end Transformer ST + ASR pretrain + SpecAug | 19.3 / 17.8 | 17.8 / 16.3  |
 |NeurST|end2end Transformer ST ensemble above 2 models | 19.3 / 18.0 | 18.3 / 16.8  |
 
-### MT/Cascaded (dmodel=256, case-insensitive, tokenized BLEU/detokenized BLEU)
+### MT and Cascade ST (dmodel=256, case-insensitive, tokenized BLEU/detokenized BLEU)
 
 |Framework|Model|Dev|Test|
 |---|---|---|---|

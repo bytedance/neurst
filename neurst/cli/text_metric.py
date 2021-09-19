@@ -16,12 +16,13 @@ from absl import app, logging
 
 import neurst.utils.flags_core as flags_core
 from neurst.metrics import Metric, build_metric
+from neurst.utils.misc import flatten_string_list
 
 FLAG_LIST = [
     flags_core.Flag("hypo_file", dtype=flags_core.Flag.TYPE.STRING, default=None,
                     help="The path to hypothesis file."),
-    flags_core.Flag("ref_file", dtype=flags_core.Flag.TYPE.STRING, default=None,
-                    help="The path to reference file."),
+    flags_core.Flag("ref_file", dtype=flags_core.Flag.TYPE.STRING, default=None, multiple=True,
+                    help="The path to reference file. "),
     flags_core.ModuleFlag(Metric.REGISTRY_NAME, help="The metric for evaluation."),
 ]
 
@@ -32,10 +33,15 @@ def evaluate(metric, hypo_file, ref_file):
     assert ref_file
     with tf.io.gfile.GFile(hypo_file) as fp:
         hypo = [line.strip() for line in fp]
-    with tf.io.gfile.GFile(ref_file) as fp:
-        ref = [line.strip() for line in fp]
 
-    metric_result = metric(hypo, ref)
+    ref_list = []
+    for one_ref_file in flatten_string_list(ref_file):
+        with tf.io.gfile.GFile(one_ref_file) as fp:
+            ref = [line.strip() for line in fp]
+            ref_list.append(ref)
+
+    metric_result = (metric(hypo, ref_list) if len(ref_list) > 1
+                     else metric(hypo, ref_list[0]))
     for k, v in metric_result.items():
         logging.info("Evaluation result: %s=%.2f", k, v)
 

@@ -17,6 +17,8 @@ import random
 
 import tensorflow as tf
 
+from neurst.utils.misc import temp_download
+
 
 class PaddingMode(object):
     DEFAULT = 1
@@ -70,12 +72,16 @@ class Vocab(object):
 
     @staticmethod
     def load_tokens(vocab_path=None, tokens=None):
+        skip_empty = True
         if not ((vocab_path is None) ^ (tokens is None)):
             raise ValueError("Either `vocab_path` or `tokens` should be provided.")
         if vocab_path:
+            if vocab_path.startswith("http://") or vocab_path.startswith("https://"):
+                vocab_path = temp_download(vocab_path)
             with tf.io.gfile.GFile(vocab_path) as f:
-                if vocab_path.endswith(".json"):
+                if vocab_path.endswith(".json"):  # for gpt vocabulary
                     tokens = list(json.load(f).keys())
+                    skip_empty = False
                 else:
                     tokens = [line.strip("\n") for line in f]
         cleaned_tokens = []
@@ -85,9 +91,9 @@ class Vocab(object):
                                    or (word.startswith('"') and word.endswith('"')))):
                 word = word[1:-1]
             else:
-                if word.strip() != "":
+                if word.strip() != "" and skip_empty:
                     word = word.strip().split()[0]
-            if word == "":
+            if word == "" and skip_empty:
                 continue
             cleaned_tokens.append(word)
         return cleaned_tokens

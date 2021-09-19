@@ -136,14 +136,14 @@ Here, we also provide such operation by overwriting the metric option when evalu
 #### Benchmark Models
 |                        | hparams | norm type |  |
 |------------------------|---------|-----------|----- |
-| BPE                    | base    | pre-norm  | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_bpe_prenorm.tgz)\]|
-| BPE                    | base    | post-norm | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_bpe_postnorm.tgz)\]|
-| BPE                    | big     | pre-norm  | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_bpe_prenorm.tgz)\]|
-| BPE                    | big     | post-norm | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_bpe_postnorm.tgz)\]|
-| word piece             | base    | pre-norm  | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_wp_prenorm.tgz)\]|
-| word piece             | base    | post-norm | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_wp_postnorm.tgz)\]|
-| word piece             | big     | pre-norm  | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm.tgz)\]|
-| word piece             | big     | post-norm | \[[LINK](http://sf3-ttcdn-tos.pstatp.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_postnorm.tgz)\]|
+| BPE                    | base    | pre-norm  | \[[LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_bpe_prenorm.tgz)\]|
+| BPE                    | base    | post-norm | \[[LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_bpe_postnorm.tgz)\]|
+| BPE                    | big     | pre-norm  | \[[LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_bpe_prenorm.tgz)\]|
+| BPE                    | big     | post-norm | \[[LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_bpe_postnorm.tgz)\]|
+| word piece             | base    | pre-norm  | \[[LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_wp_prenorm.tgz)\]|
+| word piece             | base    | post-norm | \[[LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_base_wp_postnorm.tgz)\]|
+| word piece             | big     | pre-norm  | \[[LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_prenorm.tgz)\]|
+| word piece             | big     | post-norm | \[[LINK](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/translation/wmt14_ende/transformer_big_wp_postnorm.tgz)\]|
 
 
 #### (Base) Tokenized BLEU

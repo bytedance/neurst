@@ -24,7 +24,8 @@ from neurst.models.bert import Bert
 from neurst.utils.converters import Converter, register_converter
 from neurst.utils.misc import download_with_tqdm
 
-_URL_PREFIX = "https://storage.googleapis.com/bert_models"
+# _URL_PREFIX = "https://storage.googleapis.com/bert_models"
+_URL_PREFIX = "http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/resources/bert_models"
 _BERT_PRETRAIN_MODELS = {
     "bert-base-uncased": _URL_PREFIX + "/2018_10_18/uncased_L-12_H-768_A-12.zip",
     # "bert-base-uncased": _URL_PREFIX + "/2020_02_20/uncased_L-12_H-768_A-12.zip"

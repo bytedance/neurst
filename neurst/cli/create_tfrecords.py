@@ -10,12 +10,13 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.
+# limitation under the License.
 import os
 import random
 
 import numpy
 import tensorflow as tf
+import yaml
 from absl import app, logging
 
 import neurst.utils.flags_core as flags_core
@@ -44,6 +45,8 @@ FLAG_LIST = [
                     help="Whether to dispaly the progressbar"),
     flags_core.ModuleFlag(Task.REGISTRY_NAME, help="The binding task for data pre-processing."),
     flags_core.ModuleFlag(Dataset.REGISTRY_NAME, help="The raw dataset."),
+    flags_core.Flag("extra_kv", dtype=flags_core.Flag.TYPE.STRING,
+                    help="extra kv pairs")
 ]
 
 
@@ -60,7 +63,11 @@ def _format_tf_feature(feature, dtype):
 
 def main(processor_id, num_processors,
          num_output_shards, output_range_begin, output_range_end,
-         output_template, dataset: Dataset, progressbar=False, task=None):
+         output_template, dataset: Dataset, progressbar=False, task=None, extra_kv=None):
+    if extra_kv is not None:
+        if isinstance(extra_kv, str):
+            extra_kv = yaml.load(extra_kv, yaml.FullLoader)
+        assert isinstance(extra_kv, dict)
     assert 0 <= output_range_begin < output_range_end <= num_output_shards
     assert 0 <= processor_id < num_processors
     logging.info(f"Shards: {output_range_begin} to {output_range_end}")
@@ -75,17 +82,27 @@ def main(processor_id, num_processors,
     map_func = None
     if task is not None:
         map_func = task.get_data_preprocess_fn(ModeKeys.TRAIN, dataset.status)
+    this_map_func = map_func
+
+    if extra_kv is not None:
+        def new_map_func(data):
+            data.update(extra_kv)
+            if map_func is not None:
+                return map_func(data)
+            return data
+
+        this_map_func = new_map_func
 
     feature_type_dict = None
     i = 0
     if progressbar:
         from tqdm import tqdm
-        iterator = tqdm(dataset.build_iterator(map_func=map_func, shard_id=processor_id,
+        iterator = tqdm(dataset.build_iterator(map_func=this_map_func, shard_id=processor_id,
                                                total_shards=num_processors)(),
                         total=dataset.num_samples // num_processors)
     else:
         iterator = dataset.build_iterator(
-            map_func=map_func, shard_id=processor_id, total_shards=num_processors)()
+            map_func=this_map_func, shard_id=processor_id, total_shards=num_processors)()
     for example in iterator:  # lazily pre-process
         if feature_type_dict is None:
             feature_type_dict = dict()
@@ -138,7 +155,7 @@ def _main(_):
          output_range_end=args["output_range_end"],
          output_template=args["output_template"],
          progressbar=args["progressbar"],
-         dataset=dataset, task=task)
+         dataset=dataset, task=task, extra_kv=args["extra_kv"])
 
 
 if __name__ == "__main__":

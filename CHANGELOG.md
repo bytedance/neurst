@@ -6,8 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-Instruction for 
+- Instruction for 
     - CTNMT (Yang et al., 2020) training
+    - Prune-Tune (Liang et al., 2021)
+- dataset for IWSLT offline ST task 
+- language model task and GPT-2 pretraining
 
 
 ### Changed
@@ -46,5 +49,5 @@ Instruction for
 - Add support for converting checkpoints from publicly 
 - Beam search decoding and top-k/p sampling.
 - Supports averaging checkpoints, TFRecord generation, model restoring (see [cli/README.md](/neurst/cli/README.md)).
-- Step-by-step recipes for training an end-to-end speech translation model (see [examples/speech_to_text](/examples/speech_to_text)).
+- Step-by-step recipes for training an end-to-end speech translation model (see [examples/speech_to_text](/examples/speech_transformer)).
 
