@@ -19,8 +19,7 @@ from neurst.layers.adapters import build_adapter
 from neurst.layers.attentions.multi_head_attention import MultiHeadSelfAttention, MultiHeadAttention
 from neurst.layers.common_layers import TransformerFFN
 from neurst.layers.decoders import Decoder, register_decoder
-from neurst.layers.layer_utils import tile_tensor
-
+from neurst.utils import compat
 
 @register_decoder
 class TransformerDecoderCIAT(Decoder):
@@ -42,6 +41,7 @@ class TransformerDecoderCIAT(Decoder):
                  post_normalize=False,
                  emb_adapter_dim=None,
                  layer_adapter_dim=None,
+                 is_pretrain=True,
                  name=None):
         """ Initializes the parameters of the transformer decoder.
 
@@ -87,6 +87,7 @@ class TransformerDecoderCIAT(Decoder):
         self._emb_adapter_dim = emb_adapter_dim
         self._layer_adapter_dim = layer_adapter_dim
         self.emb_adapter = None
+        self._is_pretrain = is_pretrain
 
     def build(self, input_shape):
         """ Builds the transformer decoder layer. """
@@ -104,7 +105,7 @@ class TransformerDecoderCIAT(Decoder):
              'dropout_rate': params["layer_postprocess_dropout_rate"]}
         )
         self.emb_adapter = build_adapter(
-            {"adapter.class": "EmbAdapter",
+            {"adapter.class": "AdapterEmb",
              "adapter.params": {**emb_adapter_paras, **{"name": "emb_adapter_decoder"}},
              }
         )
@@ -117,7 +118,7 @@ class TransformerDecoderCIAT(Decoder):
                  'hidden_size_outter': params["hidden_size"],
                  'dropout_rate': params["layer_postprocess_dropout_rate"]}
             )
-            adapter_class = "LayerAdapter"
+            adapter_class = "AdapterLayer"
             cross_attention = build_transformer_component_base({
                 "base_layer.class": MultiHeadAttention.__name__,
                 "base_layer.params": dict(
@@ -144,7 +145,7 @@ class TransformerDecoderCIAT(Decoder):
                         "adapter.params": {**adapter_params, **name_list[0]},
                     },
                     is_pretrain=self._is_pretrain,
-                    USEADAPTER=not self._basic,
+                    USEADAPTER=True,
                 ),
                 cross_attention,
                 build_transformer_component_with_adapter({
@@ -189,24 +190,30 @@ class TransformerDecoderCIAT(Decoder):
             tensors must store in cache["decoding_states"] for beam search use.
         """
         # [batch_size, max_length], FLOAT_MIN for padding, 0.0 for non-padding
+        # [batch_size, max_length], FLOAT_MIN for padding, 0.0 for non-padding
+        enc_dec_attention_bias = layer_utils.input_padding_to_bias(
+            encoder_inputs_padding)
         if is_inference:
+            params = self.get_config()
             decoding_states = {}
             batch_size = tf.shape(encoder_outputs)[0]
+            num_heads = params["num_attention_heads"]
+            num_units_per_head = params["hidden_size"] // num_heads
             # initialize decoder self attention keys/values
-            for lid, layer in enumerate(self._stacking_layers):
+            for lid in range(params["num_layers"]):
                 # Ensure shape invariance for tf.while_loop.
-                decoding_states[f"layer_{lid}"] = layer.create_decoding_internal_cache(
-                    decode_padded_length)
-            decoding_states = tf.nest.map_structure(
-                lambda ts: tile_tensor(ts, batch_size, axis=0), decoding_states)
-            for lid, layer in enumerate(self._stacking_layers):
-                decoding_states[f"layer_{lid}"].update(layer.memorize_memory(encoder_outputs))
+                decoding_states["layer_{}".format(lid)] = {
+                    "self_attention": {
+                        "keys": tf.zeros([batch_size, decode_padded_length or 0, num_heads, num_units_per_head],
+                                         dtype=compat.CUSTOM_GLOBAL_FLOATX),
+                        "values": tf.zeros([batch_size, decode_padded_length or 0, num_heads, num_units_per_head],
+                                           dtype=compat.CUSTOM_GLOBAL_FLOATX)},
+                }
         else:
             decoding_states = None
-        cache = dict(decoding_states=decoding_states)
-        if encoder_inputs_padding is not None:
-            cache["memory"] = encoder_outputs
-            cache["memory_bias"] = layer_utils.input_padding_to_bias(encoder_inputs_padding)
+        cache = dict(decoding_states=decoding_states,
+                     memory=encoder_outputs,
+                     memory_bias=enc_dec_attention_bias)
         return cache
 
     def update_incremental_cache(self,

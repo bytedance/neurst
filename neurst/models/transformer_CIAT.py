@@ -153,7 +153,7 @@ class TransformerCIAT(EncoderDecoderModel):
 
     @classmethod
     def build_model_args_by_name(cls, name):
-        if name == "transformer_toy":
+        if name == "CIAT_toy":
             dmodel = 8
             num_heads = 2
             num_encoder_layers = 2
@@ -161,7 +161,7 @@ class TransformerCIAT(EncoderDecoderModel):
             num_encoder_filter_size = 10
             num_decoder_filter_size = 10
             dropout_rate = 0.1
-        elif name == "transformer_iwslt":
+        elif name == "CIAT_iwslt":
             dmodel = 256
             num_heads = 4
             num_encoder_layers = 2
@@ -169,7 +169,7 @@ class TransformerCIAT(EncoderDecoderModel):
             num_encoder_filter_size = 1024
             num_decoder_filter_size = 1024
             dropout_rate = 0.2
-        elif name == "transformer_base":
+        elif name == "CIAT_base":
             dmodel = 512
             num_heads = 8
             num_encoder_layers = 6
@@ -177,7 +177,7 @@ class TransformerCIAT(EncoderDecoderModel):
             num_encoder_filter_size = 2048
             num_decoder_filter_size = 2048
             dropout_rate = 0.1
-        elif name == "transformer_s":
+        elif name == "CIAT_s":
             dmodel = 256
             num_heads = 4
             num_encoder_layers = 6
@@ -185,7 +185,7 @@ class TransformerCIAT(EncoderDecoderModel):
             num_encoder_filter_size = 2048
             num_decoder_filter_size = 2048
             dropout_rate = 0.1
-        elif name == "transformer_big":
+        elif name == "CIAT_big":
             dmodel = 1024
             num_heads = 16
             num_encoder_layers = 6
@@ -193,7 +193,7 @@ class TransformerCIAT(EncoderDecoderModel):
             num_encoder_filter_size = 4096
             num_decoder_filter_size = 4096
             dropout_rate = 0.3
-        elif name == "transformer_big_dp01":
+        elif name == "CIAT_big_dp01":
             dmodel = 1024
             num_heads = 16
             num_encoder_layers = 6
@@ -201,7 +201,7 @@ class TransformerCIAT(EncoderDecoderModel):
             num_encoder_filter_size = 4096
             num_decoder_filter_size = 4096
             dropout_rate = 0.1
-        elif re.match(r"^transformer_\d+_\d+e_\d+d(_\d+h)?(_dp0\.\d+)?$", name):
+        elif re.match(r"^CIAT_\d+_\d+e_\d+d(_\d+h)?(_dp0\.\d+)?$", name):
             eles = name.split("_")
             dmodel = int(eles[1])
             num_encoder_layers = int(eles[2][:-1])
@@ -266,21 +266,21 @@ class TransformerCIAT(EncoderDecoderModel):
         }
 
 
-@register_hparams_set("transformer_toy")
-def transformer_toy():
-    return TransformerCIAT.build_model_args_by_name("transformer_toy")
+@register_hparams_set("CIAT_toy")
+def CIAT_toy():
+    return TransformerCIAT.build_model_args_by_name("CIAT_toy")
 
 
-@register_hparams_set("transformer_base")
-def transformer_base():
-    return TransformerCIAT.build_model_args_by_name("transformer_base")
+@register_hparams_set("CIAT_base")
+def CIAT_base():
+    return TransformerCIAT.build_model_args_by_name("CIAT_base")
 
 
-@register_hparams_set("transformer_big")
-def transformer_big():
-    return TransformerCIAT.build_model_args_by_name("transformer_big")
+@register_hparams_set("CIAT_big")
+def CIAT_big():
+    return TransformerCIAT.build_model_args_by_name("CIAT_big")
 
 
-@register_hparams_set("transformer_big_dp01")
-def transformer_big_dp01():
-    return TransformerCIAT.build_model_args_by_name("transformer_big_dp01")
+@register_hparams_set("CIAT_big_dp01")
+def CIAT_big_dp01():
+    return TransformerCIAT.build_model_args_by_name("CIAT_big_dp01")

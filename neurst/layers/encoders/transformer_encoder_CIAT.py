@@ -43,6 +43,7 @@ class TransformerEncoderCIAT(Encoder):
                  return_all_layers=False,
                  emb_adapter_dim=None,
                  layer_adapter_dim=None,
+                 is_pretrain=True,
                  name=None):
         """ Initializes the transformer encoders.
 
@@ -83,6 +84,7 @@ class TransformerEncoderCIAT(Encoder):
         self._emb_adapter_dim = emb_adapter_dim
         self._layer_adapter_dim = layer_adapter_dim
         self.emb_adapter = None
+        self._is_pretrain = is_pretrain
 
         assert post_normalize or (not post_normalize and not return_all_layers), (
             "`return_all_layers` is only available when `post_normalize`=True.")
@@ -106,7 +108,7 @@ class TransformerEncoderCIAT(Encoder):
         )
         # build emb adapter
         self.emb_adapter = build_adapter(
-            {"adapter.class": "EmbAdapter",
+            {"adapter.class": "AdapterEmb",
              "adapter.params": {**emb_adapter_paras, **{"name": "emb_adapter_encoder"}},
              }
         )
@@ -118,7 +120,7 @@ class TransformerEncoderCIAT(Encoder):
                  'hidden_size_outter': params["hidden_size"],
                  'dropout_rate': params["layer_postprocess_dropout_rate"]}
             )
-            adapter_class="LayerAdapter"
+            adapter_class="AdapterLayer"
             self._stacking_layers.append([
                 build_transformer_component_with_adapter({
                     "base_layer.class": MultiHeadSelfAttention.__name__,
@@ -135,7 +137,7 @@ class TransformerEncoderCIAT(Encoder):
                         "adapter.params": {**adapter_params, **name_list[0]},
                     },
                     is_pretrain=self._is_pretrain,
-                    USEADAPTER=not self._basic,
+                    USEADAPTER=True,
                 ),
                 build_transformer_component_with_adapter({
                     "base_layer.class": TransformerFFN.__name__,

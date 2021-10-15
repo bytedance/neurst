@@ -17,7 +17,7 @@ class AdapterEmb(Adapter):
                  hidden_size_outter,
                  dropout_rate=.3,
                  use_norm=True,
-                 name="EmbAdapter", ):
+                 name="AdapterEmb", ):
         """ Initializes the parameters of the Embedding Adapter.
         """
         super(AdapterEmb, self).__init__(

@@ -10,7 +10,7 @@ from neurst.layers.adapters.adapter import Adapter
 
 
 @register_adapter
-class AdapterParalell(Adapter):
+class AdapterLayer(Adapter):
     """Layer Adapter (Parallel) """
 
     def __init__(self,
@@ -18,10 +18,10 @@ class AdapterParalell(Adapter):
                  hidden_size_outter,
                  dropout_rate=.3,
                  use_norm=True,
-                 name="LayerAdapter", ):
+                 name="AdapterLayer", ):
         """ Initializes the parameters of the Layer Adapter.
         """
-        super(AdapterParalell, self).__init__(
+        super(AdapterLayer, self).__init__(
             hidden_size_inner=hidden_size_inner,
             hidden_size_outter=hidden_size_outter,
             dropout_rate=dropout_rate,
