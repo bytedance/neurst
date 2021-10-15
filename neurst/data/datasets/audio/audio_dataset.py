@@ -63,7 +63,7 @@ class RawAudioDataset(Dataset):
         self._feature_extractor = build_feature_extractor(args)
         try:
             import sox
-            self._sox_transformer = sox.Transformer()
+            self._sox_transformer = sox.TransformerCIAT()
             self._sox_transformer.set_output_format(rate=16000, file_type="wav")
         except (ImportError, ModuleNotFoundError):
             self._sox_transformer = None

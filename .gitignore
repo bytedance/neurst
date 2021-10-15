@@ -12,3 +12,4 @@ venv_py/
 __pycache__/
 /build
 /dist
+.debug/*

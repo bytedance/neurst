@@ -92,6 +92,80 @@ class PrePostProcessingWrapper(QuantLayer):
             return self._norm_layer(inputs + y * self._res_conn_factor)
 
 
+class PrePostProcessingWrapperWithadapter(tf.keras.layers.Layer):
+    """ Custom prepost processing for transformer.
+
+    The sequence is specified as a string which may contain the
+    following characters:
+      a: add previous_x
+      n: apply normalization
+      d: apply drop'out
+
+    This class only defines the "n" - layer - "da" mode.
+    """
+
+    def __init__(self, layer, adapter, dropout_rate=0.1,
+                 name="layer_prepostprocess_withadapater",
+                 is_pretrain=False,
+                 use_adapter=True):
+        """ Initializes.
+
+        Args:
+            layer: The layer.
+            dropout_rate: The dropout rate.
+            name: The name of this layer.
+        """
+        super(PrePostProcessingWrapperWithadapter, self).__init__(name=name)
+        self._dropout_rate = dropout_rate
+        self._layer = layer
+        self._adapter = adapter
+        self._norm_layer = None
+        self._is_pretrain = is_pretrain
+        self._use_adapter = use_adapter
+
+    def get_config(self):
+        return dict(
+            dropout_rate=self._dropout_rate,
+            name=self.name)
+
+    def build(self, input_shape):
+        """ Creates norm layer. """
+        self._norm_layer = tf.keras.layers.LayerNormalization(
+            epsilon=1e-6, dtype="float32", name="ln")
+        self._layer.trainable = self._is_pretrain
+        self._norm_layer.trainable = self._is_pretrain
+        if self._use_adapter is False:
+            self._adapter.trainable = False
+        super(PrePostProcessingWrapperWithadapter, self).build(input_shape)
+
+    def call(self, inputs, *args, **kwargs):
+        """ call norm before applying layer
+        and call dropout+residuatl after applying layer
+        """
+        is_training = kwargs["is_training"]
+        # n
+        norm_input = self._norm_layer(inputs)
+        # layer: self att / ffn
+        y = self._layer(norm_input, *args, **kwargs)
+
+        adapted_y = self._adapter(norm_input, is_training=kwargs["is_training"])
+        # d
+
+        if is_training and self._is_pretrain:
+            y = tf.nn.dropout(y, rate=self._dropout_rate)
+        # a
+        if self._use_adapter is False:
+            y = y
+        else:
+            y = tf.cond(
+                pred=tf.cast(self._is_pretrain, tf.bool),
+                true_fn=lambda: y,
+                false_fn=lambda: y + adapted_y,
+            )
+
+        return inputs + y
+
+
 class TransformerFFN(QuantLayer):
     """ Applies the position-wise feed-forward as described
     in https://arxiv.org/abs/1706.03762 """
