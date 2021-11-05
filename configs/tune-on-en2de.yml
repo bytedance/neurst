@@ -1,0 +1,60 @@
+entry.class: trainer
+entry.params:
+  train_steps: 10000000
+  initial_global_step: 0
+  save_checkpoint_steps: 500
+  summary_steps: 500
+  criterion.class: LabelSmoothedCrossEntropy
+  criterion.params:
+    label_smoothing: 0.1
+
+model.class: CIAT
+model.params:
+  is_pretrain: no
+hparams_set: CIAT_big
+
+task.class: Translation
+task.params:
+  batch_size: 32000
+  batch_by_tokens: true
+  max_src_len: 120
+  max_trg_len: 120
+  src_data_pipeline.class: TextDataPipeline
+  src_data_pipeline.params:
+    vocab_path: {your spm.vocab}
+    subtokenizer: spm
+    subtokenizer_codes: {your spm.model}
+  trg_data_pipeline.class: TextDataPipeline
+  trg_data_pipeline.params:
+    vocab_path: {your spm.vocab}
+    subtokenizer: spm
+    subtokenizer_codes: {your spm.model}
+
+dataset.class: ParallelTextDataset
+dataset.params:
+  src_file: ${your source file of en2de data}
+  trg_file: ${your target file of en2de data}
+  data_is_processed: false
+
+pretrain_dir: ${your pretrained model dir}
+model_dir: ${your en-de dir}
+
+
+validator.class: SeqGenerationValidator
+validator.params:
+  eval_dataset: parallel_text
+  eval_dataset.params:
+    src_file: ${your source eval file}
+    trg_file: ${your target eval file}
+  eval_steps: 500
+  eval_start_at: 5000
+  eval_criterion.class: label_smoothed_cross_entropy
+  eval_search_method.class: beam_search
+  eval_search_method.params:
+    beam_size: 8
+    length_penalty: 0.6
+    extra_decode_length: 50
+    maximum_decode_length: 200
+  eval_metric.class: tok_bleu
+  eval_estop_patience: 10
+

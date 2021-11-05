@@ -1,0 +1,18 @@
+entry.class: SequenceGenerator
+entry.params:
+  output_file: ${output path of hypo file}
+  metric.class: BLEU
+  search_method.class: beam_search
+  search_method.params:
+    beam_size: 4
+    length_penalty: -1
+    extra_decode_length: 20
+    maximum_decode_length: 50
+
+dataset.class: parallel_text
+dataset.params:
+    src_file: ${your source eval file}
+    trg_file: ${your target eval file, optional}
+
+task.params:
+  batch_size: 32
