@@ -58,7 +58,7 @@ else
     exit 1
 fi
 
-echo "Collecting transcript from $META_FILE..."
+echo "Collecting transcript from ${META_FILE}..."
 LOCAL_TRANSCRIPT=$THIS_DIR/text_all
 
 python3 -c """
@@ -75,8 +75,8 @@ repl_marks_wo_punc = [['<QUESTIONMARK>', ''], ['<EXCLAMATIONPOINT>', ''],
                       ['<PERIOD>', ''], ['<COMMA>', ''],
                       ['  ', ' ']]
 
-with tf.io.gfile.GFile('$META_FILE') as fp, \
-    open('$LOCAL_TRANSCRIPT',mode='w+') as transcript:
+with tf.io.gfile.GFile('${META_FILE}') as fp, \
+    open('${LOCAL_TRANSCRIPT}',mode='w+') as transcript:
     meta = json.load(fp)
     audios = meta['audios']
     for audio in audios:
@@ -98,7 +98,7 @@ with tf.io.gfile.GFile('$META_FILE') as fp, \
 echo "Learning spm vocabulary and model..."
 python3 -c """
 import sentencepiece as spm
-spm.SentencePieceTrainer.train(input='$LOCAL_TRANSCRIPT', model_prefix='$THIS_DIR/spm', 
+spm.SentencePieceTrainer.train(input='${LOCAL_TRANSCRIPT}', model_prefix='${THIS_DIR}/spm', 
     vocab_size=10000,character_coverage=1.0, model_type='unigram')
 """
 
@@ -124,10 +124,10 @@ function makeDirs(){
 ASR_OUTPUT_PATH=$DATA_PATH/asr
 makeDirs $ASR_OUTPUT_PATH/train
 
-sed "s#DATA_PATH#${DATA_PATH}#" ${THIS_DIR}/asr_data_prep.yml > ${THIS_DIR}/_tmp_prep
-sed -i "s#SUBSET#${SUBSET}#g" ${THIS_DIR}/_tmp_prep
-sed -i "s#REMOVE_PUNCTUATION#${REMOVE_PUNCTUATION}#g" ${THIS_DIR}/_tmp_prep
-copy ${THIS_DIR}/_tmp_prep $ASR_OUTPUT_PATH/asr_data_prep.yml
+sed "s#DATA_PATH#${DATA_PATH}#" $THIS_DIR/asr_data_prep.yml > $THIS_DIR/_tmp_prep
+sed -i "s#SUBSET#${SUBSET}#g" $THIS_DIR/_tmp_prep
+sed -i "s#REMOVE_PUNCTUATION#${REMOVE_PUNCTUATION}#g" $THIS_DIR/_tmp_prep
+copy $THIS_DIR/_tmp_prep $ASR_OUTPUT_PATH/asr_data_prep.yml
 rm $THIS_DIR/_tmp_prep
 
 copy $THIS_DIR/spm.model $DATA_PATH/spm.model
@@ -194,10 +194,10 @@ for subset in DEV TEST; do
     nice -n 10 python3 -m neurst.cli.create_tfrecords \
         --processor_id 0 --num_processors 1 \
         --num_output_shards 1 --output_range_begin 0 --output_range_end 1 \
-        --output_template ${ASR_OUTPUT_PATH}/devtest/${subset}.tfrecords-%5.5d-of-%5.5d \
+        --output_template $ASR_OUTPUT_PATH/devtest/$subset.tfrecords-%5.5d-of-%5.5d \
         --dataset.class GigaSpeech \
-        --input_tarball ${DATA_PATH} \
-        --subset ${subset} \
+        --input_tarball $DATA_PATH \
+        --subset $subset \
         --spoken_language en \
         --text_language en \
         --feature_extractor.class fbank \
@@ -207,16 +207,16 @@ done
 wait
 ! [[ -f FAILED ]]
 
-sed "s#DATA_PATH#${DATA_PATH}#" ${THIS_DIR}/asr_training_args.yml > ${THIS_DIR}/_tmp_train
-sed -i "s#REMOVE_PUNCTUATION#${REMOVE_PUNCTUATION}#g" ${THIS_DIR}/_tmp_train
-copy ${THIS_DIR}/_tmp_train $ASR_OUTPUT_PATH/asr_training_args.yml
+sed "s#DATA_PATH#${DATA_PATH}#" $THIS_DIR/asr_training_args.yml > $THIS_DIR/_tmp_train
+sed -i "s#REMOVE_PUNCTUATION#${REMOVE_PUNCTUATION}#g" $THIS_DIR/_tmp_train
+copy $THIS_DIR/_tmp_train $ASR_OUTPUT_PATH/asr_training_args.yml
 
-sed "s#DATA_PATH#${DATA_PATH}#" ${THIS_DIR}/asr_validation_args.yml > ${THIS_DIR}/_tmp_valid
-copy ${THIS_DIR}/_tmp_valid $ASR_OUTPUT_PATH/asr_validation_args.yml
+sed "s#DATA_PATH#${DATA_PATH}#" $THIS_DIR/asr_validation_args.yml > $THIS_DIR/_tmp_valid
+copy $THIS_DIR/_tmp_valid $ASR_OUTPUT_PATH/asr_validation_args.yml
 
-sed "s#DATA_PATH#${DATA_PATH}#" ${THIS_DIR}/asr_prediction_args.yml > ${THIS_DIR}/_tmp_predict
-copy ${THIS_DIR}/_tmp_predict $ASR_OUTPUT_PATH/asr_prediction_args.yml
+sed "s#DATA_PATH#${DATA_PATH}#" $THIS_DIR/asr_prediction_args.yml > $THIS_DIR/_tmp_predict
+copy $THIS_DIR/_tmp_predict $ASR_OUTPUT_PATH/asr_prediction_args.yml
 
 rm $THIS_DIR/_tmp_train
 rm $THIS_DIR/_tmp_valid
-rm ${THIS_DIR}/_tmp_predict
+rm $THIS_DIR/_tmp_predict
