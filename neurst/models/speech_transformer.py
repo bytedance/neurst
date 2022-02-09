@@ -229,7 +229,7 @@ class SpeechTransformer(EncoderDecoderModel):
             num_decoder_layers = 6
             num_encoder_filter_size = 4096
             num_decoder_filter_size = 4096
-            channels = 1024
+            channels = 512
             dropout_rate = 0.1
         else:
             return None
