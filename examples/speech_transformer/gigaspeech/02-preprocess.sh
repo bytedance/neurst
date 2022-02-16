@@ -198,8 +198,6 @@ for subset in DEV TEST; do
         --dataset.class GigaSpeech \
         --input_tarball $DATA_PATH \
         --subset $subset \
-        --spoken_language en \
-        --text_language en \
         --feature_extractor.class fbank \
         --feature_extractor.params '{"nfilt":80}' || touch FAILED &
     set +x
