@@ -148,4 +148,4 @@ elements: {
 
 The training and evaluation procedures are the same as those of [AugmentedLibrispeech](/examples/speech_to_text/augmented_librispeech/README.md).
 
-Specifically, if you are training the XL subset, please use the `speech_transformer_l` model. Also, please use the default parameters in `asr_training_args.yml` if possible, especially the `batch_size`. If you train with a much lower `batch_size`, e.g. 20,000, the training procedure cannot converge.
+Specifically, if you are training the XL subset, please use the `speech_transformer_l` model. Also, please use the default arguments in `asr_training_args.yml` if possible, especially the `batch_size`. If you train with a much lower `batch_size`, e.g. 20,000, the training procedure cannot converge.
