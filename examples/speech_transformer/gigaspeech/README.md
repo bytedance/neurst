@@ -7,11 +7,15 @@ The final performance of ASR on GigaSpeech is
 > See [RESULTS](/examples/speech_transformer/gigaspeech/RESULTS.md) for the comparison with counterparts.
 
 The benchmark models:
+| Task | Language | Models | Hypothesis | Reference |
+|---|---|---|---|---|
+|ASR|EN|[speech_transformer_l](https://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/speech_to_text/gigaspeech/ckpt.tgz)| [Dev](https://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/speech_to_text/gigaspeech/hypo_dev.txt) [Test](https://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/speech_to_text/gigaspeech/hypo_test.txt)| [Dev](https://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/speech_to_text/gigaspeech/ref_dev.txt) [Test](https://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/speech_to_text/gigaspeech/ref_test.txt)|
+
 - **ASR (dmodel=1024, WER)**
 
 |Model|Dev|Test|
 |---|---|---|
-|[speech_transformer_l]() |11.89|11.60|
+|speech_transformer_l |11.89|11.60|
 
 In this recipe, we will introduce how to pre-process the GigaSpeech corpus and train/evaluate an ASR model using neurst.
 
@@ -61,7 +65,7 @@ These files take about **450GB**. Please make sure your disk has enough space.
 ### Step 2: Extract audio features and Preprocess transcripts
 The ASR corpus contains source raw audio files and text files in English. Here we compute audio features (log-mel filterbank coefficients) and map the transcript tokens to IDs.
 
-This step is extremely time comsuing because of the size of the original corpus. It takes about **48 hours** with 32 CPUs processing in parallel. Also, the resultant TFRecords take about **1.1TB**. Please make sure your disk has enough space.
+This step is extremely time comsuing because of the size of the original corpus. Also, the resultant TFRecords take about **1.1TB**. Please make sure your disk has enough space.
 
 We can extract audio features and transcripts with
 ```bash
@@ -148,4 +152,6 @@ elements: {
 
 The training and evaluation procedures are the same as those of [AugmentedLibrispeech](/examples/speech_to_text/augmented_librispeech/README.md).
 
-Specifically, if you are training the XL subset, please use the `speech_transformer_l` model. Also, please use the default arguments in `asr_training_args.yml` if possible, especially the `batch_size`. If you train with a much lower `batch_size`, e.g. 20,000, the training procedure cannot converge.
+Specifically, if you are training the XL subset, please use the `speech_transformer_l` model. 
+
+Also, please use the default arguments in `asr_training_args.yml` if possible, especially the `batch_size`. If you train a large model with a small `batch_size`, e.g. `speech_transformer_l` with batch_size=20,000, the training procedure is hard to converge.
