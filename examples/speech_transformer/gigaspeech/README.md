@@ -1,16 +1,17 @@
 # ASR on GigaSpeech
 
-[GigaSpeech](https://github.com/SpeechColab/GigaSpeech) is a large English speech recognition corpus collected from audiobooks, podcasts, and Youtube. GigaSpeech contains 5 subsets of different sizes for difference usages. We use the largest subset XL which has 10,000 hours of audio as the training data.
+[GigaSpeech](https://github.com/SpeechColab/GigaSpeech) is a large English speech recognition corpus collected from audiobooks, podcasts, and Youtube. GigaSpeech contains 5 subsets of different sizes for difference usages. We use the largest subset XL which has 10,000 hours of audio as the training data for ASR.
 
 The final performance of ASR on GigaSpeech is
 
 > See [RESULTS](/examples/speech_transformer/gigaspeech/RESULTS.md) for the comparison with counterparts.
 
+The benchmark models:
 - **ASR (dmodel=1024, WER)**
 
 |Model|Dev|Test|
 |---|---|---|
-|speech_transformer_l |11.89|11.60|
+|[speech_transformer_l]() |11.89|11.60|
 
 In this recipe, we will introduce how to pre-process the GigaSpeech corpus and train/evaluate an ASR model using neurst.
 
@@ -25,9 +26,10 @@ In this recipe, we will introduce how to pre-process the GigaSpeech corpus and t
 
 **apt**
 - libsndfile1
+- ffmpeg
 
 **pip**
-- TensorFlow >=2.3.0
+- TensorFlow >=2.4.1
 - soundfile
 - python_speech_features
 - pyyaml
@@ -51,7 +53,7 @@ First, we [download](https://github.com/SpeechColab/GigaSpeech) the original opu
   │   │   ├── ...
   │   └── youtube
   │       ├── P0000
-  │   │   ├── ...
+  │       ├── ...
   └── GigaSpeech.json
 ```
 These files take about **450GB**. Please make sure your disk has enough space.
@@ -73,7 +75,11 @@ By default, it extracts 80-channel log-mel filterbank coefficients using a light
 ├── spm.model
 ├── spm.vocab
 └── asr
-    └── train
+    ├── asr_data_prep.yml
+    ├── asr_prediction_args.yml
+    ├── asr_training_args.yml
+    ├── asr_validation_args.yml
+    ├── train
     │   ├── train.tfrecords-00000-of-01664
     │   ├── ......
     │   └── train.tfrecords-01663-of-01664
@@ -81,9 +87,9 @@ By default, it extracts 80-channel log-mel filterbank coefficients using a light
         ├── DEV.tfrecords-00000-of-00001
         └── TEST.tfrecords-00000-of-00001
 ```
-where the directory `/path_to_data/asr/train` (`/path_to_data/asr/devtest`) contains the extracted audio features and the corresponding transcriptions in TF Record format for training (and evaluation). 
+where the directory `/path_to_data/asr/train` (`/path_to_data/asr/devtest`) contains the extracted audio features and the corresponding transcriptions in TFRecord format for training (and evaluation). 
 
-Furthermore, to examine the elements in the TF Record files, we can simply run the command line tool `view_tfrecord`:
+Furthermore, to examine the elements in the TFRecord files, we can simply run the command line tool `view_tfrecord`:
 ```bash
 $ python3 -m neurst.cli.view_tfrecord /path_to_data/asr/train/
 
@@ -141,3 +147,5 @@ elements: {
 ## Training and evaluation
 
 The training and evaluation procedures are the same as those of [AugmentedLibrispeech](/examples/speech_to_text/augmented_librispeech/README.md).
+
+Specifically, if you are training the XL subset, please use the `speech_transformer_l` model. Also, please use the default parameters in `asr_training_args.yml` if possible, especially the `batch_size`. If you train with a much lower `batch_size`, e.g. 20,000, the training procedure cannot converge.
