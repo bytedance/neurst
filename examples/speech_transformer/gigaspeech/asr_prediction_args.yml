@@ -16,7 +16,7 @@ dataset.params:
         data_path: DATA_PATH/asr/devtest/DEV.tfrecords-00000-of-00001
         feature_key: audio
         transcript_key: transcript
-    tst-COM:
+    test:
       dataset.class: AudioTFRecordDataset
       dataset.params:
         data_path: DATA_PATH/asr/devtest/TEST.tfrecords-00000-of-00001
