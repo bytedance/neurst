@@ -82,6 +82,8 @@ with tf.io.gfile.GFile('${META_FILE}') as fp, \
     for audio in audios:
         segments = audio['segments']
         for segment in segments:
+            if '{TEST}' in segment['subsets'] or '{DEV}' in segment['subsets']:
+                continue
             text = segment['text_tn']
             if '<SIL>' in text or '<NOISE>' in text or '<MUSIC>' in text or '<OTHER>' in text:
                 continue
