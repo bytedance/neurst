@@ -1,0 +1,47 @@
+entry.class: trainer
+entry.params:
+  train_steps: 400000
+  summary_steps: 200
+  save_checkpoint_steps: 2000
+  criterion.class: label_smoothed_cross_entropy
+  criterion.params:
+    label_smoothing: 0.1
+  optimizer.class: adam
+  optimizer.params:
+    epsilon: 1.e-9
+    beta_1: 0.9
+    beta_2: 0.98
+  lr_schedule.class: noam
+  lr_schedule.params:
+    initial_factor: 4.0
+    end_factor: 1.0
+    dmodel: 1024
+    warmup_steps: 25000
+    start_decay_at: 50000
+    decay_steps: 50000
+
+dataset.class: AudioTFRecordDataset
+dataset.params:
+  data_path: DATA_PATH/asr/train
+  shuffle_dataset: True
+  feature_key: audio
+  transcript_key: transcript
+
+task.class: SpeechToText
+task.params:
+  audio_feature_dim: 80
+  audio_feature_channels: 1
+  transcript_data_pipeline.class: TranscriptDataPipeline
+  transcript_data_pipeline.params:
+    remove_punctuation: REMOVE_PUNCTUATION
+    lowercase: True
+    language: en
+    subtokenizer: spm
+    subtokenizer_codes: DATA_PATH/spm.model
+    vocab_path: DATA_PATH/spm.vocab
+  batch_by_frames: True
+  batch_size: 200000
+  max_src_len: 3000
+  max_trg_len: 120
+  truncate_src: True
+  experimental_frame_transcript_ratio: 21

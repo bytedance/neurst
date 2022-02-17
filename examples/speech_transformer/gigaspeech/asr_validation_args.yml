@@ -1,0 +1,19 @@
+validator.class: SeqGenerationValidator
+validator.params:
+  eval_dataset: AudioTFRecordDataset
+  eval_dataset.params:
+    data_path: DATA_PATH/asr/devtest/DEV.tfrecords-00000-of-00001
+    feature_key: audio
+    transcript_key: transcript
+  eval_batch_size: 64
+  eval_start_at: 6000
+  eval_steps: 2000
+  eval_criterion: label_smoothed_cross_entropy
+  eval_search_method: beam_search
+  eval_search_method.params:
+    beam_size: 4
+    length_penalty: -1
+    maximum_decode_length: 180
+  eval_metric: wer
+  eval_top_checkpoints_to_keep: 10
+  eval_auto_average_checkpoints: True

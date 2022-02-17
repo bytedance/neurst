@@ -1,0 +1,19 @@
+task.class: SpeechToText
+task.params:
+  audio_feature_dim: 80
+  transcript_data_pipeline.class: TranscriptDataPipeline
+  transcript_data_pipeline.params:
+    remove_punctuation: REMOVE_PUNCTUATION
+    lowercase: True
+    language: en
+    subtokenizer: spm
+    subtokenizer_codes: DATA_PATH/spm.model
+    vocab_path: DATA_PATH/spm.vocab
+
+dataset.class: GigaSpeech
+dataset.params:
+  input_tarball: DATA_PATH
+  subset: SUBSET
+  feature_extractor.class: fbank
+  feature_extractor.params:
+    nfilt: 80

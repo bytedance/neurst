@@ -206,6 +206,14 @@ class SpeechTransformer(EncoderDecoderModel):
             num_decoder_filter_size = 10
             channels = 5
             dropout_rate = 0.1
+        elif name == "speech_transformer_s":
+            dmodel = 256
+            num_heads = 4
+            num_encoder_layers = 12
+            num_decoder_layers = 6
+            num_encoder_filter_size = 2048
+            num_decoder_filter_size = 2048
+            dropout_rate = 0.1
         elif name == "speech_transformer_m":
             dmodel = 512
             num_heads = 8
@@ -214,13 +222,14 @@ class SpeechTransformer(EncoderDecoderModel):
             num_encoder_filter_size = 2048
             num_decoder_filter_size = 2048
             dropout_rate = 0.1
-        elif name == "speech_transformer_s":
-            dmodel = 256
-            num_heads = 4
+        elif name == "speech_transformer_l":
+            dmodel = 1024
+            num_heads = 16
             num_encoder_layers = 12
             num_decoder_layers = 6
-            num_encoder_filter_size = 2048
-            num_decoder_filter_size = 2048
+            num_encoder_filter_size = 4096
+            num_decoder_filter_size = 4096
+            channels = 512
             dropout_rate = 0.1
         else:
             return None
