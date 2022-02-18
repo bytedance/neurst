@@ -20,7 +20,7 @@ do
 done
 
 if [[ -z $DATA_PATH ]] || [[ -z $SUBSET ]]; then
-    echo "Usage: ./02-preprocess.sh DATA_PATH SUBSET (--keep-punctuation)"
+    echo "Usage: ./02-create_training_set.sh DATA_PATH SUBSET (--keep-punctuation)"
     exit 1;
 fi
 
@@ -29,7 +29,7 @@ if [[ ! $SUBSETS =~ $SUBSET ]]; then
     echo "${SUBSET} not supported. Please provide a subset in ${SUBSETS}"
     exit 1
 fi
-echo "Extract subset ${SUBSET}. TEST and DEV set are extracted too."
+echo "Extract subset ${SUBSET}."
 
 THIS_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
@@ -50,7 +50,7 @@ function fileExists(){
     fi
 }
 
-# find existing version of meta file
+# check meta file
 if [[ $(fileExists $DATA_PATH GigaSpeech.json) -eq 1 ]]; then
     META_FILE=$DATA_PATH/GigaSpeech.json
 else
@@ -138,7 +138,7 @@ rm $THIS_DIR/spm.model
 rm $THIS_DIR/spm.vocab
 
 rm -f FAILED
-# XS only have 1 shard
+# XS only has 1 shard
 if [[ $SUBSET == "XS" ]]; then
     set +x
     nice -n 10 python3 -m neurst.cli.create_tfrecords \
@@ -189,34 +189,8 @@ else
     done
 fi
 
-echo "Creating TFRecord for dev test set..."
-makeDirs $ASR_OUTPUT_PATH/devtest
-for subset in DEV TEST; do
-    set -x
-    nice -n 10 python3 -m neurst.cli.create_tfrecords \
-        --processor_id 0 --num_processors 1 \
-        --num_output_shards 1 --output_range_begin 0 --output_range_end 1 \
-        --output_template $ASR_OUTPUT_PATH/devtest/$subset.tfrecords-%5.5d-of-%5.5d \
-        --dataset.class GigaSpeech \
-        --input_tarball $DATA_PATH \
-        --subset $subset \
-        --feature_extractor.class fbank \
-        --feature_extractor.params '{"nfilt":80}' || touch FAILED &
-    set +x
-done
-wait
-! [[ -f FAILED ]]
-
 sed "s#DATA_PATH#${DATA_PATH}#" $THIS_DIR/asr_training_args.yml > $THIS_DIR/_tmp_train
 sed -i "s#REMOVE_PUNCTUATION#${REMOVE_PUNCTUATION}#g" $THIS_DIR/_tmp_train
 copy $THIS_DIR/_tmp_train $ASR_OUTPUT_PATH/asr_training_args.yml
 
-sed "s#DATA_PATH#${DATA_PATH}#" $THIS_DIR/asr_validation_args.yml > $THIS_DIR/_tmp_valid
-copy $THIS_DIR/_tmp_valid $ASR_OUTPUT_PATH/asr_validation_args.yml
-
-sed "s#DATA_PATH#${DATA_PATH}#" $THIS_DIR/asr_prediction_args.yml > $THIS_DIR/_tmp_predict
-copy $THIS_DIR/_tmp_predict $ASR_OUTPUT_PATH/asr_prediction_args.yml
-
 rm $THIS_DIR/_tmp_train
-rm $THIS_DIR/_tmp_valid
-rm $THIS_DIR/_tmp_predict
