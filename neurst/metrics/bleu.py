@@ -28,7 +28,6 @@ from neurst.data.text.thai_tokenizer import ThaiTokenizer
 from neurst.metrics import register_metric
 from neurst.metrics.metric import Metric
 
-
 def bleu_count(hypothesis, references, max_n=4):
     ret_len_hyp = 0
     ret_len_ref = 0
@@ -337,9 +336,11 @@ def unescape(s):
 @register_metric(["sacre_bleu",
                   "tok_bleu",
                   "detok_bleu",
+                  "chrf",
                   "uncased_sacre_bleu",
                   "uncased_tok_bleu",
-                  "uncased_detok_bleu"])
+                  "uncased_detok_bleu",
+                  "uncased_chrf"])
 class BLEU(Metric):
 
     def __init__(self, language="en", *args, **kwargs):
@@ -462,6 +463,27 @@ class BLEU(Metric):
             print(traceback.format_exc())
             return 0.
 
+    def chrf(self, hypo, groundtruth=None, lc=False):
+        if groundtruth is None:
+            ref = self._refs_for_sacre
+        else:
+            if isinstance(groundtruth[0], str):
+                ref = [groundtruth]
+            else:
+                ref = groundtruth
+        try:
+            chrf = sacrebleu.corpus_chrf([(x.lower() if lc else x) for x in hypo],
+                                         [[(x.lower() if lc else x) for x in y] for y in ref])
+            return chrf.score
+        except IndexError:
+            logging.info("Found empty lines.")
+            print(traceback.format_exc())
+            return 0.
+        except ZeroDivisionError:
+            logging.info("Empty reference")
+            print(traceback.format_exc())
+            return 0.
+
     def get_value(self, result):
         if isinstance(result, (float, np.float32, np.float64)):
             return result
@@ -479,6 +501,8 @@ class BLEU(Metric):
             "sacre_bleu": self.sacre_bleu(hypothesis, groundtruth),
             "tok_bleu": self.tok_bleu(hypothesis, groundtruth),
             "detok_bleu": self.detok_bleu(hypothesis, groundtruth),
+            "chrf": self.chrf(hypothesis, groundtruth),
             "uncased_sacre_bleu": self.sacre_bleu(hypothesis, groundtruth, lc=True),
             "uncased_tok_bleu": self.tok_bleu(hypothesis, groundtruth, lc=True),
-            "uncased_detok_bleu": self.detok_bleu(hypothesis, groundtruth, lc=True)}
+            "uncased_detok_bleu": self.detok_bleu(hypothesis, groundtruth, lc=True),
+            "uncased_chrf": self.chrf(hypothesis, groundtruth, lc=True)}
