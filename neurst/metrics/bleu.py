@@ -28,6 +28,7 @@ from neurst.data.text.thai_tokenizer import ThaiTokenizer
 from neurst.metrics import register_metric
 from neurst.metrics.metric import Metric
 
+
 def bleu_count(hypothesis, references, max_n=4):
     ret_len_hyp = 0
     ret_len_ref = 0

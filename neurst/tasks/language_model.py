@@ -116,10 +116,12 @@ class LanguageModel(Task):
                                              batch_of_data["tokens"][:, :-1]], axis=1)
         return input_dict
 
-    def get_data_postprocess_fn(self, mode):
-        if mode == compat.ModeKeys.INFER:
-            return self._data_pipeline.recover
-        raise ValueError("No postprocess for TRAIN/EVAL.")
+    def get_data_postprocess_fn(self, data_status, **kwargs) -> callable:
+        if data_status == compat.DataStatus.PROJECTED:
+            return self._data_pipeline.decode
+        elif data_status == compat.DataStatus.PROCESSED:
+            return self._data_pipeline.postprocess
+        return lambda x: x
 
     def get_data_preprocess_fn(self, mode, data_status=compat.DataStatus.RAW, args=None) -> callable:
         """ Preprocess data sample according to this task.
@@ -141,7 +143,7 @@ class LanguageModel(Task):
         def _process_and_truncate(data):
             text = data["tokens"]
             if data_status != compat.DataStatus.PROJECTED:
-                text = self._data_pipeline.process(text, is_processed=(
+                text = self._data_pipeline.encode(text, is_processed=(
                     data_status == compat.DataStatus.PROCESSED))
             if mode == compat.ModeKeys.TRAIN and truncate and max_len:
                 if compat.is_tf_tensor(text):

@@ -2,6 +2,7 @@ validator.class: SeqGenerationValidator
 validator.params:
   eval_dataset.class: ParallelTextDataset
   eval_dataset.params:
+    data_is_processed: True
     src_file: ./tests/examples/dev.example.zh.txt
     trg_file: ./tests/examples/dev.example.en.txt
   eval_start_at: 0

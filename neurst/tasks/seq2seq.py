@@ -135,10 +135,13 @@ class Seq2Seq(Task):
                                                  batch_of_data["label"][:, :-1]], axis=1)
         return input_dict
 
-    def get_data_postprocess_fn(self, mode):
-        if mode == compat.ModeKeys.INFER:
-            return self._trg_data_pipeline.recover
-        raise ValueError("No postprocess for TRAIN/EVAL.")
+    def get_data_postprocess_fn(self, data_status, is_src=False, **kwargs) -> callable:
+        dp = self._src_data_pipeline if is_src else self._trg_data_pipeline
+        if data_status == compat.DataStatus.PROJECTED:
+            return dp.decode
+        elif data_status == compat.DataStatus.PROCESSED:
+            return dp.postprocess
+        return lambda x: x
 
     def get_data_preprocess_fn(self, mode, data_status=compat.DataStatus.RAW, args=None) -> callable:
         """ Preprocess data sample according to this task.
@@ -161,7 +164,7 @@ class Seq2Seq(Task):
 
         def _process_and_truncate(text, dp, trunc, max_len):
             if data_status != compat.DataStatus.PROJECTED:
-                text = dp.process(text, is_processed=(data_status == compat.DataStatus.PROCESSED))
+                text = dp.encode(text, is_processed=(data_status == compat.DataStatus.PROCESSED))
             if mode == compat.ModeKeys.TRAIN and trunc and max_len:
                 if compat.is_tf_tensor(text):
                     text = tf.cond(

@@ -52,9 +52,11 @@ def restore_custom_checkpoint(checkpoint, checkpoint_path, model):
         [(v.name.split(":")[0], v.numpy()) for v in traced_vars])
     try:
         checkpoint.restore(checkpoint_path).expect_partial()
-    except (tf.errors.OpError, ValueError):
-        logging.info(traceback.format_exc())
-        return None
+    except (tf.errors.OpError, ValueError) as e:
+        logging.info(f"ERROR: An exception occurs when trying to restore from `{checkpoint_path}`. ")
+        logging.info("ERROR:Please check the setting of checkpoint restoration.")
+        raise e
+
     logging.info('Restoring checkpoint from {latest_ckpt}'.format(
         latest_ckpt=checkpoint_path))
     after_vars = dict(

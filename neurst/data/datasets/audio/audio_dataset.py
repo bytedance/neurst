@@ -166,7 +166,7 @@ class RawAudioDataset(Dataset):
             elif mode in ["mp3", "flac"]:  # need to re-sample and convert
                 if self._sox_transformer is None:
                     raise RuntimeError("Please install sox environment: \n"
-                                       "\tapt-get install sox libavcodec-extra\n"
+                                       "\tapt-get install sox libavcodec-extra libsox-fmt-mp3\n"
                                        "\tpip3 install sox")
                 if fileobj is None:
                     fileobj = tf.io.gfile.GFile(file, "rb")

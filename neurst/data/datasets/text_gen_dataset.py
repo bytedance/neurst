@@ -24,6 +24,7 @@ class TextGenDataset(Dataset):
 
     def __init__(self, trg_lang=None):
         self._targets = None
+        self._raw_targets = None
         self._trg_lang = trg_lang
         super(TextGenDataset, self).__init__()
 

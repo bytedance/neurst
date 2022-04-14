@@ -78,7 +78,17 @@ class BertDataPipeline(DataPipeline, Vocab):
             "padding_mode": PaddingMode.DEFAULT
         }
 
-    def process(self, input, is_processed=False):
+    def preprocess(self, input):
+        text = DataPipeline.text_pre_normalize(self, self._language, input, is_processed=False)
+        return self._tokenizer.tokenize(text, return_str=True)
+
+    def postprocess(self, input):
+        return self._tokenizer.detokenize(input, return_str=True)
+
+    def decode(self, input):
+        raise NotImplementedError("No need to call recover for BertDataPipeline")
+
+    def encode(self, input, is_processed=False):
         """ Process one data sample.
 
         Args:
@@ -90,10 +100,9 @@ class BertDataPipeline(DataPipeline, Vocab):
         """
 
         def _process(text):
-            text = DataPipeline.text_pre_normalize(self, self._language, text, is_processed=False)
             if not is_processed:
-                text = self._tokenizer.tokenize(text, return_str=False)
-            elif isinstance(text, str):
+                text = self.preprocess(text)
+            if isinstance(text, str):
                 text = text.strip().split()
             token_ids = Vocab.map_token_to_id(self, text, unknown_default=self._unk_id)
             return token_ids + [self._sep_id]
@@ -105,6 +114,3 @@ class BertDataPipeline(DataPipeline, Vocab):
         else:
             return_ids.extend(_process(input))
         return return_ids
-
-    def recover(self, input):
-        raise NotImplementedError("No need to call recover for BertDataPipeline")

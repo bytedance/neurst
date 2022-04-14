@@ -141,10 +141,12 @@ class MultilingualTranslation(Task):
                                                  batch_of_data["label"][:, :-1]], axis=1)
         return input_dict
 
-    def get_data_postprocess_fn(self, mode):
-        if mode == compat.ModeKeys.INFER:
-            return self._multilingual_dp.recover
-        raise ValueError("No postprocess for TRAIN/EVAL.")
+    def get_data_postprocess_fn(self, data_status, **kwargs) -> callable:
+        if data_status == compat.DataStatus.PROJECTED:
+            return self._multilingual_dp.decode
+        elif data_status == compat.DataStatus.PROCESSED:
+            return self._multilingual_dp.postprocess
+        return lambda x: x
 
     def get_data_preprocess_fn(self, mode, data_status=compat.DataStatus.RAW, args=None) -> callable:
         """ Preprocess data sample according to this task.
@@ -167,7 +169,7 @@ class MultilingualTranslation(Task):
 
         def _process_and_truncate(text, trunc, max_len):
             if data_status != compat.DataStatus.PROJECTED:
-                text = self._multilingual_dp.process(
+                text = self._multilingual_dp.encode(
                     text, is_processed=(data_status == compat.DataStatus.PROCESSED))
             if mode == compat.ModeKeys.TRAIN and trunc and max_len:
                 if compat.is_tf_tensor(text):
