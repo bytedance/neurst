@@ -111,7 +111,7 @@ class SequenceGenerator(BaseExperiment):
     @staticmethod
     def postprocess_generation(task, generations):
         generations = numpy.concatenate(to_numpy_or_python_type(generations), 0)
-        postprocess_fn = task.get_data_postprocess_fn(compat.ModeKeys.INFER)
+        postprocess_fn = task.get_data_postprocess_fn(compat.DataStatus.PROJECTED)
         generations = [postprocess_fn(x) for x in generations]
         return generations
 
@@ -178,8 +178,13 @@ class SequenceGenerator(BaseExperiment):
                 mixed_refs = []
                 for name in tfds:
                     assert isinstance(self.custom_dataset.datasets[name], TextGenDataset)
-                    if self.custom_dataset.datasets[name].targets:
-                        metric_result = self._metric(results[name], self.custom_dataset.datasets[name].targets)
+                    if (hasattr(self.custom_dataset.datasets[name], "raw_targets")
+                        and self.custom_dataset.datasets[name].raw_targets):
+                        targets = self.custom_dataset.datasets[name].raw_targets
+                    else:
+                        targets = self.custom_dataset.datasets[name].targets
+                    if targets:
+                        metric_result = self._metric(results[name], targets)
                         for k, v in metric_result.items():
                             if k not in on_average:
                                 on_average[k] = 0.
@@ -187,7 +192,7 @@ class SequenceGenerator(BaseExperiment):
                         _display(metric_result, name)
                         mixed_dsnames.append(name)
                         mixed_hypos.extend(results[name])
-                        mixed_refs.extend(self.custom_dataset.datasets[name].targets)
+                        mixed_refs.extend(targets)
                         saving_metrics[name] = metric_result
                 if len(mixed_dsnames) > 1:
                     _display(on_average, f"on average by weights {self._custom_dataset.sample_weights}")
@@ -197,8 +202,12 @@ class SequenceGenerator(BaseExperiment):
 
             else:
                 assert isinstance(self.custom_dataset, TextGenDataset)
-                if self.custom_dataset.targets is not None:
-                    metric_result = self._metric(results, self.custom_dataset.targets)
+                if hasattr(self.custom_dataset, "raw_targets") and self.custom_dataset.raw_targets:
+                    targets = self.custom_dataset.raw_targets
+                else:
+                    targets = self.custom_dataset.targets
+                if targets:
+                    metric_result = self._metric(results, targets)
                     _display(metric_result)
                     saving_metrics = metric_result
             if self._save_metric is not None:

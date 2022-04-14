@@ -139,10 +139,18 @@ class LabelSmoothedCrossEntropy(Criterion):
             # TODO(ZhaoChengqi) https://github.com/tensorflow/tensorflow/issues/32578
             # xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
             #     logits=logits, labels=labels)
-            if "trg_padding" in model_inp:
-                weights = tf.cast(1 - model_inp["trg_padding"], tf.float32)
+            padding = model_inp.get("trg_padding", None)
+            if padding is None:
+                padding = model_inp.get("padding", None)
+            length = model_inp.get("trg_length", None)
+            if length is None:
+                length = model_inp.get("length", None)
+            if padding is None:
+                weights = input_length_to_nonpadding(length, tf.shape(labels)[1], tf.float32)
             else:
-                weights = input_length_to_nonpadding(model_inp["trg_length"], tf.shape(labels)[1], tf.float32)
+                weights = tf.cast(1 - padding, tf.float32)
+            if model_inp.get("mask", None) is not None:
+                weights = weights * tf.cast(model_inp["mask"], tf.float32)
             nll_sum = tf.reduce_sum(xentropy * weights, axis=1)
             n_samples = tf.cast(tf.expand_dims(tf.shape(labels)[0], axis=0), dtype=tf.float32)
             n_tokens = tf.reduce_sum(weights, axis=1)

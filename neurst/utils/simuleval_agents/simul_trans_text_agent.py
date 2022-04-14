@@ -101,7 +101,7 @@ class SimulTransTextAgent(TextAgent):
                     if len(segment) > 1 and not segment[-2].isupper() and segment not in self.words:
                         states.segment = True
 
-        substrs = self.src_pipeline.process(segment)[:-1]
+        substrs = self.src_pipeline.encode(segment)[:-1]
         # Add eos at the end of this sub-sentence.
         if self.force_segment and states.segment:
             substrs.append(self.src_pipeline.meta["eos_id"])

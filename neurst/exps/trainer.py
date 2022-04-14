@@ -44,6 +44,7 @@ class Trainer(BaseExperiment):
         super(Trainer, self).__init__(**kwargs)
         self._tb_log_dir = args["tb_log_dir"]
         self._train_steps = args["train_steps"]
+        self._train_epochs = args["train_epochs"]
         self._summary_steps = args["summary_steps"]
         self._save_checkpoint_steps = args["save_checkpoint_steps"]
         self._checkpoints_max_to_keep = args["checkpoints_max_to_keep"]
@@ -102,6 +103,8 @@ class Trainer(BaseExperiment):
                        default=PolynomialDecay.__name__),
             Flag("tb_log_dir", dtype=Flag.TYPE.STRING, default=None,
                  help="The path to store tensorboard summary, or `model_dir`/train by default."),
+            Flag("train_epochs", dtype=Flag.TYPE.INTEGER, default=None,
+                 help="The number of times that the training process scans the whole data."),
             Flag("train_steps", dtype=Flag.TYPE.INTEGER, default=10000000,
                  help="The maximum steps for training loop."),
             Flag("summary_steps", dtype=Flag.TYPE.INTEGER, default=200,
@@ -291,11 +294,22 @@ class Trainer(BaseExperiment):
                 cnt += 1
             logging.info(f"Total {cnt} batches per EPOCH.")
 
-        history = keras_model.fit(
-            map_data_for_keras(tfds.repeat()),
-            initial_epoch=0,
-            epochs=1,
-            steps_per_epoch=self._train_steps,  # * args["update_cycle"],
-            verbose=2,
-            callbacks=training_callbacks)
+        if self._train_epochs:
+            logging.info(f"Training for {self._train_epochs} epochs.")
+            history = keras_model.fit(
+                map_data_for_keras(tfds),
+                initial_epoch=0,
+                epochs=self._train_epochs,
+                verbose=2,
+                callbacks=training_callbacks)
+        else:
+            logging.info(f"Training for {self._train_steps} steps.")
+            history = keras_model.fit(
+                map_data_for_keras(tfds.repeat()),
+                initial_epoch=0,
+                epochs=1,
+                steps_per_epoch=self._train_steps,
+                verbose=2,
+                callbacks=training_callbacks)
+
         logging.info(history.history)

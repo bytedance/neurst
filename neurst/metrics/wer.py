@@ -36,13 +36,14 @@ def _wer(ref, hypo):
     return tuple(errors[-1, -1])
 
 
-@register_metric
+@register_metric(["cer", "CER", "Cer"])
 class Wer(Metric):
     def __init__(self, language="en", *args, **kwargs):
         _ = args
         _ = kwargs
         self._tokenizer = MosesTokenizer(language)
         self._language = language
+        self._metric_key = "CER" if language in ["zh", "ja"] else "WER"
 
         super(Wer, self).__init__()
 
@@ -63,7 +64,7 @@ class Wer(Metric):
     def get_value(self, result):
         if isinstance(result, (float, np.float32, np.float64)):
             return result
-        return result["WER"]
+        return result[self._metric_key]
 
     def call(self, hypothesis, groundtruth=None):
         """ Calculate wer
@@ -91,7 +92,11 @@ class Wer(Metric):
 
         for lref, lout in zip(groundtruth, hypothesis):
             # read the reference and  output
-            reftext, output = lref.strip().split(), lout.strip().split()
+            if self._language in ["zh", "ja"]:
+                reftext = [w for w in "".join(lref.strip().split())]
+                output = [w for w in "".join(lout.strip().split())]
+            else:
+                reftext, output = lref.strip().split(), lout.strip().split()
 
             # compare output to reference
             s, i, d = _wer(reftext, output)
@@ -105,8 +110,8 @@ class Wer(Metric):
         insertions /= numwords
         error = substitutions + deletions + insertions
         return {
-            "WER": error * 100.,
-            "WER-substitutions": substitutions * 100.,
-            "WER-insertions": insertions * 100.,
-            "WER-deletions": deletions * 100.
+            f"{self._metric_key}": error * 100.,
+            f"{self._metric_key}-substitutions": substitutions * 100.,
+            f"{self._metric_key}-insertions": insertions * 100.,
+            f"{self._metric_key}-deletions": deletions * 100.
         }

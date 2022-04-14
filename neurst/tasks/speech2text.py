@@ -160,10 +160,14 @@ class SpeechToText(Task):
                                                  batch_of_data["transcript"][:, :-1]], axis=1)
         return input_dict
 
-    def get_data_postprocess_fn(self, mode):
-        if mode == compat.ModeKeys.INFER:
-            return self._trg_data_pipeline.recover
-        raise ValueError("No postprocess for TRAIN/EVAL.")
+    def get_data_postprocess_fn(self, data_status, is_src=False, **kwargs) -> callable:
+        if isinstance(data_status, dict):
+            data_status = data_status["transcript"]
+        if data_status == compat.DataStatus.PROJECTED:
+            return self._trg_data_pipeline.decode
+        elif data_status == compat.DataStatus.PROCESSED:
+            return self._trg_data_pipeline.postprocess
+        return lambda x: x
 
     def get_data_preprocess_fn(self, mode, data_status, args=None) -> callable:
         """ Preprocess data sample according to this task.
@@ -200,7 +204,7 @@ class SpeechToText(Task):
             if data_status["transcript"] == compat.DataStatus.RAW:
                 if compat.is_tf_tensor(text):
                     text = text.numpy()
-                text = self._trg_data_pipeline.process(text, is_processed=False)
+                text = self._trg_data_pipeline.encode(text, is_processed=False)
             else:
                 assert data_status["transcript"] == compat.DataStatus.PROJECTED
             if mode == compat.ModeKeys.TRAIN and trunc_trg and max_trg_len:
@@ -459,7 +463,7 @@ class MultiTaskSpeechTranslation(Task):
 
         def _process_text(text, status, dp):
             if status == compat.DataStatus.RAW:
-                text = dp.process(text, is_processed=False)
+                text = dp.encode(text, is_processed=False)
             return text
 
         def _process(example):

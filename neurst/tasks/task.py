@@ -74,7 +74,7 @@ class Task(object):
             according to this task. """
         raise NotImplementedError("Task must implement the `get_data_preprocess_fn` method.")
 
-    def get_data_postprocess_fn(self, mode) -> callable:
+    def get_data_postprocess_fn(self, data_status, **kwargs) -> callable:
         """ Returns a callable function that postprocess the data sample
             according to this task. """
         raise NotImplementedError

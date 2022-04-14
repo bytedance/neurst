@@ -114,7 +114,10 @@ class Validation(BaseExperiment):
                     accumulated_waiting_time = 0
                 _start_time = time.time()
                 for step, (timestamp, ckpt) in zip(global_steps_to_be_restore, ckpts_to_be_restore):
-                    stat = saver.restore(ckpt)
+                    try:
+                        stat = saver.restore(ckpt)
+                    except tf.errors.NotFoundError:
+                        logging.info(f"Not found checkpoint {ckpt}. Skip...")
                     if not stat:
                         logging.info(f"Fail to restore checkpoint from {ckpt}. Skip...")
                         continue

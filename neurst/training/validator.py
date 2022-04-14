@@ -16,6 +16,7 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from neurst.training.callbacks import CentralizedCallback
+from neurst.utils import compat
 from neurst.utils.flags_core import Flag
 
 
@@ -27,6 +28,7 @@ class Validator(CentralizedCallback):
         super(Validator, self).__init__()
         self._eval_steps = args["eval_steps"]
         self._eval_start_at = args["eval_start_at"]
+        self._eval_on_begin = args["eval_on_begin"]
 
     @staticmethod
     def class_or_method_args():
@@ -35,6 +37,8 @@ class Validator(CentralizedCallback):
                  help="The steps between two validation steps."),
             Flag("eval_start_at", dtype=Flag.TYPE.INTEGER, default=0,
                  help="The step to start validation process."),
+            Flag("eval_on_begin", dtype=Flag.TYPE.BOOLEAN, default=False,
+                 help="Whether to trigger evaluation on the beginning.")
         ]
 
     @abstractmethod
@@ -51,3 +55,8 @@ class Validator(CentralizedCallback):
         _ = logs
         if step >= self._eval_start_at and step % self._eval_steps == 0:
             self.validate(step)
+
+    def on_train_begin(self, logs=None):
+        super(Validator, self).on_train_begin(logs)
+        if self._eval_on_begin:
+            self.validate(compat.get_registered_initial_step())
