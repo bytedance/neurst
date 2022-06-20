@@ -1,5 +1,5 @@
 libsndfile1
 ffmpeg
 libavcodec-extra
+libsox-fmt-mp3
 sox
-

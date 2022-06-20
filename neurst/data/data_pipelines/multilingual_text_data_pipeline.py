@@ -77,7 +77,14 @@ class MultilingualTextDataPipeline(DataPipeline, Vocab):
             "padding_mode": PaddingMode.EOS_AS_PADDING
         }
 
-    def process(self, input, is_processed=False):
+    def preprocess(self, input):
+        input = DataPipeline.text_pre_normalize(self, "en", input, is_processed=False)
+        return self._tokenizer.tokenize(input, return_str=True)
+
+    def postprocess(self, input):
+        return self._tokenizer.detokenize(input, return_str=True)
+
+    def encode(self, input, is_processed=False):
         """ Process one data sample.
 
         Args:
@@ -87,9 +94,8 @@ class MultilingualTextDataPipeline(DataPipeline, Vocab):
         Returns:
             A list of generated token IDs.
         """
-        input = DataPipeline.text_pre_normalize(self, "en", input, is_processed=False)
         if not is_processed:
-            input = self._tokenizer.tokenize(input, return_str=False)
+            input = self.preprocess(input)
         if isinstance(input, str):
             input = input.strip().split()
         token_ids = Vocab.map_token_to_id(self, input, unknown_default=self._unk_id)
@@ -97,7 +103,7 @@ class MultilingualTextDataPipeline(DataPipeline, Vocab):
             token_ids = token_ids[::-1]
         return token_ids + [self._eos_id]
 
-    def recover(self, input):
+    def decode(self, input):
         """ Recover one data sample.
 
         Args:
@@ -117,5 +123,4 @@ class MultilingualTextDataPipeline(DataPipeline, Vocab):
         token_list = Vocab.map_id_to_token(self, input)
         if self._reverse_sequence:
             token_list = token_list[::-1]
-        output = self._tokenizer.detokenize(token_list, return_str=True)
-        return output
+        return self.postprocess(token_list)

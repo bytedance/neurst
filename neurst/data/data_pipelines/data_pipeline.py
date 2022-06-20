@@ -41,7 +41,6 @@ def lowercase_and_remove_punctuations(language, text, lowercase=True, remove_pun
 @six.add_metaclass(ABCMeta)
 class DataPipeline(object):
     REGISTRY_NAME = "data_pipeline"
-    PUNC_NORMERS = dict()
 
     def __init__(self, **kwargs):
         self._params = extract_constructor_params(locals(), verbose=False)
@@ -55,14 +54,31 @@ class DataPipeline(object):
         """ The meta data. """
         return {}
 
-    @abstractmethod
     def recover(self, input):
         """ Recovers one data sample. """
+        return self.decode(input)
+
+    def process(self, input, is_processed=False):
+        return self.encode(input, is_processed)
+
+    @abstractmethod
+    def decode(self, input):
+        """ Decodes one data sample (from token IDs to sentence). """
         raise NotImplementedError
 
     @abstractmethod
-    def process(self, input, is_processed=False):
-        """ Processes one data sample. """
+    def encode(self, input, is_processed=False):
+        """ Encodes one data sample to token IDs. """
+        raise NotImplementedError
+
+    @abstractmethod
+    def preprocess(self, input):
+        """ Preprocesses one data sample (e.g., tokenize). """
+        raise NotImplementedError
+
+    @abstractmethod
+    def postprocess(self, input):
+        """ Postprocesses one data sample (e.g., detokenize). """
         raise NotImplementedError
 
     def text_pre_normalize(self, language, input, is_processed=False):

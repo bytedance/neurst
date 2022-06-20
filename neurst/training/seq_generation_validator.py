@@ -40,6 +40,8 @@ class SeqGenerationValidator(CriterionValidator):
         self._gen_start_time = None
         self._validate_gen = True
         self._postprocess_fn = None
+        self._custom_ds_targets = None
+        self._custom_ds_sources = None
 
     @staticmethod
     def class_or_method_args():
@@ -98,6 +100,19 @@ class SeqGenerationValidator(CriterionValidator):
                     if self._custom_dataset.datasets[name].targets is None:
                         logging.info(f"WARNING: no ground truth found for validation dataset {name}.")
                         self._gen_tfds.pop(name)
+                    else:
+                        if self._custom_ds_targets is None:
+                            self._custom_ds_targets = {}
+                        if self._custom_ds_sources is None:
+                            self._custom_ds_sources = {}
+                        if (hasattr(self._custom_dataset.datasets[name], "raw_targets")
+                            and self._custom_dataset.datasets[name].raw_targets):
+                            self._custom_ds_targets[name] = self._custom_dataset.datasets[name].raw_targets
+                        else:
+                            self._custom_ds_targets[name] = self._custom_dataset.datasets[name].targets
+                        if (hasattr(self._custom_dataset.datasets[name], "sources")
+                            and self._custom_dataset.datasets[name].sources is not None):
+                            self._custom_ds_sources[name] = self._custom_dataset.datasets[name].sources
                 if len(self._gen_tfds) == 0:
                     logging.info("WARNING: no ground truth found for all validation datasets and "
                                  "no validation will be applied.")
@@ -109,6 +124,13 @@ class SeqGenerationValidator(CriterionValidator):
                                  "no validation will be applied.")
                     self._validate_gen = False
                     return self
+                else:
+                    if hasattr(self._custom_dataset, "raw_targets") and self._custom_dataset.raw_targets:
+                        self._custom_ds_targets = self._custom_dataset.raw_targets
+                    else:
+                        self._custom_ds_targets = self._custom_dataset.targets
+                    if hasattr(self._custom_dataset, "sources") and self._custom_dataset.sources is not None:
+                        self._custom_ds_sources = self._custom_dataset.sources
         if isinstance(self._custom_dataset, MultipleDataset):
             self._gen_recorder = {
                 name: training_utils.TrainingStatusRecorder(
@@ -148,16 +170,16 @@ class SeqGenerationValidator(CriterionValidator):
         elapsed = time.time() - start_time
         elapsed_from_start = time.time() - self._gen_start_time
 
-        def _display_hypo(custom_ds, hypos, name=None):
+        def _display_hypo(custom_ds_sources, custom_ds_targets, hypos, name=None):
             if name:
                 logging.info(f"===== Generation examples from {name} (Total {len(hypos)}) =====")
             else:
                 logging.info(f"===== Generation examples (Total {len(hypos)}) =====")
             for sample_idx in random.sample(list(range(0, len(hypos))), 5):
                 logging.info("Sample %d", sample_idx)
-                if hasattr(custom_ds, "sources") and custom_ds.sources is not None:
-                    logging.info("  Data: %s", custom_ds.sources[sample_idx])
-                logging.info("  Reference: %s", custom_ds.targets[sample_idx])
+                if custom_ds_sources is not None:
+                    logging.info("  Data: %s", custom_ds_sources[sample_idx])
+                logging.info("  Reference: %s", custom_ds_targets[sample_idx])
                 logging.info("  Hypothesis: %s", hypos[sample_idx])
 
         def _display(res, best, name=None, tb_name=None):
@@ -183,17 +205,18 @@ class SeqGenerationValidator(CriterionValidator):
             sample_weight_sum = sum(sample_weights.values()) * 1.
             sample_weights = {name: weight / sample_weight_sum for name, weight in sample_weights.items()}
             for name, res in results.items():
-                metric_res = self._gen_metric(res, self._custom_dataset.datasets[name].targets)
+                metric_res = self._gen_metric(res, self._custom_ds_targets[name])
                 self._gen_recorder[name].record(step, metric_res)
                 for k, v in metric_res.items():
                     if k not in on_average:
                         on_average[k] = 0.
                     on_average[k] += sample_weights[name] * v
-                _display_hypo(self._custom_dataset.datasets[name], res, name=name)
+                _display_hypo(self._custom_ds_sources.get("name", None),
+                              self._custom_ds_targets[name], res, name=name)
                 _display(metric_res, self._gen_recorder[name].best, name=name)
                 mixed_dsnames.append(name)
                 mixed_hypos.extend(res)
-                mixed_refs.extend(self._custom_dataset.datasets[name].targets)
+                mixed_refs.extend(self._custom_ds_targets[name])
             if len(mixed_dsnames) >= 1:
                 self._avg_gen_recorder.record(step, on_average)
                 if len(mixed_dsnames) > 1:
@@ -204,7 +227,7 @@ class SeqGenerationValidator(CriterionValidator):
                     _display(mixed_metric_result, self._mixed_gen_recorder.best,
                              "mixed of {}".format(",".join(mixed_dsnames)), tb_name="MIXED")
         else:
-            metric_res = self._gen_metric(results, self._custom_dataset.targets)
-            _display_hypo(self._custom_dataset, results)
+            metric_res = self._gen_metric(results, self._custom_ds_targets)
+            _display_hypo(self._custom_ds_sources, self._custom_ds_targets, results)
             self._gen_recorder.record(step, metric_res)
             _display(metric_res, self._gen_recorder.best)

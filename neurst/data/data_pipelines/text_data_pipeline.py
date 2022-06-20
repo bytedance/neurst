@@ -92,7 +92,23 @@ class TextDataPipeline(DataPipeline, Vocab):
                              if self._eos_id == self._pad_id else PaddingMode.DEFAULT)
         }
 
-    def process(self, input, is_processed=False):
+    def preprocess(self, input):
+        input = DataPipeline.text_pre_normalize(self, self._language, input, is_processed=False)
+        if self._tokenizer:
+            input = self._tokenizer.tokenize(input, return_str=True)
+        if self._subtokenizer:
+            input = self._subtokenizer.tokenize(input, return_str=True)
+        return input
+
+    def postprocess(self, input):
+        output = input
+        if self._subtokenizer is not None:
+            output = self._subtokenizer.detokenize(output, return_str=True)
+        if self._tokenizer is not None:
+            output = self._tokenizer.detokenize(output, return_str=True)
+        return output
+
+    def encode(self, input, is_processed=False):
         """ Process one data sample.
 
         Args:
@@ -102,12 +118,8 @@ class TextDataPipeline(DataPipeline, Vocab):
         Returns:
             A list of generated token IDs.
         """
-        input = DataPipeline.text_pre_normalize(self, self._language, input, is_processed=False)
         if not is_processed:
-            if self._tokenizer:
-                input = self._tokenizer.tokenize(input)
-            if self._subtokenizer:
-                input = self._subtokenizer.tokenize(input, return_str=False)
+            input = self.preprocess(input)
         if isinstance(input, str):
             input = input.split()
         token_ids = Vocab.map_token_to_id(self, input, unknown_default=self._unk_id)
@@ -115,7 +127,7 @@ class TextDataPipeline(DataPipeline, Vocab):
             token_ids = token_ids[::-1]
         return token_ids + [self._eos_id]
 
-    def recover(self, input):
+    def decode(self, input):
         """ Recover one data sample.
 
         Args:
@@ -135,10 +147,4 @@ class TextDataPipeline(DataPipeline, Vocab):
         token_list = Vocab.map_id_to_token(self, input)
         if self._reverse_sequence:
             token_list = token_list[::-1]
-        if self._subtokenizer is None:
-            output = " ".join(token_list)
-        else:
-            output = self._subtokenizer.detokenize(token_list, return_str=True)
-        if self._tokenizer:
-            output = self._tokenizer.detokenize(output, return_str=True)
-        return output
+        return self.postprocess(" ".join(token_list))

@@ -27,6 +27,8 @@ FLAG_LIST = [
                     help="Whether to lowercase."),
     flags_core.Flag("remove_punctuation", dtype=flags_core.Flag.TYPE.BOOLEAN, default=None,
                     help="Whether to remove the punctuations."),
+    flags_core.Flag("language", dtype=flags_core.Flag.TYPE.BOOLEAN, default="en",
+                    help="The text language."),
     flags_core.ModuleFlag(Tokenizer.REGISTRY_NAME, help="The tokenizer."),
 ]
 
@@ -40,9 +42,13 @@ def _main(_):
     with tf.io.gfile.GFile(args["input"]) as fp:
         with tf.io.gfile.GFile(args["output"], "w") as fw:
             for line in fp:
-                line = lowercase_and_remove_punctuations(tokenizer.language, line.strip(),
+                line = lowercase_and_remove_punctuations(args["language"], line.strip(),
                                                          args["lowercase"], args["remove_punctuation"])
                 fw.write(tokenizer.tokenize(line, return_str=True) + "\n")
+                if tokenizer is None:
+                    fw.write(line + "\n")
+                else:
+                    fw.write(tokenizer.tokenize(line, return_str=True) + "\n")
 
 
 if __name__ == "__main__":

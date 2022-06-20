@@ -14,6 +14,8 @@ The primary motivation of NeurST is to facilitate NLP researchers to get started
 > NeurST is based on TensorFlow2 and we are working on the pytorch version.
 
 ## <img src="http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/icon-for-new-9.jpg" width="45">NeurST News
+**March 29, 2022**: Release of [GigaST dataset](/datasets/GigaST): a large-scale speech translation corpus.
+
 **Aug 16, 2021**: Release of models and results for [IWSLT 2021 offline ST and simultaneous translation task](/examples/iwslt21).
 
 **June 15, 2021**: Integration of [LightSeq](https://github.com/bytedance/lightseq) for training speedup, see the [experimental branch](https://github.com/bytedance/neurst/tree/lightseq).
@@ -71,6 +73,4 @@ Any questions or suggestions, please feel free to contact us: [zhaochengqi.d@byt
 
 ## Acknowledgement
 We thank Bairen Yi, Zherui Liu, Yulu Jia, Yibo Zhu, Jiaze Chen, Jiangtao Feng, Zewei Sun for their kind help. 
-
-
 

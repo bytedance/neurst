@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import functools
+import inspect
 import multiprocessing
 import os
 import tempfile
@@ -22,16 +24,41 @@ import tensorflow as tf
 from absl import logging
 
 
-def deprecated(obj):
+def deprecated(substitution):
     """This is a decorator which can be used to mark functions or classes
     as deprecated. It will result in a warning being emmitted
     when the function/class is used."""
 
-    def new_obj(*args, **kwargs):
-        logging.info("WARNING: Calling deprecated function/class: %s." % obj.__name__)
-        return obj(*args, **kwargs)
+    cls_warn = "Call to deprecated class `{name}`. "
+    func_warn = "Call to deprecated function `{name}`. "
+    if isinstance(substitution, str):
 
-    return new_obj
+        def decorator(func):
+            warn_info = cls_warn if inspect.isclass(func) else func_warn
+            warn_info += "Please use `{substitution}` instead."
+
+            @functools.wraps(func)
+            def new_func(*args, **kwargs):
+                logging.warning(warn_info.format(name=func.__name__, substitution=substitution))
+                return func(*args, **kwargs)
+
+            return new_func
+
+        return decorator
+
+    elif inspect.isclass(substitution) or inspect.isfunction(substitution):
+        func = substitution
+        warn_info = cls_warn if inspect.isclass(func) else func_warn
+
+        @functools.wraps(func)
+        def new_func(*args, **kwargs):
+            logging.warning(warn_info.format(name=func.__name__))
+            return func(*args, **kwargs)
+
+        return new_func
+
+    else:
+        raise TypeError(repr(type(substitution)))
 
 
 def flatten_string_list(arg):

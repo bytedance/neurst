@@ -1,16 +1,18 @@
-# Integrating BERT into Transformer MT 
+# Utilizing BERT in Neural Machine Translation
 
 Can we utilize extremely large monolingual text to improve neural machine translation without the expensive back-translation? 
 Neural machine translation models are trained on parallel bilingual corpus. Even the large ones only include 20 to 40 millions of parallel sentence pairs. 
-In the meanwhile, pretrained language models such as BERT and GPT are trained on usually billions of monolingual sentences. 
+In the meanwhile, pre-trained language models such as BERT and GPT are trained on usually billions of monolingual sentences. 
 Direct use BERT as the initialization for Transformer encoder could not gain any benefit, due to the catastrophic forgetting problem of BERT knowledge during further training on MT data. 
-This example shows how to run the [CTNMT](https://arxiv.org/abs/1908.05672) (Yang et al. 2020) training method that integrates BERT into a Transformer MT model. 
+This example shows how to run the [CTNMT](https://arxiv.org/abs/1908.05672) (Yang et al. 2020) training method that integrates BERT into a Transformer MT model, the first successful method to do so. 
+
 The trained checkpoint is available [here](f3-nlp-opensource.bytetos.com/obj/nlp-opensource/aaai2020/ctnmt/ckpt.ctnmt.zip).
 
-The CTNMT method is from the following paper.
+
+The CTNMT method is from the following paper: Towards making the most of BERT in neural machine translation.
 ```bibtex
 @inproceedings{yang2020towards,
-  title={Towards making the most of bert in neural machine translation},
+  title={Towards making the most of BERT in neural machine translation},
   author={Yang, Jiacheng and Wang, Mingxuan and Zhou, Hao and Zhao, Chengqi and Zhang, Weinan and Yu, Yong and Li, Lei},
   booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
   volume={34},

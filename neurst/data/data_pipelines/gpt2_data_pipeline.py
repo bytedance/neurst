@@ -56,7 +56,14 @@ class GPT2DataPipeline(DataPipeline, Vocab):
             "language": self._language
         }
 
-    def process(self, input, is_processed=False):
+    def preprocess(self, input):
+        input = DataPipeline.text_pre_normalize(self, self._language, input, is_processed=False)
+        return self._tokenizer.tokenize(input, return_str=True)
+
+    def postprocess(self, input):
+        return self._tokenizer.detokenize(input, return_str=True)
+
+    def encode(self, input, is_processed=False):
         """ Process one data sample.
 
         Args:
@@ -66,15 +73,14 @@ class GPT2DataPipeline(DataPipeline, Vocab):
         Returns:
             A list of generated token IDs.
         """
-        input = DataPipeline.text_pre_normalize(self, self._language, input, is_processed=False)
         if not is_processed:
-            input = self._tokenizer.tokenize(input, return_str=False)
-        elif isinstance(input, str):
+            input = self.preprocess(input)
+        if isinstance(input, str):
             input = input.strip().split()
         token_ids = [x for x in Vocab.map_token_to_id(self, input) if x is not None]
         return token_ids + [self._eos_id]
 
-    def recover(self, input):
+    def decode(self, input):
         """ Recover one data sample.
 
         Args:
@@ -89,4 +95,4 @@ class GPT2DataPipeline(DataPipeline, Vocab):
         except ValueError:
             pass
         output = Vocab.map_id_to_token(self, input)
-        return self._tokenizer.detokenize(output, return_str=True)
+        return self.postprocess(output)

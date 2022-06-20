@@ -86,6 +86,10 @@ class ParallelTextDataset(AbstractParallelDataset):
             self._trg_file = temp_download(args["trg_file"])
         else:
             self._trg_file = args["trg_file"]
+        if args["raw_trg_file"] and args["raw_trg_file"].startswith("http"):
+            self._raw_trg_file = temp_download(args["raw_trg_file"])
+        else:
+            self._raw_trg_file = args["raw_trg_file"]
         self._data_is_processed = args["data_is_processed"]
 
     @staticmethod
@@ -93,6 +97,7 @@ class ParallelTextDataset(AbstractParallelDataset):
         return [
             Flag("src_file", dtype=Flag.TYPE.STRING, help="The source text file"),
             Flag("trg_file", dtype=Flag.TYPE.STRING, help="The target text file"),
+            Flag("raw_trg_file", dtype=Flag.TYPE.STRING, help="The raw target text file"),
             Flag("data_is_processed", dtype=Flag.TYPE.BOOLEAN,
                  help="Whether the text data is already processed."),
             Flag("src_lang", dtype=Flag.TYPE.STRING, default=None, help="The source language"),
@@ -168,6 +173,14 @@ class ParallelTextDataset(AbstractParallelDataset):
             with tf.io.gfile.GFile(self._trg_file) as fp:
                 self._targets = [line.strip() for line in fp]
         return self._targets
+
+    @property
+    def raw_targets(self):
+        """ Returns a list of targets. """
+        if self._raw_targets is None and self._raw_trg_file:
+            with tf.io.gfile.GFile(self._raw_trg_file) as fp:
+                self._raw_targets = [line.strip() for line in fp]
+        return self._raw_targets
 
 
 @register_dataset("multiple_parallel_text")
