@@ -6,6 +6,9 @@ In the meanwhile, pre-trained language models such as BERT and GPT are trained o
 Direct use BERT as the initialization for Transformer encoder could not gain any benefit, due to the catastrophic forgetting problem of BERT knowledge during further training on MT data. 
 This example shows how to run the [CTNMT](https://arxiv.org/abs/1908.05672) (Yang et al. 2020) training method that integrates BERT into a Transformer MT model, the first successful method to do so. 
 
+The trained checkpoint is available [here](f3-nlp-opensource.bytetos.com/obj/nlp-opensource/aaai2020/ctnmt/ckpt.ctnmt.zip).
+
+
 The CTNMT method is from the following paper: Towards making the most of BERT in neural machine translation.
 ```bibtex
 @inproceedings{yang2020towards,
@@ -38,6 +41,8 @@ Evaluation metric: token BLEU
 + [BERT_LARGE](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/ctnmt/BERT_LARGE.zip)
 + [BERT_BASE](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/ctnmt/BERT_BASE.zip)
 + [vocabulary lists](http://lf3-nlp-opensource.bytetos.com/obj/nlp-opensource/neurst/ctnmt/vocab.zip)
+
+You can also download the [trained CTNMT](f3-nlp-opensource.bytetos.com/obj/nlp-opensource/aaai2020/ctnmt/ckpt.ctnmt.zip) 
 
      we assume your BERT models are saved at /tmp/BERT_BASE/ and /tmp/BERT_LARGE/, your data is saved at /tmp/data/
 
